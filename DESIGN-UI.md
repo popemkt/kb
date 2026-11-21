@@ -1266,8 +1266,11 @@ no description draws nothing: no empty line, no placeholder.
 It is the field's value slot (`ValueSlot`), not an editor of its own, so
 it edits as a text value does: a click, Enter or F2 on it opens it, Enter
 keeps it, Escape puts it back, and an emptied description is a value taken
-out, so clearing it removes it. Escape at rest, and leaving its editor
-with the arrows, hand the keyboard back to the row: Escape selects the row,
+out, so clearing it removes it. An edit that ends because focus went
+elsewhere (a click, Tab) leaves focus where it went, an emptied
+description included; an edit left empty by Enter or Escape, Escape at
+rest, and leaving its editor with the arrows hand the keyboard back to
+the row: Escape selects the row,
 ↑ edits the row's text at its end, and ↓ goes on to the row's first field
 value, else the next row. The outline's own arrows pass it by: it is
 reached by pointer, by ⌘K, or by its key. ⌘K and the node menu offer **Add

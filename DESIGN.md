@@ -926,8 +926,11 @@ type PropValue =
   no field row draws it, because its place is under the node's name, on a
   row and on the page the node heads, and beside the node's name where a
   picker or a search offers it (DESIGN-UI.md → Outline editor,
-  descriptions). `descriptionOf` (`@kb/model`'s `description.ts`) is its
-  one reader, the trimmed text or nothing. An empty description is no
+  descriptions). `description.ts` (`@kb/model`) is its
+  one reader: `descriptionOf` is the trimmed text or nothing, which every
+  surface draws, and `descriptionValueOf` the value as stored, which an
+  edit replaces and a removal takes out, whatever space it was written
+  with. An empty description is no
   description: clearing it removes the value, so a node never holds a
   blank one. A person's own tags and fields are described as any node is,
   and the tag and field pickers show it. A family describes its seeded

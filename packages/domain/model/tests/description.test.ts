@@ -4,7 +4,7 @@
  * row, a page's head, a picker's hint and a search result all draw.
  */
 import { describe, expect, test } from "bun:test";
-import { SYSTEM_IDS, descriptionOf, type PropValue } from "../src/index.ts";
+import { SYSTEM_IDS, descriptionOf, descriptionValueOf, type PropValue } from "../src/index.ts";
 
 const holding = (...values: PropValue[]) => ({ props: { [SYSTEM_IDS.descriptionField]: values } });
 
@@ -23,5 +23,16 @@ describe("descriptionOf", () => {
 
   test("reads only text: a value of another kind is no description", () => {
     expect(descriptionOf(holding({ t: "ref", v: "n.other" }))).toBeNull();
+  });
+});
+
+describe("descriptionValueOf", () => {
+  test("is the value as stored, space and all, so a removal can name it", () => {
+    expect(descriptionValueOf(holding({ t: "str", v: "  padded  " }))).toEqual({
+      t: "str",
+      v: "  padded  ",
+    });
+    expect(descriptionValueOf({ props: {} })).toBeNull();
+    expect(descriptionValueOf(holding({ t: "ref", v: "n.other" }))).toBeNull();
   });
 });

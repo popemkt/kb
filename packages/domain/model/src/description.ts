@@ -7,12 +7,18 @@
  */
 import { SYSTEM_IDS, type NodeId, type PropValue } from "./model.ts";
 
+type Described = { readonly props: Readonly<Record<NodeId, readonly PropValue[]>> } | undefined;
+
+/**
+ * The value `node` holds as its description, as stored: what an edit
+ * replaces and a removal takes out, whatever space it was written with.
+ */
+export function descriptionValueOf(node: Described): Extract<PropValue, { t: "str" }> | null {
+  return node?.props[SYSTEM_IDS.descriptionField]?.find((value) => value.t === "str") ?? null;
+}
+
 /** The text `node` describes itself with, trimmed, or null when it has none. */
-export function descriptionOf(
-  node: { readonly props: Readonly<Record<NodeId, readonly PropValue[]>> } | undefined,
-): string | null {
-  const text = node?.props[SYSTEM_IDS.descriptionField]
-    ?.find((value) => value.t === "str")
-    ?.v.trim();
+export function descriptionOf(node: Described): string | null {
+  const text = descriptionValueOf(node)?.v.trim();
   return text === undefined || text === "" ? null : text;
 }

@@ -12,7 +12,7 @@
  * leaves nothing behind.
  */
 import { useLayoutEffect, useRef } from "react";
-import { descriptionOf, SYSTEM_IDS } from "@kb/model";
+import { descriptionOf, descriptionValueOf, SYSTEM_IDS } from "@kb/model";
 import {
   browserHost,
   rowTextOf,
@@ -20,7 +20,6 @@ import {
   useFollow,
   useGraphRead,
   type FieldHandle,
-  type PropValue,
 } from "@kb/ui-sdk";
 import { backToRow } from "./back-to-row";
 import { doneDescribing, useDescribing, useDescriptionShown } from "./description-state";
@@ -29,6 +28,9 @@ import { ValueSlot } from "./value-slot";
 import { arriveAt, enterFields } from "./value-slot-nav";
 
 const FIELD = SYSTEM_IDS.descriptionField;
+
+/** The keys that end an edit and ask for the row back: Enter keeps it, Escape puts it back. */
+const LEAVING_KEYS: ReadonlySet<string> = new Set(["Enter", "Escape"]);
 
 /** Where the keyboard goes when it leaves the description: back to the row, its text, or on. */
 function leave(
@@ -62,11 +64,18 @@ export function DescriptionLine({
 }) {
   const context = useGraphRead();
   const follow = useFollow();
-  const text = descriptionOf(context.schema.get(nodeId));
+  const node = context.schema.get(nodeId);
+  const text = descriptionOf(node);
+  // The value as stored, so an edit replaces it and a removal takes it out
+  // whatever space it was written with.
+  const stored = descriptionValueOf(node);
   const asked = useDescribing((s) => (s.at === instanceKey ? s.gesture : null));
   const { readOnly } = useFieldWrite(nodeId, FIELD, context.schema);
   const shown = useDescriptionShown(nodeId, instanceKey);
   const line = useRef<HTMLDivElement>(null);
+  // Whether the last gesture on the line was a key that asks for the row
+  // back. An edit that ends because focus went elsewhere leaves it there.
+  const keyed = useRef(false);
 
   // A gesture asked for it: its slot opens for editing, once it is drawn.
   useLayoutEffect(() => {
@@ -75,7 +84,6 @@ export function DescriptionLine({
   }, [asked]);
 
   if (!shown) return null;
-  const stored: PropValue | null = text === null ? null : { t: "str", v: text };
   const { writes } = browserHost();
   const field: FieldHandle = {
     holder: nodeId,
@@ -101,6 +109,12 @@ export function DescriptionLine({
       // letter starts where the node's text does.
       className="kb-description -ml-1 min-w-0"
       data-description={instanceKey}
+      onKeyDownCapture={(e) => {
+        keyed.current = LEAVING_KEYS.has(e.key);
+      }}
+      onPointerDownCapture={() => {
+        keyed.current = false;
+      }}
       onBlur={() => {
         // Focus left the line: a gesture's empty slot closes with it. The
         // value's editor closing hands focus to its slot only after this
@@ -123,12 +137,15 @@ export function DescriptionLine({
           onFollow={follow}
           onCommit={field.add}
           // Emptied, or left with nothing typed: a stored description is
-          // taken out, and the keyboard goes back to the row, as the line
-          // leaves. That waits for the slot's own key to finish, since
-          // Escape hands focus back to the slot after its editor closes.
+          // taken out. Left by Enter or Escape, the keyboard goes back to the
+          // row as the line leaves, once the slot's own key is done (Escape
+          // hands focus back to the slot after its editor closes). Left by
+          // focus going elsewhere, focus stays where it went.
           onRemove={() => {
+            const back = keyed.current;
+            keyed.current = false;
             if (stored !== null) field.remove(stored);
-            queueMicrotask(() => field.leave("back"));
+            if (back) queueMicrotask(() => field.leave("back"));
           }}
         />
       )}
