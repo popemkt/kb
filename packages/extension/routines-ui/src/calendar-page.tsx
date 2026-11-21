@@ -21,7 +21,7 @@ import { calendarPath } from "./routes";
 import { newStart } from "./time-text";
 import { ScopePrompt } from "./scope-prompt";
 import { CalendarToolbar, IssuesNote } from "./toolbar";
-import { WeekView, type LayoutProps } from "./week-view";
+import { TimeGrid, type LayoutProps } from "./time-grid";
 
 const MODE_KEYS: Readonly<Record<string, CalendarMode>> = { m: "month", w: "week", a: "agenda" };
 
@@ -115,7 +115,7 @@ export function CalendarPage({ params }: { readonly params: CalendarParams }) {
         modes={CALENDAR_MODES}
       />
       <IssuesNote issues={model.issues} onOpen={actions.edit} />
-      {mode === "week" ? <WeekView {...layout} /> : null}
+      {mode === "week" ? <TimeGrid mode="week" {...layout} /> : null}
       {mode === "month" ? (
         <MonthView
           layout={layout}

@@ -99,9 +99,14 @@ export function shortDay(day: string): string {
   return `${MONTH_SHORT[local.month - 1] ?? ""} ${String(local.day)}`;
 }
 
+/** A day's weekday as `Mon`..`Sun`. */
+export function weekdayShort(day: string): string {
+  return WEEKDAY_SHORT[(weekday(date(day)) + 6) % 7] ?? "";
+}
+
 /** A day as `Wed, Nov 4`. */
 export function longDay(day: string): string {
-  return `${WEEKDAY_SHORT[(weekday(date(day)) + 6) % 7] ?? ""}, ${shortDay(day)}`;
+  return `${weekdayShort(day)}, ${shortDay(day)}`;
 }
 
 /** The day of the month `day` falls on. */

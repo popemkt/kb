@@ -12,6 +12,7 @@ export {
   stepAnchor,
   titleOf,
   todayIn,
+  weekdayShort,
   WEEKDAY_SHORT,
   type CalendarSpan,
 } from "./days";
