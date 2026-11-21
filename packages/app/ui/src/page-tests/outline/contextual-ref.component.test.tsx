@@ -18,7 +18,7 @@ import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { childInstanceKey, outlineInstanceKey, rowTextOf, syncUiPlugins } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { NodeBlock, outlineNodes, outlineSource, useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
@@ -210,9 +210,9 @@ describe("contextual reference row", () => {
         container.querySelector(`[data-instance-key="${key}"] [data-bullet-ref="true"]`),
         "bullet",
       );
-    const before = present(outlineNodes().get("n.ctx"), "n.ctx").collapsed;
+    const before = rowClosed("n.ctx");
     await act(async () => click(bullet()));
-    expect(outlineNodes().get("n.ctx")?.collapsed).toBe(!before);
+    expect(rowClosed("n.ctx")).toBe(!before);
     expect(useGraphStore.getState().rootNodeId).not.toBe("n.root-a");
     await act(async () => click(bullet(), { metaKey: true }));
     expect(useGraphStore.getState().rootNodeId).toBe("n.root-a");

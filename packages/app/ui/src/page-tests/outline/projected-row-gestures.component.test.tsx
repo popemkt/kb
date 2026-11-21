@@ -16,7 +16,7 @@ import { paramsFrom } from "@kb/views";
 import { Result } from "effect";
 import { useGraphStore } from "@/stores/graph.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed } from "@/test-support/outline-store";
 import { framedAs } from "@/fixtures/view-fields";
 import { outlineFrameSubject, outlineNodes, outlineSource, useOutlineStore } from "@kb/outline-ui";
 import { CollectionCardsView, CollectionTableView } from "@kb/collections";
@@ -110,10 +110,10 @@ describe("projected query-result rows behave like owned rows", () => {
   it("table: a plain bullet click toggles, ⌘-click opens the node", async () => {
     await renderTable();
     const before = useGraphStore.getState().rootNodeId;
-    const collapsed = present(outlineNodes().get("n.root-b"), "n.root-b").collapsed;
+    const collapsed = rowClosed("n.root-b", key);
     await act(async () => click(bullet()));
     expect(useGraphStore.getState().rootNodeId).toBe(before);
-    expect(outlineNodes().get("n.root-b")?.collapsed).toBe(!collapsed);
+    expect(rowClosed("n.root-b", key)).toBe(!collapsed);
     await act(async () => click(bullet(), { metaKey: true }));
     expect(useGraphStore.getState().rootNodeId).toBe("n.root-b");
   });

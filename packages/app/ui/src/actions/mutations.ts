@@ -321,12 +321,12 @@ export const mutations: PageWrites = {
   },
 
   async splitNode(id: string, cursor: number | "end", instanceKey?: string): Promise<void> {
-    // Expanded set from the page's rows drives Tana first-child splits.
-    const expandedIds = new Set<string>();
-    for (const n of pageRows().values()) {
-      if (!n.collapsed) expandedIds.add(n.id);
-    }
-    await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds, instanceKey }));
+    // An open row splits into its first child, as Tana does: open where it
+    // is drawn, the row being edited when no instance is named.
+    const page = pageEditor().getState();
+    const row = instanceKey ?? (page.activeNodeId === id ? page.activeInstanceKey : null);
+    const open = row === null ? pageRows().get(id)?.collapsed === false : page.isOpen(row);
+    await applyPlan(planSplit(wire(), id, cursor, ulid(), { open, instanceKey }));
   },
 
   async deleteNode(id, draft): Promise<boolean> {

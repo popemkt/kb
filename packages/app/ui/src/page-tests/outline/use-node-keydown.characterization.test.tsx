@@ -36,7 +36,7 @@ import { useGraphStore } from "@/stores/graph.store";
 import { rankedFixture } from "@/test-support/ranked-fixture";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { installDomGlobals } from "@kb/ui-test-kit";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import {
   outlineNodes,
@@ -318,11 +318,11 @@ describe("outline editing keymap (characterization)", () => {
       // The ref guard names metaKey only, so the ctrl spelling falls through to
       // the `metaKey || ctrlKey` arm below — collapse, not reorder.
       act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
-      expect(node("n.root-a")?.collapsed).toBe(false);
+      expect(rowClosed("n.root-a")).toBe(false);
       expect(
         await press(mount("n.root-a", 0, true), "ArrowUp", { ctrlKey: true, shiftKey: true }),
       ).toBe(true);
-      expect(node("n.root-a")?.collapsed).toBe(true);
+      expect(rowClosed("n.root-a")).toBe(true);
     });
 
     it("Backspace mid-text is left to the browser", async () => {
@@ -496,7 +496,7 @@ describe("outline editing keymap (characterization)", () => {
     it("Meta+ArrowUp collapses an expanded parent", async () => {
       act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
       expect(await press(mount("n.root-a", 0, false), "ArrowUp", { metaKey: true })).toBe(true);
-      expect(node("n.root-a")?.collapsed).toBe(true);
+      expect(rowClosed("n.root-a")).toBe(true);
     });
 
     it("Meta+ArrowUp on a leaf zooms to the enclosing page", async () => {
@@ -508,9 +508,9 @@ describe("outline editing keymap (characterization)", () => {
     it("Meta+Alt+ArrowDown opens the whole subtree, Ctrl+Alt+ArrowUp closes it, the caret staying", async () => {
       const el = mount("n.root-a", 2, false);
       expect(await press(el, "ArrowDown", { metaKey: true, altKey: true })).toBe(true);
-      expect([node("n.root-a")?.collapsed, node("n.child-a2")?.collapsed]).toEqual([false, false]);
+      expect([rowClosed("n.root-a"), rowClosed("n.child-a2")]).toEqual([false, false]);
       expect(await press(el, "ArrowUp", { ctrlKey: true, altKey: true })).toBe(true);
-      expect([node("n.root-a")?.collapsed, node("n.child-a2")?.collapsed]).toEqual([true, true]);
+      expect([rowClosed("n.root-a"), rowClosed("n.child-a2")]).toEqual([true, true]);
       expect(useOutlineStore.getState().activeNodeId).toBe("n.root-a");
     });
 
@@ -576,9 +576,9 @@ describe("outline editing keymap (characterization)", () => {
     });
 
     it("Meta+ArrowDown expands a collapsed parent", async () => {
-      expect(node("n.root-a")?.collapsed).toBe(true);
+      expect(rowClosed("n.root-a")).toBe(true);
       expect(await press(mount("n.root-a", 0, false), "ArrowDown", { metaKey: true })).toBe(true);
-      expect(node("n.root-a")?.collapsed).toBe(false);
+      expect(rowClosed("n.root-a")).toBe(false);
     });
 
     it("Meta+ArrowDown on a row with nothing to reveal is claimed and inert", async () => {
@@ -587,14 +587,14 @@ describe("outline editing keymap (characterization)", () => {
       act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
       const el = mount("n.child-a1", 3, false);
       const before = {
-        collapsed: node("n.child-a1")?.collapsed,
+        collapsed: rowClosed("n.child-a1"),
         active: useOutlineStore.getState().activeNodeId,
       };
       expect(await press(el, "ArrowDown", { metaKey: true })).toBe(true);
       const after = useOutlineStore.getState();
       const graph = useGraphStore.getState();
       expect(after.activeNodeId).toBe(before.active);
-      expect(node("n.child-a1")?.collapsed).toBe(before.collapsed);
+      expect(rowClosed("n.child-a1")).toBe(before.collapsed);
       expect(graph.rootNodeId).toBe(WORKSPACE_ROOT_ID);
     });
 
@@ -602,9 +602,9 @@ describe("outline editing keymap (characterization)", () => {
       // `tags.length > 0` is part of the expandable test, so the chord is not a
       // children-only gesture.
       const el = mount("n.root-b", 3, false);
-      expect(node("n.root-b")?.collapsed).toBe(true);
+      expect(rowClosed("n.root-b")).toBe(true);
       expect(await press(el, "ArrowDown", { metaKey: true })).toBe(true);
-      expect(node("n.root-b")?.collapsed).toBe(false);
+      expect(rowClosed("n.root-b")).toBe(false);
     });
 
     it("bare ArrowUp crosses to the previous visible row", async () => {

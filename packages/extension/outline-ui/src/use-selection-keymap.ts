@@ -33,12 +33,12 @@ export function useSelectionKeymap(): void {
           getNextVisibleInstance: store.getNextVisibleInstance,
           instanceAt: store.instanceAt,
           fieldSlotsOf: fieldSlotCount,
-          getNode: (id) => {
+          getNode: (id, instanceKey) => {
             const n = outlineNodes().get(id);
             if (!n) return undefined;
             // Children are the shown node's; collapse and place are the row's.
             return {
-              collapsed: n.collapsed,
+              collapsed: !store.isOpen(instanceKey),
               childIds: shownNode(n, browserHost().schema()).children,
               parentId: n.parentId,
             };

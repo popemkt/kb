@@ -15,10 +15,10 @@ export type SelectionKeyAction =
   | { type: "extend"; direction: "up" | "down" }
   | { type: "clear" }
   | { type: "edit"; nodeId: string; instanceKey: string }
-  | { type: "toggleCollapse"; nodeId: string }
+  | { type: "toggleCollapse"; nodeId: string; instanceKey: string }
   | { type: "toggleCheck"; nodeId: string }
-  | { type: "collapse"; nodeId: string }
-  | { type: "expand"; nodeId: string }
+  | { type: "collapse"; nodeId: string; instanceKey: string }
+  | { type: "expand"; nodeId: string; instanceKey: string }
   | { type: "selectParent"; nodeId: string }
   | { type: "selectFirstChild"; nodeId: string; instanceKey: string }
   | { type: "indent"; nodeId: string }
@@ -36,7 +36,7 @@ export type SelectionKeyAction =
   /** Open each selected row and every row under it; or close them. */
   | { type: "expandSubtree"; instanceKey: string }
   | { type: "collapseSubtree"; instanceKey: string }
-  | { type: "createAfter"; nodeId: string }
+  | { type: "createAfter"; nodeId: string; instanceKey: string }
   | { type: "createBefore"; nodeId: string }
   | { type: "delete"; nodeId: string; instanceKey: string }
   | { type: "append"; nodeId: string; instanceKey: string; char: string }
@@ -45,6 +45,7 @@ export type SelectionKeyAction =
   | KeyCall;
 
 export interface SelectionNodeInfo {
+  /** Whether the row is closed where it is drawn. */
   collapsed: boolean;
   childIds: string[];
   parentId: string | null;
@@ -56,7 +57,8 @@ export interface SelectionKeyContext {
   activeNodeId: string | null;
   getPreviousVisibleInstance: (instanceKey: string) => VisibleInstance | null;
   getNextVisibleInstance: (instanceKey: string) => VisibleInstance | null;
-  getNode?: (id: string) => SelectionNodeInfo | undefined;
+  /** The row of node `id` drawn at `instanceKey`. */
+  getNode?: (id: string, instanceKey: string) => SelectionNodeInfo | undefined;
   /** How many field values a row instance shows; a vertical move passes through them. */
   fieldSlotsOf: (instanceKey: string) => number;
   /** Where the walk reaches a row instance: the lane it sits in, when its frame lays rows out as lanes. */
@@ -137,9 +139,9 @@ function headedLane({ ctx, instanceKey }: SelectionTarget): VisibleLane | null {
 function closeOrClimb(target: SelectionTarget): SelectionKeyAction | null {
   const lane = headedLane(target);
   if (lane !== null) return selectInstance(lane.before);
-  const { nodeId, info } = target;
+  const { nodeId, instanceKey, info } = target;
   if (!info) return null;
-  if (!info.collapsed && info.childIds.length > 0) return { type: "collapse", nodeId };
+  if (!info.collapsed && info.childIds.length > 0) return { type: "collapse", nodeId, instanceKey };
   return info.parentId !== null ? { type: "selectParent", nodeId } : null;
 }
 
@@ -149,7 +151,7 @@ function openOrDescend(target: SelectionTarget): SelectionKeyAction | null {
   if (lane !== null) return selectInstance(lane.after);
   const { nodeId, instanceKey, info } = target;
   if (!info) return null;
-  if (info.collapsed && info.childIds.length > 0) return { type: "expand", nodeId };
+  if (info.collapsed && info.childIds.length > 0) return { type: "expand", nodeId, instanceKey };
   return info.childIds.length > 0 ? { type: "selectFirstChild", nodeId, instanceKey } : null;
 }
 
@@ -200,11 +202,14 @@ const SELECTION_INTENTS = new Map<string, IntentOf>([
   ["close-or-climb", closeOrClimb],
   ["open-or-descend", openOrDescend],
   ["edit", editOrEnterLane],
-  ["toggle-collapse", ({ nodeId }) => ({ type: "toggleCollapse", nodeId })],
+  [
+    "toggle-collapse",
+    ({ nodeId, instanceKey }) => ({ type: "toggleCollapse", nodeId, instanceKey }),
+  ],
   ["toggle-check", ({ nodeId }) => ({ type: "toggleCheck", nodeId })],
   ["outdent", ({ nodeId }) => ({ type: "outdent", nodeId })],
   ["indent", ({ nodeId }) => ({ type: "indent", nodeId })],
-  ["create-after", ({ nodeId }) => ({ type: "createAfter", nodeId })],
+  ["create-after", ({ nodeId, instanceKey }) => ({ type: "createAfter", nodeId, instanceKey })],
   ["create-before", ({ nodeId }) => ({ type: "createBefore", nodeId })],
   ["delete", ({ nodeId, instanceKey }) => ({ type: "delete", nodeId, instanceKey })],
   ["clear", clearOrLeaveLane],
@@ -238,6 +243,6 @@ export function mapSelectionKey(
     key: ev.key,
     nodeId: selectedNodeId,
     instanceKey: selectedInstanceKey,
-    info: ctx.getNode?.(selectedNodeId),
+    info: ctx.getNode?.(selectedNodeId, selectedInstanceKey),
   });
 }

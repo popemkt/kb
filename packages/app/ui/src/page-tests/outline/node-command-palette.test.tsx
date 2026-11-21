@@ -42,7 +42,7 @@ import { settingsUiPlugin } from "@/components/prefs/settings-plugin";
 import { SETTINGS_PATH } from "@/lib/settings-trigger";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed } from "@/test-support/outline-store";
 import { chartUiPlugin } from "@kb/chart-ui";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { NodeCommandPalette, outlineNodes, useOutlineStore } from "@kb/outline-ui";
@@ -479,7 +479,7 @@ describe("node command palette", () => {
   it("Edit query opens a query node's tucked builder, and then offers to hide it", async () => {
     await open("n.plain");
     expect(labels()).not.toContain("Edit query");
-    expect(outlineNodes().get("n.query")?.collapsed).toBe(true);
+    expect(rowClosed("n.query")).toBe(true);
     await open("n.query");
     const row = [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
       (b) => b.textContent.trim() === "Edit query",
@@ -489,7 +489,7 @@ describe("node command palette", () => {
     });
     expect(useOutlineStore.getState().queryBuilders["n.query"]?.open).toBe(true);
     // The builder is drawn under the row, so a closed row is opened to show it.
-    expect(outlineNodes().get("n.query")?.collapsed).toBe(false);
+    expect(rowClosed("n.query")).toBe(false);
     await open("n.query");
     expect(labels()).toContain("Hide query");
     expect(labels()).not.toContain("Edit query");

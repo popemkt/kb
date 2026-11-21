@@ -56,8 +56,10 @@ export interface BrowserHost extends NodeTextPort {
   readonly events: () => PageEvents;
   /** Whether a node is selected in this instance (`instanceKey`). */
   readonly isSelected: (nodeId: string, instanceKey: string) => boolean;
-  /** Open or close a row: the page's editor's expansion (`PageEditorState.toggleCollapse`). */
-  readonly toggleCollapse: (nodeId: string) => void;
+  /** Whether the row drawn at `instanceKey` is open (`PageEditorState.isOpen`). */
+  readonly isOpen: (instanceKey: string) => boolean;
+  /** Open or close the row drawn at `instanceKey`: the page's editor's expansion (`PageEditorState.toggleCollapse`). */
+  readonly toggleCollapse: (instanceKey: string) => void;
   /** The graph's nodes as they came over the wire. */
   readonly wireNodes: () => WireNode[];
   readonly appearance: () => Appearance;

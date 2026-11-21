@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { withExpansion, wireToOutlineMap } from "./graph-view";
+import { isRowOpen, wireToOutlineMap } from "./graph-view";
+import { placeOfInstance } from "./instance-key";
 import { schemaOf, schemaOfGraph } from "./schema";
 import { SYSTEM_IDS } from "@kb/model";
 
@@ -31,65 +32,35 @@ const snapshot = (): WireNode[] => [
   wire("n.b"),
 ];
 
-const ALL = snapshot().map((n) => n.id);
-
-/** `ids` as the reader's choice to open each of them. */
-const opened = (ids: readonly string[]) => new Map(ids.map((id) => [id, true] as const));
-
-describe("withExpansion", () => {
-  it("is the whole-graph projection of the snapshot, for any set of opened rows", () => {
-    const wireNodes = snapshot();
-    const cases: string[][] = [
-      [],
-      ["n.a"],
-      ["n.fields", "n.query"],
-      ["n.a", "n.a2", "n.b", "n.hidden"],
-      ALL,
-    ];
-    for (const ids of cases) {
-      const view = withExpansion(schemaOf({ wireNodes }), opened(ids));
-      expect([...view.entries()]).toEqual([
-        ...wireToOutlineMap(wireNodes, new Set(ids), wireNodes).entries(),
-      ]);
-    }
-  });
+describe("isRowOpen", () => {
+  const schema = schemaOf({ wireNodes: snapshot() });
+  const node = (id: string) => {
+    const found = schema.get(id);
+    if (found === undefined) throw new Error(id);
+    return found;
+  };
+  const open = (id: string, expansion: ReadonlyMap<string, boolean> = new Map()) =>
+    isRowOpen(node(id), `tree/${id}`, expansion);
 
   it("defaults: children, visible fields and a query collapse; a hidden value does not", () => {
-    const view = withExpansion(schemaOf({ wireNodes: snapshot() }), new Map());
-    expect(view.get("n.a")?.collapsed).toBe(true);
-    expect(view.get("n.fields")?.collapsed).toBe(true);
-    expect(view.get("n.query")?.collapsed).toBe(true);
-    expect(view.get("n.hidden")?.collapsed).toBe(false);
-    expect(view.get("n.b")?.collapsed).toBe(false);
+    expect(["n.a", "n.fields", "n.query", "n.hidden", "n.b"].map((id) => open(id))).toEqual([
+      false,
+      false,
+      false,
+      true,
+      true,
+    ]);
   });
 
-  it("builds no map: with no choice it is the schema, and a view reads the schema's rows", () => {
-    const schema = schemaOf({ wireNodes: snapshot() });
-    expect(withExpansion(schema, new Map())).toBe(schema);
-    const view = withExpansion(schema, opened(["n.a"]));
-    expect(view).not.toBeInstanceOf(Map);
-    expect(view.size).toBe(schema.size);
-    // A row shown as its default is the schema's own object.
-    expect(view.get("n.b")).toBe(schema.get("n.b"));
-    expect(view.get("n.a")).not.toBe(schema.get("n.a"));
+  it("reads the reader's choice for the row's place over its default, either way", () => {
+    expect(open("n.a", new Map([[placeOfInstance("tree/n.a"), true]]))).toBe(true);
+    expect(open("n.hidden", new Map([[placeOfInstance("tree/n.hidden"), false]]))).toBe(false);
   });
 
-  it("closes a row the reader closed, even one that defaults to open", () => {
-    const schema = schemaOf({ wireNodes: snapshot() });
-    const view = withExpansion(schema, new Map([["n.hidden", false] as const]));
-    expect(view.get("n.hidden")?.collapsed).toBe(true);
-  });
-
-  it("keeps the object of every row that shows as it did, across snapshots and views", () => {
-    const first = snapshot();
-    const before = withExpansion(schemaOf({ wireNodes: first }), opened(["n.a"]));
-    const next = first.map((n) => (n.id === "n.b" ? { ...n, text: "renamed" } : n));
-    const after = withExpansion(schemaOf({ wireNodes: next }), opened(["n.a", "n.a2"]));
-    expect(after.get("n.a")).toBe(before.get("n.a"));
-    expect(after.get("n.a1")).toBe(before.get("n.a1"));
-    expect(after.get("n.a2")).not.toBe(before.get("n.a2"));
-    expect(after.get("n.a2")?.collapsed).toBe(false);
-    expect(after.get("n.b")?.text).toBe("renamed");
+  it("builds nothing: the schema's rows are the projection at default collapse", () => {
+    expect([...schema.entries()]).toEqual([
+      ...wireToOutlineMap(snapshot(), new Set(), snapshot()).entries(),
+    ]);
   });
 });
 

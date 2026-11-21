@@ -21,7 +21,7 @@ describe("local action plans", () => {
       return { status: "succeeded", id: invocation.id, output: {}, rev: 2 };
     });
     const plan = planSplit(fixtureGraph.nodes, "n.root-a", 4, "n.split", {
-      expandedIds: new Set(),
+      open: false,
     });
 
     expect((await runOptimistic(plan)).ok).toBe(true);

@@ -28,7 +28,7 @@ import { pageCommandApi, pageCommandTarget } from "@/stores/page-commands";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed } from "@/test-support/outline-store";
 import { declinedCommands, runCommand } from "@/lib/commands";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { bundledSeed } from "@kb/bundled";
@@ -332,9 +332,9 @@ describe("palette command routing (characterization)", () => {
 
   it("expand-all and collapse-all move every expandable row in scope", async () => {
     await run(SYSTEM_IDS.cmdExpandAll);
-    expect(node("n.root-a")?.collapsed).toBe(false);
+    expect(rowClosed("n.root-a")).toBe(false);
     await run(SYSTEM_IDS.cmdCollapseAll);
-    expect(node("n.root-a")?.collapsed).toBe(true);
+    expect(rowClosed("n.root-a")).toBe(true);
   });
 
   it("the six view-as commands write the view onto the zoomed frame's view node", async () => {

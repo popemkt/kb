@@ -12,7 +12,7 @@ import {
 import type { WireNode } from "@kb/contracts";
 import { useGraphStore } from "@/stores/graph.store";
 import { OutlineListView } from "@kb/views";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { outlineNodes, setOutlineHost, useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
@@ -169,7 +169,7 @@ describe("visible instances", () => {
 });
 
 const outline = () => useOutlineStore.getState();
-const collapsed = (id: string) => present(outlineNodes().get(id), id).collapsed;
+const collapsed = (id: string) => rowClosed(id);
 
 describe("a row's subtree keys walk the rows the outline draws", () => {
   /** n.q1 holds a stored child, n.qc, over a child of its own. */

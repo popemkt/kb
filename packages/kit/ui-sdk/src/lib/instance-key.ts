@@ -28,6 +28,14 @@ export function childInstanceKey(parentKey: string, nodeId: string): string {
   return `${parentKey}/${nodeId}`;
 }
 
+/**
+ * The place a row instance stands at, which its open or closed choice is
+ * kept under (`isRowOpen`).
+ */
+export function placeOfInstance(instanceKey: string): string {
+  return nodeOfInstance(instanceKey);
+}
+
 /** The node a row instance draws: the last segment of its key. */
 export function nodeOfInstance(instanceKey: string): string {
   return instanceKey.slice(instanceKey.lastIndexOf("/") + 1);

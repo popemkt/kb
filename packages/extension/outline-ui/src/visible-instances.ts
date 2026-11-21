@@ -14,6 +14,7 @@ import {
   frameViewOf,
   hasText,
   isProjectedRow,
+  isRowOpen,
   type EdnRunner,
   type GroupSteps,
   MAIN_OUTLINE_HOST,
@@ -88,7 +89,7 @@ interface WalkContext {
   /** The slots around the outline's root frame, as its host renders it (`useSlotChain`). */
   chain: SlotChain;
   pages: FramePagesMap;
-  /** The reader's expansion: here, the references opened in place (`open-references`). */
+  /** The reader's expansion: each row's open or closed choice, and the references opened in place (`open-references`). */
   expansion: Expansion;
   /** The row each frame's detail view shows, as the outline keeps it (frame id -> node id). */
   details: Readonly<Record<string, string>>;
@@ -260,7 +261,7 @@ function walkVisibleInstances(
     }
   }
   // Open or closed is the row's own.
-  if (node.collapsed) return;
+  if (!isRowOpen(node, instanceKey, ctx.expansion)) return;
   walkRowChildren(ctx, node, instanceKey, chain);
 }
 

@@ -17,7 +17,7 @@ import {
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { useGraphStore } from "@/stores/graph.store";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { outlineNodes, useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
@@ -60,7 +60,7 @@ const wireOf = (id: string): WireNode =>
     graph().wireNodes.find((n) => n.id === id),
     id,
   );
-const collapsed = (id: string) => present(outlineNodes().get(id), id).collapsed;
+const collapsed = (id: string) => rowClosed(id);
 
 /** The expansion storage holds, as `kb-expansion` keeps it. */
 function stored(): { open: string[]; closed: string[] } {

@@ -1,0 +1,6 @@
+{
+  "reason": "A row asks whether it is open by the instance it is drawn at: isRowOpen, placeOfInstance and useIsOpen join the kit, and withExpansion, the view that flipped a node's object, is gone.",
+  "raise": {
+    "surface": { "@kb/ui-sdk": 2 }
+  }
+}

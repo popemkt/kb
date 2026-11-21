@@ -12,12 +12,12 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { projectedRowKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
+import { outlineInstanceKey, projectedRowKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { SYSTEM_IDS } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { useGraphStore } from "@/stores/graph.store";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed } from "@/test-support/outline-store";
 import { framedAs, viewOptionNodes } from "@/fixtures/view-fields";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { NodeBlock, outlineNodes, useOutlineStore } from "@kb/outline-ui";
@@ -33,8 +33,8 @@ function wire(partial: Pick<WireNode, "id" | "text"> & Partial<WireNode>): WireN
 /** Rows hydrate collapsed; open one so its chrome renders. */
 async function expand(nodeId: string) {
   await act(async () => {
-    const nodes = outlineNodes();
-    if (nodes.get(nodeId)?.collapsed === true) useOutlineStore.getState().toggleCollapse(nodeId);
+    if (rowClosed(nodeId))
+      useOutlineStore.getState().toggleCollapse(outlineInstanceKey(nodeId, outlineNodes()));
   });
 }
 
@@ -129,7 +129,7 @@ describe("row chrome", () => {
 
   it("a collapsed parent: the toggle is promised but nothing under it renders", async () => {
     await render("n.parent");
-    expect(outlineNodes().get("n.parent")?.collapsed).toBe(true);
+    expect(rowClosed("n.parent")).toBe(true);
     expect(has(".children-container")).toBe(false);
     expect(has('[data-node-id="n.leaf"]')).toBe(false);
     expect(toggles()).toBe(true);
@@ -173,7 +173,7 @@ describe("row chrome", () => {
 
   it("a collapsed projected frame shows no toolbar — chrome follows the rows", async () => {
     await render("n.table");
-    expect(outlineNodes().get("n.table")?.collapsed).toBe(true);
+    expect(rowClosed("n.table")).toBe(true);
     expect(has('[data-view-toolbar="true"]')).toBe(false);
     expect(has('[data-table-view="true"]')).toBe(false);
   });

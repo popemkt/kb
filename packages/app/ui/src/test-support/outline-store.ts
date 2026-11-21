@@ -1,8 +1,10 @@
 import { providePageProjection } from "@/stores/graph.store";
 import { providePageEditor } from "@/stores/page-editor";
 import { resetGraphStore } from "./graph-store";
+import { outlineInstanceKey } from "@kb/ui-sdk";
 import {
   initialOutlineState,
+  outlineNodes,
   outlineProjection,
   type OutlineStateData,
   useOutlineStore,
@@ -25,4 +27,12 @@ export function resetOutlineStore(overrides?: Partial<OutlineStateData>): void {
     ...structuredClone(initialOutlineState),
     ...overrides,
   });
+}
+
+/**
+ * Whether the row of `id` drawn at `instanceKey` (its tree row when omitted)
+ * is closed: open or closed is the row's place's (`isRowOpen`).
+ */
+export function rowClosed(id: string, instanceKey?: string): boolean {
+  return !useOutlineStore.getState().isOpen(instanceKey ?? outlineInstanceKey(id, outlineNodes()));
 }

@@ -10,6 +10,7 @@ import { dropOver, type DropRow, edgeStep, ghostAt, underMoved } from "./row-dra
 
 const row = (over: Partial<DropRow> = {}): DropRow => ({
   id: "n.row",
+  instanceKey: "tree/n.parent/n.row",
   shownId: "n.row",
   parent: "n.parent",
   before: "n.before",
@@ -44,7 +45,7 @@ describe("a drop over a row", () => {
     const child = {
       place: { parent: "n.row", after: null },
       line: { top: 124, left: 64, right: 400 },
-      into: "n.row",
+      into: "tree/n.parent/n.row",
     };
     expect(dropOver(row(), 80, 120)).toEqual(child);
     expect(dropOver(row({ childrenShown: true }), 50, 120)).toEqual(child);

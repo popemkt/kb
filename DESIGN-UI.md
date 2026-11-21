@@ -1091,12 +1091,12 @@ that from costing a render per row:
 - The projection is persistent. `wireToOutlineMap` takes the map it replaces
   and keeps a node's object when the node projects to the same value, which
   the schema does per snapshot. Unscoped, the outline's rows are the schema
-  itself, read through the expansion (`withExpansion`, a view that builds no
-  map): a row shown as its default is the schema's own object, and one shown
-  the other way is one object per schema node. Under a scope they are the
-  scope's projection read the same way. So a node's identity changes exactly
-  when what it shows does. Each snapshot builds the schema map, a scope
-  builds its own projection, and expanding or collapsing builds nothing.
+  itself, each node at its default collapse; under a scope they are the
+  scope's projection. Whether a row is open is not its node's: a row reads
+  its own instance's choice from the outline store (`isRowOpen`, through
+  `isOpen`), so a node's identity changes exactly when what it shows does.
+  Each snapshot builds the schema map, a scope builds its own projection,
+  and expanding or collapsing builds nothing and replaces no node.
 - A row reads the graph through a tracked read (`useGraphReadThrough`,
   `@kb/ui-sdk` → `lib/graph-read`, over a `GraphSource`; the shell's
   `useGraphRead` binds it to the graph store and the projection the page

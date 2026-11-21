@@ -35,7 +35,7 @@ import {
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed } from "@/test-support/outline-store";
 import { NodeBlock, outlineNodes, useOutlineStore } from "@kb/outline-ui";
 
 const RED = "#ef4444";
@@ -326,13 +326,13 @@ describe("reference-row bullet click parity", () => {
 
   it("a plain click expands the reference row in place, never zooms", async () => {
     // n.root-a has children and hydrates collapsed.
-    expect(present(outlineNodes().get("n.root-a"), "n.root-a").collapsed).toBe(true);
+    expect(rowClosed("n.root-a")).toBe(true);
     const bullet = await renderRefRow();
 
     clickBullet(bullet);
 
     const graph = useGraphStore.getState();
-    expect(present(outlineNodes().get("n.root-a"), "n.root-a").collapsed).toBe(false);
+    expect(rowClosed("n.root-a")).toBe(false);
     expect(graph.rootNodeId).toBe(WORKSPACE_ROOT_ID);
   });
 
@@ -343,7 +343,7 @@ describe("reference-row bullet click parity", () => {
 
     const graph = useGraphStore.getState();
     expect(graph.rootNodeId).toBe("n.root-a");
-    expect(present(outlineNodes().get("n.root-a"), "n.root-a").collapsed).toBe(true);
+    expect(rowClosed("n.root-a")).toBe(true);
   });
 
   describe("the bullet's menu gesture opens the node menu on its row", () => {
@@ -356,7 +356,7 @@ describe("reference-row bullet click parity", () => {
       const bullet = await renderRefRow();
       fire(bullet, new dom.MouseEvent("contextmenu", { bubbles: true, cancelable: true }) as never);
       expect(isOpenOnRow()).toBe(true);
-      expect(present(outlineNodes().get("n.root-a"), "n.root-a").collapsed).toBe(true);
+      expect(rowClosed("n.root-a")).toBe(true);
     });
 
     it("a finger held still opens it, and the click it lifts with lands nowhere", async () => {
@@ -378,7 +378,7 @@ describe("reference-row bullet click parity", () => {
       const elsewhere = new dom.MouseEvent("click", { bubbles: true, cancelable: true });
       container.dispatchEvent(elsewhere as unknown as Event);
       expect(elsewhere.defaultPrevented).toBe(true);
-      expect(present(outlineNodes().get("n.root-a"), "n.root-a").collapsed).toBe(true);
+      expect(rowClosed("n.root-a")).toBe(true);
       // Then the page's clicks are its own again.
       act(() => void vi.advanceTimersByTime(400));
       const later = new dom.MouseEvent("click", { bubbles: true, cancelable: true });
@@ -424,7 +424,7 @@ describe("reference-row bullet click parity", () => {
       clickBullet(bullet);
       act(() => void vi.advanceTimersByTime(500));
       expect(useUiStore.getState().nodePaletteOpen).toBe(false);
-      expect(present(outlineNodes().get("n.root-a"), "n.root-a").collapsed).toBe(true);
+      expect(rowClosed("n.root-a")).toBe(true);
     });
 
     it("a projected row's bullet picks nothing up: it has no place of its own to leave", async () => {
@@ -461,7 +461,7 @@ describe("reference-row bullet click parity", () => {
       act(() => void vi.advanceTimersByTime(500));
       clickBullet(bullet);
       expect(useUiStore.getState().nodePaletteOpen).toBe(false);
-      expect(present(outlineNodes().get("n.root-a"), "n.root-a").collapsed).toBe(false);
+      expect(rowClosed("n.root-a")).toBe(false);
     });
   });
 });

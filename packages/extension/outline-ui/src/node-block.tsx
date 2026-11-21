@@ -6,6 +6,7 @@ import {
   bulletClickIntent,
   cn,
   guideLineStyle,
+  isRowOpen,
   NodeRow,
   nodeTarget,
   outlineInstanceKey,
@@ -92,6 +93,10 @@ export const NodeBlock = memo(function NodeBlock({
   const isSelected = useOutlineStore(
     (s) => s.selectedNodeId === nodeId && s.selectedInstanceKey === instanceKey,
   );
+  // Open or closed is this place's: a row re-renders when its own choice moves.
+  const open = useOutlineStore(
+    (s) => node !== undefined && isRowOpen(node, instanceKey, s.expansion),
+  );
   // A row of a range the selection's head is elsewhere in.
   // A row of a range of several rows, the head among them: drawn as one band.
   const inRange = useOutlineStore(
@@ -107,10 +112,10 @@ export const NodeBlock = memo(function NodeBlock({
   const handleBulletClick = useCallback(
     (e: React.MouseEvent) => {
       const intent = bulletClickIntent(e, true);
-      if (intent === "toggle") toggleCollapse(nodeId);
+      if (intent === "toggle") toggleCollapse(instanceKey);
       else follow(nodeTarget(shownId), intent);
     },
-    [toggleCollapse, follow, shownId, nodeId],
+    [toggleCollapse, follow, shownId, instanceKey],
   );
 
   // The bullet's menu gesture (a right click, a held finger) opens the node
@@ -179,6 +184,7 @@ export const NodeBlock = memo(function NodeBlock({
     schema,
     view: frameViewKey,
     instanceKey,
+    open,
     showDebugFields,
     revealed: opening?.revealed,
   });
@@ -203,7 +209,7 @@ export const NodeBlock = memo(function NodeBlock({
             bullet={
               <Bullet
                 node={shown}
-                collapsed={node.collapsed}
+                collapsed={!open}
                 collapsible={chrome.isExpandable}
                 countChildren={countChildren}
                 isRef={chrome.bulletIsRef}

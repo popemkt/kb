@@ -201,6 +201,7 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     events: () => QUIET_ACTIVITY,
     // A stand-in selects nothing and has no rows to open or close.
     isSelected: () => false,
+    isOpen: () => false,
     toggleCollapse: () => {},
     activateNode: (nodeId, cursorPos, instanceKey) => {
       active = { nodeId, instanceKey };

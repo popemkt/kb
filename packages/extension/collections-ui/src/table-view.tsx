@@ -25,6 +25,7 @@ import {
   useFrameView,
   useGraphRead,
   useIsActive,
+  useIsOpen,
   useIsSelected,
 } from "@kb/ui-sdk";
 import { AddRow } from "./add-row";
@@ -287,6 +288,7 @@ const TableRow = memo(function TableRow({
 }) {
   const isActive = useIsActive(child.id, childKey);
   const isSelected = useIsSelected(child.id, childKey);
+  const open = useIsOpen(childKey);
   const follow = useFollow();
   // The cells are the shown node's (`lib/contextual-ref`); the row is `child`.
   const shown = shownNode(child, context.schema);
@@ -300,6 +302,7 @@ const TableRow = memo(function TableRow({
     schema: context.schema,
     view: shownView?.key ?? null,
     instanceKey: childKey,
+    open,
     showDebugFields: rowDebug,
   });
 
@@ -320,12 +323,12 @@ const TableRow = memo(function TableRow({
           bullet={
             <Bullet
               node={shown}
-              collapsed={child.collapsed}
+              collapsed={!open}
               collapsible={chrome.isExpandable}
               isRef={chrome.bulletIsRef}
               onClick={(e) => {
                 const intent = bulletClickIntent(e, true);
-                if (intent === "toggle") browserHost().toggleCollapse(child.id);
+                if (intent === "toggle") browserHost().toggleCollapse(childKey);
                 else follow(nodeTarget(shownNodeId(child)), intent);
               }}
             />

@@ -66,9 +66,11 @@ function selectFirstChild({ nodeId, instanceKey }: ActionOf<"selectFirstChild">)
 }
 
 /** 'o': directly below = first child when expanded, else next sibling (D07). */
-function createAfter({ nodeId }: ActionOf<"createAfter">): void {
+function createAfter({ nodeId, instanceKey }: ActionOf<"createAfter">): void {
   const node = outlineNodes().get(nodeId);
-  const expanded = Boolean(node && !node.collapsed && shownChildren(nodeId).length > 0);
+  const expanded = Boolean(
+    node && useOutlineStore.getState().isOpen(instanceKey) && shownChildren(nodeId).length > 0,
+  );
   if (node && expanded) {
     // Under the node the row shows: a reference's first child is its target's.
     void createTransientNode(shownNodeId(node), null);
@@ -196,10 +198,10 @@ const SELECTION_STEPS: SelectionSteps = {
     useOutlineStore.getState().activateNode(nodeId, 0, instanceKey),
   // Three chords, one gesture: ArrowLeft and ArrowRight only reach these rows
   // when the toggle would move in their direction.
-  toggleCollapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
+  toggleCollapse: ({ instanceKey }) => useOutlineStore.getState().toggleCollapse(instanceKey),
   toggleCheck: ({ nodeId }) => void toggleRowChecks(eachRow(nodeId)),
-  collapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
-  expand: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
+  collapse: ({ instanceKey }) => useOutlineStore.getState().toggleCollapse(instanceKey),
+  expand: ({ instanceKey }) => useOutlineStore.getState().toggleCollapse(instanceKey),
   selectParent,
   selectFirstChild,
   indent: ({ nodeId }) => arrange((ids) => browserHost().writes.indentNodes(ids), nodeId),

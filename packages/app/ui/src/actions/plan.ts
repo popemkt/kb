@@ -117,14 +117,15 @@ export function planSplit(
   id: string,
   cursor: number | "end",
   newId: string,
-  opts: { expandedIds: Set<string>; instanceKey?: string },
+  /** Whether the row split is open where it is drawn, and that instance when it is named. */
+  opts: { open: boolean; instanceKey?: string },
 ): PlannedMutation {
   const node = requireNode(nodes, id);
   const at = cursor === "end" ? node.text.length : cursor;
   const left = node.text.slice(0, at);
   const right = node.text.slice(at);
   const content = contentOf(nodes, id);
-  const firstChild = content !== null && content.children.length > 0 && opts.expandedIds.has(id);
+  const firstChild = content !== null && content.children.length > 0 && opts.open;
   const parent = firstChild ? content : findParentWire(nodes, id);
   const position = firstChild ? 0 : parent ? parent.children.indexOf(id) + 1 : undefined;
   // The new row is drawn under the row's instance, or beside it.

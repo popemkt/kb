@@ -27,7 +27,7 @@ import { provideKeybinding } from "@kb/keybindings";
 import { useGraphStore } from "@/stores/graph.store";
 import { rankedFixture } from "@/test-support/ranked-fixture";
 import { installDomGlobals } from "@kb/ui-test-kit";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { outlineNodes, useOutlineStore, useSelectionKeymap } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
@@ -188,22 +188,22 @@ describe("selection-mode dispatcher (characterization)", () => {
 
   it("toggleCollapse: Space flips the row open", async () => {
     selectAndMount("n.root-a");
-    expect(node("n.root-a")?.collapsed).toBe(true);
+    expect(rowClosed("n.root-a")).toBe(true);
     await press(" ");
-    expect(node("n.root-a")?.collapsed).toBe(false);
+    expect(rowClosed("n.root-a")).toBe(false);
   });
 
   it("collapse: ArrowLeft on an expanded parent closes it", async () => {
     act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
     selectAndMount("n.root-a");
     await press("ArrowLeft");
-    expect(node("n.root-a")?.collapsed).toBe(true);
+    expect(rowClosed("n.root-a")).toBe(true);
   });
 
   it("expand: ArrowRight on a collapsed parent opens it", async () => {
     selectAndMount("n.root-a");
     await press("ArrowRight");
-    expect(node("n.root-a")?.collapsed).toBe(false);
+    expect(rowClosed("n.root-a")).toBe(false);
   });
 
   it("selectParent: ArrowLeft on a leaf climbs", async () => {

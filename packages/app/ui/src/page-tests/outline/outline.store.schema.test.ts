@@ -297,8 +297,9 @@ describe("an unscoped schema", () => {
   it("is the projection's snapshot, and a collapse does not replace it", () => {
     useGraphStore.getState().hydrateFromWire(wire(), 1, "fixtures");
     const before = schemaOf(useGraphStore.getState());
-    useOutlineStore.getState().toggleCollapse("n.a");
-    expect(outlineNodes()).not.toBe(before);
+    useOutlineStore.getState().toggleCollapse("tree/n.a");
+    // Open or closed is the row's place's: the rows stay the snapshot's.
+    expect(outlineNodes()).toBe(before);
     expect(schemaOf(useGraphStore.getState())).toBe(before);
   });
 });

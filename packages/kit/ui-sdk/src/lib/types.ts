@@ -40,6 +40,7 @@ export interface OutlineNode {
   text: string;
   parentId: string | null;
   children: string[];
+  /** Whether its rows are closed until the reader opens one: their default (`isRowOpen`). */
   collapsed: boolean;
   props: WireNode["props"];
   createdAt: string;

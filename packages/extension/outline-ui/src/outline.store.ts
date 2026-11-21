@@ -20,6 +20,8 @@ import {
   type CaretIntent,
   childInstanceKey,
   type EdnRunner,
+  isRowOpen,
+  placeOfInstance,
   type Expansion,
   type ExpansionChanges,
   type FamilyView,
@@ -49,13 +51,13 @@ import {
   shownNodesOf,
   showsAncestor,
   toast,
-  withExpansion,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { isQueryNode, SYSTEM_IDS } from "@kb/model";
 import {
   collectVisibleInstances,
   neighborVisibleInstance,
+  type InstanceRef,
   queriesOf,
   subtreeOf,
   type VisibleInstance,
@@ -140,7 +142,10 @@ interface OutlineState {
   selectRange: (anchorId: string, headId: string) => void;
   /** The selected rows, in the order they are drawn. */
   selectedRows: () => VisibleInstance[];
-  toggleCollapse: (id: string) => void;
+  /** Whether the row drawn at `instanceKey` is open (`isRowOpen`). */
+  isOpen: (instanceKey: string) => boolean;
+  /** Open or close the row drawn at `instanceKey`: a choice for its place. */
+  toggleCollapse: (instanceKey: string) => void;
   /** Open the reference to `targetId` in the text of `sourceId` under its row, or close it. */
   toggleReference: (sourceId: string, targetId: string) => void;
   /**
@@ -244,11 +249,11 @@ function schemaNow(): SchemaIndex {
  * reader left it. A reference opened in place holds while it is open and its
  * row's text names it (`openReferenceHolds`).
  */
-function isUndoable(id: string, open: boolean, schema: SchemaIndex): boolean {
-  const reference = openReferenceHolds(id, open, schema);
+function isUndoable(place: string, open: boolean, schema: SchemaIndex): boolean {
+  const reference = openReferenceHolds(place, open, schema);
   if (reference !== null) return reference;
   // GAP [[01M52E0177292798G5908A74GG]]
-  const node = schema.get(id);
+  const node = schema.get(nodeOfInstance(place));
   // A row's default is `node.collapsed`: a choice to open is one to change it.
   return node === undefined || (open === node.collapsed && isExpandableOutlineNode(node, schema));
 }
@@ -293,14 +298,22 @@ function keptExpansion(current: Expansion, next: Expansion, schema: SchemaIndex)
   return kept;
 }
 
-/** The parents of `id` that `rows` shows collapsed, each as a choice to open it. */
-function ancestorsToOpen(rows: NodeMap, id: string): Array<readonly [string, boolean]> {
+/**
+ * The rows above `id` in the outline's tree that `expansion` shows closed,
+ * each as a choice to open its place.
+ */
+function ancestorsToOpen(
+  rows: NodeMap,
+  id: string,
+  expansion: Expansion,
+): Array<readonly [string, boolean]> {
   const open: Array<readonly [string, boolean]> = [];
   let current: OutlineNode | undefined = rows.get(id);
   while (current !== undefined && current.parentId !== null) {
     const parent = rows.get(current.parentId);
     if (!parent) break;
-    if (parent.collapsed) open.push([parent.id, true]);
+    const key = outlineInstanceKey(parent.id, rows);
+    if (!isRowOpen(parent, key, expansion)) open.push([placeOfInstance(key), true]);
     current = parent;
   }
   return open;
@@ -327,28 +340,21 @@ function isExpandableOutlineNode(node: OutlineNode, schema: SchemaIndex): boolea
   return resolveProps(node, schema).length > 0;
 }
 
-/** The last rows read: the shown rows of one graph state through one expansion. */
-let lastRows: { readonly base: NodeMap; readonly expansion: Expansion; rows: NodeMap } | null =
-  null;
-
 /**
  * The outline's rows over `graph`: what the page shows of it (`shownNodesOf`),
- * as `expansion` opens it.
+ * each node at its default collapse. Whether a row is open is its place's
+ * (`isRowOpen`), so expanding builds nothing here.
  */
-function rowsOf(graph: ScopeSource, expansion: Expansion): NodeMap {
-  const base = shownNodesOf(graph);
-  if (lastRows?.base === base && lastRows.expansion === expansion) return lastRows.rows;
-  const rows = withExpansion(base, expansion);
-  lastRows = { base, expansion, rows };
-  return rows;
+function rowsOf(graph: ScopeSource): NodeMap {
+  return shownNodesOf(graph);
 }
 
 /**
- * The outline's rows now. The same value until the graph, its scope, or the
- * expansion moves; a row keeps its object for as long as what it shows does.
+ * The outline's rows now. The same value until the graph or its scope
+ * moves; a row keeps its object for as long as what it shows does.
  */
 export function outlineNodes(): NodeMap {
-  return rowsOf(graphNow(), useOutlineStore.getState().expansion);
+  return rowsOf(graphNow());
 }
 
 /** Listen for every change `outlineNodes` can follow: the graph's and this store's. */
@@ -424,6 +430,22 @@ const NO_FOCUS = {
   ...selectionOf(null, null),
 } as const;
 
+/** The outline's rows as an activation reads them: the nodes, their schema, the reader's expansion. */
+interface RowsNow {
+  readonly nodes: NodeMap;
+  readonly schema: SchemaIndex;
+  readonly expansion: Expansion;
+}
+
+/** The outline's rows now (`RowsNow`). */
+function rowsNow(): RowsNow {
+  return {
+    nodes: outlineNodes(),
+    schema: schemaNow(),
+    expansion: useOutlineStore.getState().expansion,
+  };
+}
+
 /**
  * The instance to activate `id` at: the one named, else under `working` (or its
  * parent row) when `id` is a child of the node shown there — so Enter or `o`
@@ -435,9 +457,8 @@ const NO_FOCUS = {
 function resolveActivateKey(
   id: string,
   instanceKey: string | undefined,
-  nodes: NodeMap,
   working: string | null,
-  schema: SchemaIndex,
+  { nodes, schema, expansion }: RowsNow,
 ): string {
   if (instanceKey !== undefined) return instanceKey;
   const parentId = nodes.get(id)?.parentId ?? null;
@@ -445,7 +466,7 @@ function resolveActivateKey(
     const workingNode = nodes.get(nodeOfInstance(working));
     if (
       workingNode !== undefined &&
-      !workingNode.collapsed &&
+      isRowOpen(workingNode, working, expansion) &&
       shownNodeId(workingNode) === parentId &&
       !showsAncestor(working, workingNode, schema)
     ) {
@@ -512,14 +533,19 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
   }
 
   /** Open (true) or close (false) each of `rows` that can expand and is not so already. */
-  function openRows(rows: Iterable<string>, open: boolean): void {
+  function openRows(rows: Iterable<InstanceRef>, open: boolean): void {
     const nodes = outlineNodes();
     const schema = schemaNow();
+    const { expansion } = get();
     const choices: Array<readonly [string, boolean]> = [];
-    for (const id of rows) {
-      const node = nodes.get(id);
-      if (node?.collapsed === open && isExpandableOutlineNode(node, schema)) {
-        choices.push([id, open]);
+    for (const { nodeId, instanceKey } of rows) {
+      const node = nodes.get(nodeId);
+      if (
+        node !== undefined &&
+        isRowOpen(node, instanceKey, expansion) !== open &&
+        isExpandableOutlineNode(node, schema)
+      ) {
+        choices.push([placeOfInstance(instanceKey), open]);
       }
     }
     choose(choices);
@@ -536,13 +562,7 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       // its source file, and a contextual reference whose target is gone.
       if (rowTextReadOnlyReason(id, outlineNodes().get(id), schemaNow(), virtualNow) !== null) {
         // The outline being worked in is the one the focus is leaving.
-        const roKey = resolveActivateKey(
-          id,
-          instanceKey,
-          outlineNodes(),
-          get().selectedInstanceKey,
-          schemaNow(),
-        );
+        const roKey = resolveActivateKey(id, instanceKey, get().selectedInstanceKey, rowsNow());
         pruneOutgoingTransient(id);
         set({
           ...selectionOf(id, roKey),
@@ -555,13 +575,7 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       // indent, and palette navigation therefore cannot focus a hidden row.
       get().expandAncestors(id);
       const revealed = get();
-      const key = resolveActivateKey(
-        id,
-        instanceKey,
-        outlineNodes(),
-        revealed.selectedInstanceKey,
-        schemaNow(),
-      );
+      const key = resolveActivateKey(id, instanceKey, revealed.selectedInstanceKey, rowsNow());
       // Projected instances (query rows, canvas cards) are drawn by the component
       // that mounts them, so their exact
       // visibility is only knowable once it mounts. The mounted-host
@@ -632,7 +646,7 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       const { selectedInstanceKey } = get();
       if (!nodes.has(id)) return;
       // The outline being worked in is the one the focus is leaving.
-      const key = resolveActivateKey(id, instanceKey, nodes, selectedInstanceKey, schemaNow());
+      const key = resolveActivateKey(id, instanceKey, selectedInstanceKey, rowsNow());
       pruneOutgoingTransient(id);
       set({
         ...selectionOf(id, key),
@@ -671,8 +685,8 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       const nodes = outlineNodes();
       const working = get().selectedInstanceKey;
       if (!nodes.has(anchorId) || !nodes.has(headId)) return;
-      const headKey = resolveActivateKey(headId, undefined, nodes, working, schemaNow());
-      const anchorKey = resolveActivateKey(anchorId, undefined, nodes, working, schemaNow());
+      const headKey = resolveActivateKey(headId, undefined, working, rowsNow());
+      const anchorKey = resolveActivateKey(anchorId, undefined, working, rowsNow());
       set({
         ...selectionOf(headId, headKey, anchorKey, () =>
           get().getVisibleInstances(walkHostOf(headKey)),
@@ -691,10 +705,15 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
         .filter((row) => selectedKeys.has(row.instanceKey));
     },
 
-    toggleCollapse: (id) => {
-      const node = outlineNodes().get(id);
+    isOpen: (instanceKey) => {
+      const node = outlineNodes().get(nodeOfInstance(instanceKey));
+      return node !== undefined && isRowOpen(node, instanceKey, get().expansion);
+    },
+
+    toggleCollapse: (instanceKey) => {
+      const node = outlineNodes().get(nodeOfInstance(instanceKey));
       if (!node || !isExpandableOutlineNode(node, schemaNow())) return;
-      choose([[id, node.collapsed]]);
+      choose([[placeOfInstance(instanceKey), !isRowOpen(node, instanceKey, get().expansion)]]);
     },
 
     toggleReference: (sourceId, targetId) => {
@@ -722,7 +741,7 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       if (rows !== null) openRows(rows, false);
     },
 
-    expandAncestors: (id) => choose(ancestorsToOpen(outlineNodes(), id)),
+    expandAncestors: (id) => choose(ancestorsToOpen(outlineNodes(), id, get().expansion)),
 
     jumpToNode: revealNode,
 
@@ -801,7 +820,7 @@ function revealNode(id: string): void {
   const at = id === WORKSPACE_ROOT_ID ? null : browserHost().graph.reached(id);
   if (at === null) return;
   const expansion = undoable(
-    withChoices(outline().expansion, ancestorsToOpen(rowsOf(at, outline().expansion), id)),
+    withChoices(outline().expansion, ancestorsToOpen(rowsOf(at), id, outline().expansion)),
     schemaOf(at),
   );
   const shows = (rootNodeId: string) =>
@@ -937,7 +956,7 @@ function outgoingTransient(nextId: string | null, graph: PageGraphState): string
   const st = useOutlineStore.getState();
   const out = st.activeNodeId;
   if (out === null || out === nextId) return null;
-  const node = rowsOf(graph, st.expansion).get(out);
+  const node = rowsOf(graph).get(out);
   return isPrunableTransient(node, out, st.transientIds, schemaOf(graph)) ? out : null;
 }
 
@@ -957,7 +976,7 @@ function visibleInstancesOf(
   graph: PageGraphState,
   expansion: Expansion,
 ): VisibleInstance[] {
-  return instancesOver(host, graph, rowsOf(graph, expansion), expansion, runnerOf(graph));
+  return instancesOver(host, graph, rowsOf(graph), expansion, runnerOf(graph));
 }
 
 /** The query answers a walk over `graph` reads: the ones the page has. */
@@ -1013,7 +1032,7 @@ function pageOf(host: string): readonly unknown[] {
 }
 
 /**
- * The nodes of the rows outline host `host` would draw with every row that
+ * The rows outline host `host` would draw with every row that
  * `pick` takes from its walk open: the walk, as the outline draws it
  * (`collectVisibleInstances`: query results, references opened in place, a
  * frame's view), tried again with each picked row that is closed opened,
@@ -1025,14 +1044,14 @@ function pageOf(host: string): readonly unknown[] {
 async function rowsDrawnOpen(
   host: string,
   pick: (rows: readonly VisibleInstance[], nodes: NodeMap, schema: SchemaIndex) => Picked,
-): Promise<string[] | null> {
+): Promise<readonly VisibleInstance[] | null> {
   const page = pageOf(host);
   const read = (run: EdnRunner | null): Picked => drawnOpen(host, graphNow(), run, pick);
   const queries = graphNow().queries;
   const picked = queries === null ? read(null) : await queries.settle(read, ({ awaits }) => awaits);
   const now = pageOf(host);
   if (now.some((at, i) => at !== page[i])) return null;
-  return picked.rows.map((row) => row.nodeId);
+  return picked.rows;
 }
 
 /** One read of `rowsDrawnOpen`, with query results as `run` answers them now. */
@@ -1045,14 +1064,18 @@ function drawnOpen(
   const schema = schemaOf(graph);
   let expansion = useOutlineStore.getState().expansion;
   for (;;) {
-    const nodes = withExpansion(shownNodesOf(graph), expansion);
+    const nodes = shownNodesOf(graph);
     const picked = pick(instancesOver(host, graph, nodes, expansion, run), nodes, schema);
-    const closed = picked.rows.flatMap(({ nodeId }): Array<readonly [string, boolean]> => {
-      const node = nodes.get(nodeId);
-      return node?.collapsed === true && isExpandableOutlineNode(node, schema)
-        ? [[nodeId, true]]
-        : [];
-    });
+    const closed = picked.rows.flatMap(
+      ({ nodeId, instanceKey }): Array<readonly [string, boolean]> => {
+        const node = nodes.get(nodeId);
+        return node !== undefined &&
+          !isRowOpen(node, instanceKey, expansion) &&
+          isExpandableOutlineNode(node, schema)
+          ? [[placeOfInstance(instanceKey), true]]
+          : [];
+      },
+    );
     const next = withChoices(expansion, closed);
     if (next === expansion) return picked;
     expansion = next;
@@ -1061,11 +1084,13 @@ function drawnOpen(
 
 /**
  * The rows of the subtree at row `instanceKey`, as the outline of host `host`
- * draws it all open (`subtreeOf`): their nodes, whose choice is every row's
- * of that node. It waits only for the queries drawn inside it.
+ * draws it all open (`subtreeOf`). It waits only for the queries drawn inside it.
  */
 // GAP [[01M7XP1SNNVNYZKH5GCSW3RH6C]] a node drawn at several places shares one choice
-function subtreeDrawnOpen(instanceKey: string, host: string): Promise<string[] | null> {
+function subtreeDrawnOpen(
+  instanceKey: string,
+  host: string,
+): Promise<readonly VisibleInstance[] | null> {
   return rowsDrawnOpen(host, (walk, nodes, schema) => {
     const rows = subtreeOf(walk, instanceKey, nodes);
     return { rows, awaits: queriesOf(rows, nodes, schema) };
@@ -1073,7 +1098,7 @@ function subtreeDrawnOpen(instanceKey: string, host: string): Promise<string[] |
 }
 
 /** Every row of the scope's outline, as it draws them all open: every query it runs is in it. */
-function scopeDrawnOpen(): Promise<string[] | null> {
+function scopeDrawnOpen(): Promise<readonly VisibleInstance[] | null> {
   return rowsDrawnOpen(MAIN_OUTLINE_HOST, (rows) => ({ rows, awaits: null }));
 }
 
@@ -1118,7 +1143,7 @@ export const outlineProjection: PageProjection = {
   leave: (from) => outgoingTransient(null, from),
   arrive,
   subscribe: useOutlineStore.subscribe,
-  rows: (graph) => rowsOf(graph, useOutlineStore.getState().expansion),
+  rows: rowsOf,
   reveal: revealNode,
 };
 
