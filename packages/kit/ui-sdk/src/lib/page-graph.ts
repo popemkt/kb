@@ -133,7 +133,7 @@ function scopedViewOf(
     return last;
   }
   const wire = scopedWireNodes(state.wireNodes, members, ontologyId);
-  const nodes = wireToOutlineMap(wire, new Set(), state.wireNodes, last ? [last.nodes] : []);
+  const nodes = wireToOutlineMap(wire, state.wireNodes, last ? [last.nodes] : []);
   lastScoped = { source: state, wire, nodes };
   return lastScoped;
 }

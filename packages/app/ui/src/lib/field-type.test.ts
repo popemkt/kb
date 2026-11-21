@@ -35,7 +35,7 @@ function schemaFor(nodes: NodeMap): SchemaIndex {
 }
 
 function outline(): Map<string, OutlineNode> {
-  return wireToOutlineMap(fixtureGraph.nodes, new Set());
+  return wireToOutlineMap(fixtureGraph.nodes);
 }
 
 function fieldNode(partial: Partial<WireNode> & { id: string; text: string }): WireNode {
@@ -83,7 +83,7 @@ describe("field types", () => {
         },
       }),
     ];
-    const nodes = wireToOutlineMap(wire, new Set());
+    const nodes = wireToOutlineMap(wire);
     const field = nodes.get("field.assignee");
     const allowed = resolveAllowedRefIds(field, schemaFor(nodes), null);
     const set = present(allowed, "allowed refs");
@@ -105,7 +105,7 @@ describe("field types", () => {
         },
       }),
     ];
-    const nodes = wireToOutlineMap(wire, new Set());
+    const nodes = wireToOutlineMap(wire);
     const qdb = new DatascriptIndex(wire, { derived: derivedWith({}) });
     const allowed = resolveAllowedRefIds(nodes.get("field.pick"), schemaFor(nodes), (query) =>
       qdb.runDatalog(query),
@@ -129,7 +129,7 @@ describe("field types", () => {
         },
       }),
     ];
-    const nodes = wireToOutlineMap(wire, new Set());
+    const nodes = wireToOutlineMap(wire);
     const qdb = new DatascriptIndex(wire, { derived: derivedWith({}) });
     const allowed = resolveAllowedRefIds(nodes.get("field.both"), schemaFor(nodes), (query) =>
       qdb.runDatalog(query),
@@ -153,7 +153,7 @@ describe("field types", () => {
         },
       }),
     ];
-    const nodes = wireToOutlineMap(wire, new Set());
+    const nodes = wireToOutlineMap(wire);
     const field = nodes.get("field.assignee");
     const schema = schemaFor(nodes);
     const index = new DatascriptIndex(wire, { derived: derivedWith({}) });
@@ -172,7 +172,7 @@ describe("field types", () => {
     const d = resolveAllowedRefIdsCached(
       "field.assignee",
       field,
-      schemaFor(wireToOutlineMap(wire, new Set())),
+      schemaFor(wireToOutlineMap(wire)),
       queries,
     );
     expect(d).not.toBe(c);
@@ -193,7 +193,7 @@ describe("field types", () => {
         },
       }),
     ];
-    const nodes = wireToOutlineMap(wire, new Set());
+    const nodes = wireToOutlineMap(wire);
     const field = nodes.get("field.q");
     const schema = schemaFor(nodes);
     const index = new DatascriptIndex(wire, { derived: derivedWith({}) });
@@ -272,21 +272,18 @@ describe("field types", () => {
 describe("allowed ref targets: resolution vs display", () => {
   /** The seeded `sys.f.onto.include` definition, on the fixture graph. */
   function withIncludeField(): NodeMap {
-    return wireToOutlineMap(
-      [
-        ...fixtureGraph.nodes,
-        fieldNode({
-          id: SYSTEM_IDS.ontoIncludeField,
-          text: "onto.include",
-          props: {
-            [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
-            [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
-            [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
-          },
-        }),
-      ],
-      new Set(),
-    );
+    return wireToOutlineMap([
+      ...fixtureGraph.nodes,
+      fieldNode({
+        id: SYSTEM_IDS.ontoIncludeField,
+        text: "onto.include",
+        props: {
+          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+          [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
+          [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+        },
+      }),
+    ]);
   }
 
   /**
@@ -400,7 +397,7 @@ describe("allowed ref targets: resolution vs display", () => {
         },
       }),
     ];
-    const nodes = wireToOutlineMap(wire, new Set());
+    const nodes = wireToOutlineMap(wire);
     const db = new DatascriptIndex(wire, { derived: derivedWith({}) });
     const allowed = resolveAllowedRefIds(nodes.get("field.onto-ish"), schemaFor(nodes), (query) =>
       db.runDatalog(query),

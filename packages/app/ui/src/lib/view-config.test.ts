@@ -51,7 +51,7 @@ function schemaFor(nodes: NodeMap): SchemaIndex {
 
 /** The schema of a graph given as wire nodes. */
 function schemaOfWires(wires: WireNode[]): SchemaIndex {
-  return schemaFor(wireToOutlineMap(wires, new Set()));
+  return schemaFor(wireToOutlineMap(wires));
 }
 
 describe("view-config", () => {

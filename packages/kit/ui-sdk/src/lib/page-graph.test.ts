@@ -34,7 +34,7 @@ describe("scopedWireNodes", () => {
 
   it("leaves no dangling child ids in the outline map", () => {
     const scoped = scopedWireNodes(graph(), new Set(["n.a", "n.b"]), "o.1");
-    const map = wireToOutlineMap(scoped, new Set(["n.a", "o.1"]));
+    const map = wireToOutlineMap(scoped);
     for (const n of map.values()) {
       for (const child of n.children) {
         expect(map.has(child)).toBe(true);

@@ -155,7 +155,8 @@ export function isPartialProjection(map: ReadonlyMap<string, OutlineNode>): bool
 
 /**
  * The outline view model for `nodes`. Each node's tag chips — names and
- * colours — and its default collapse (does it show fields?) are resolved against
+ * colours — and its default collapse (does it show fields?; whether a row is
+ * open is the reader's, per place: `isRowOpen`) are resolved against
  * `graph`: the whole graph, which is `nodes` itself unless `nodes` is a
  * projection of it (an ontology scope). The outline's structure comes from
  * `nodes`; what the schema means, and the tag palette (`tagPalette`, one
@@ -170,7 +171,6 @@ export function isPartialProjection(map: ReadonlyMap<string, OutlineNode>): bool
  */
 export function wireToOutlineMap(
   nodes: WireNode[],
-  expandedIds: Set<string>,
   graph: readonly WireNode[] = nodes,
   previous: readonly ReadonlyMap<string, OutlineNode>[] = [],
 ): Map<string, OutlineNode> {
@@ -212,13 +212,12 @@ export function wireToOutlineMap(
     // A forest root is in no children list: the workspace is its parent.
     const parentId = parentOf.get(wire.id) ?? (rootSet.has(wire.id) ? WORKSPACE_ROOT_ID : null);
     const tags = resolveTags(wire, byId, palette);
-    const collapsed = nodeDefaultsCollapsed(wire, byId) && !expandedIds.has(wire.id);
     keep({
       id: wire.id,
       text: wire.text,
       parentId,
       children: [...wire.children],
-      collapsed,
+      collapsed: nodeDefaultsCollapsed(wire, byId),
       props: wire.props,
       createdAt: wire.createdAt,
       updatedAt: wire.updatedAt,

@@ -43,7 +43,7 @@ function wire(partial: Partial<WireNode> & Pick<WireNode, "id">): WireNode {
 }
 
 function mapWith(extra: WireNode[]): NodeMap {
-  return wireToOutlineMap([...fixtureGraph.nodes, ...REF_SEED_WIRES, ...extra], new Set());
+  return wireToOutlineMap([...fixtureGraph.nodes, ...REF_SEED_WIRES, ...extra]);
 }
 
 /** The one node these rows read from a source file. */
@@ -112,10 +112,7 @@ describe("contextual reference model", () => {
     // node. The old reader asked the kind slot for a `#ref` tag and went quiet
     // when that tag was out of scope; a prop value needs nothing else in the
     // graph, which is the point of reading one carrier.
-    const nodes = wireToOutlineMap(
-      [...fixtureGraph.nodes, ctxRefWire("n.ctx", "n.root-a")],
-      new Set(),
-    );
+    const nodes = wireToOutlineMap([...fixtureGraph.nodes, ctxRefWire("n.ctx", "n.root-a")]);
     const ref = present(nodes.get("n.ctx"), "n.ctx");
     expect(ref.tags).toEqual([]);
     expect(isContextualRef(ref)).toBe(true);

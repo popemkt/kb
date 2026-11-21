@@ -98,7 +98,7 @@ const show = (v: PropValue) => (v.t === "ref" ? v.v : JSON.stringify(v));
 
 /** A context over `graph` whose answers are whatever has been asked of them so far. */
 function freshContextOf(graph: WireNode[]): FieldContext {
-  const nodes = wireToOutlineMap(graph, new Set());
+  const nodes = wireToOutlineMap(graph);
   const schema = schemaOfGraph(nodes);
   const index = new DatascriptIndex(graph, { derived: derivedWith({}) });
   const queries = answersOver(index);

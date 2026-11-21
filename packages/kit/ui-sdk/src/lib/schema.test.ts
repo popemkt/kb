@@ -58,9 +58,7 @@ describe("isRowOpen", () => {
   });
 
   it("builds nothing: the schema's rows are the projection at default collapse", () => {
-    expect([...schema.entries()]).toEqual([
-      ...wireToOutlineMap(snapshot(), new Set(), snapshot()).entries(),
-    ]);
+    expect([...schema.entries()]).toEqual([...wireToOutlineMap(snapshot(), snapshot()).entries()]);
   });
 });
 
@@ -98,8 +96,8 @@ describe("schemaOf identity follows content", () => {
 describe("schemaOfGraph", () => {
   it("takes a projection of the whole graph, however its wire array was handed over", () => {
     const wireNodes = snapshot();
-    expect(schemaOfGraph(wireToOutlineMap(wireNodes, new Set())).get("n.a21")).toBeDefined();
-    const copy = wireToOutlineMap([...wireNodes], new Set(), wireNodes);
+    expect(schemaOfGraph(wireToOutlineMap(wireNodes)).get("n.a21")).toBeDefined();
+    const copy = wireToOutlineMap([...wireNodes], wireNodes);
     expect(schemaOfGraph(copy).get("n.a21")).toBeDefined();
   });
 
@@ -107,7 +105,6 @@ describe("schemaOfGraph", () => {
     const wireNodes = snapshot();
     const scoped = wireToOutlineMap(
       wireNodes.filter((n) => n.id !== "n.b"),
-      new Set(),
       wireNodes,
     );
     expect(() => schemaOfGraph(scoped)).toThrow(/scoped projection/);

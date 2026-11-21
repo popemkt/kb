@@ -757,7 +757,7 @@ describe("an option value is a chip", () => {
     },
   ];
   // The option set is the field's children, a declaration resolved by query.
-  const optionNodes = wireToOutlineMap(optionWire, new Set());
+  const optionNodes = wireToOutlineMap(optionWire);
   const optionIndex = new DatascriptIndex(optionWire, { derived: derivedWith({}) });
   const optionQueries = answersOver(optionIndex);
   const optionContext = fieldContextOf({

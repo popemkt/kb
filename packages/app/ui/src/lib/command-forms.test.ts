@@ -58,7 +58,7 @@ const host = testBrowserHost({
     );
   },
 });
-host.setNodes(wireToOutlineMap([...GRAPH], new Set()).values());
+host.setNodes(wireToOutlineMap([...GRAPH]).values());
 
 const opened: string[] = [];
 let closed = 0;
