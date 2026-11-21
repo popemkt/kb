@@ -1183,7 +1183,9 @@ closed row to show it (`outline-ui/src/outline-commands.tsx`).
 
 “Turn into query” opens the tag picker at “Find nodes tagged…”. Picking
 a tag writes a condition on the [shown node’s](#contextual-references)
-type field for that exact tag ID.
+type field for that exact tag ID, only if the node still has no query when
+the write commits: a query another tab saved while the picker was open is
+kept, and the pick writes nothing and leaves no undo step.
 Escape closes the picker without a write. In global search, Alt+Enter
 saves the typed text as a case-insensitive text condition and opens the
 query node. It is a child of the focused pane’s subject node, including
