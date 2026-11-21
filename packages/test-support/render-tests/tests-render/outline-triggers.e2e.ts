@@ -1,9 +1,10 @@
 // Deliberately .e2e.ts: Bun's recursive unit-test discovery must not load it.
 //
 // Triggers in the text (DESIGN-UI.md → Triggers in the text), end to end in
-// a browser: `#` tags the row it is typed in, `>` on an empty row adds a
-// field and puts the caret in its value, and `@` offers the date its query
-// names first, with days on, and references that day.
+// a browser: `#` tags the row it is typed in, `>` makes an empty line a
+// field of the node it is under and puts the caret in its value, and `@`
+// offers the date its query names first, with days on, and references that
+// day.
 import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 
@@ -22,6 +23,7 @@ const ref = (v: string) => ({ t: "ref", v });
 interface Held {
   readonly text: string;
   readonly props: Record<string, { v: unknown }[]>;
+  readonly children: readonly string[];
 }
 
 /** The node `id` as the store holds it. */
@@ -71,7 +73,7 @@ test("# offers the tags, and a pick takes it out of the text and tags the row", 
   await expect(picker(page)).toBeHidden();
 });
 
-test("> on an empty row adds the field picked, and the caret goes into its value", async ({
+test("> on an empty line makes it a field of the node it is under, the caret in its value", async ({
   page,
   request,
 }) => {
@@ -85,10 +87,21 @@ test("> on an empty row adds the field picked, and the caret goes into its value
   await page.keyboard.type(">effo");
   await expect(picker(page).getByRole("option").first()).toContainText("effort");
   await page.keyboard.press("Enter");
-  await expect.poll(async () => (await held(request, id)).text).toBe("");
-  const row = page.locator(`[data-node-block][data-node-id="${id}"]`).first();
-  await expect(row.locator("[data-value-slot]")).toHaveCount(1);
-  await expect(row.locator("[data-value-slot]:focus, [data-value-slot] :focus")).toHaveCount(1);
+  // The line is taken away and the page's node holds the field
+  // (DESIGN-UI.md → Triggers in the text).
+  await expect.poll(async () => (await held(request, ROOT)).props["tr.f.effort"]).toHaveLength(1);
+  expect((await held(request, ROOT)).children).not.toContain(id);
+  // Its value is drawn in the page head, where the caret lands.
+  const values = page.locator(
+    `[data-fields-for="${ROOT}"] [data-field-values="tr.f.effort"] [data-value-slot]`,
+  );
+  await expect(values).toHaveCount(1);
+  await expect(page.locator(`[data-node-id="${id}"]`)).toHaveCount(0);
+  await expect(
+    page.locator(
+      `[data-fields-for="${ROOT}"] [data-field-values="tr.f.effort"] :is([data-value-slot]:focus, [data-value-slot] :focus)`,
+    ),
+  ).toHaveCount(1);
 });
 
 test("@ with days on offers the date first, and a pick references its day", async ({
