@@ -12,8 +12,8 @@ import { rowName } from "@kb/ui-sdk";
 export interface TagFieldRef {
   id: string;
   name: string;
-  /** The field's description (`descriptionOf`), its hint where it is picked. */
-  hint?: string | null;
+  /** The field's description (`descriptionOf`), its hint where it is picked; absent when it has none. */
+  hint?: string;
 }
 
 export function resolveTagFields(
@@ -28,7 +28,8 @@ export function resolveTagFields(
   const all: TagFieldRef[] = [];
   for (const [id, node] of schema) {
     if (typeRefsOf(node).includes(SYSTEM_IDS.field)) {
-      all.push({ id, name: rowName(node, schema), hint: descriptionOf(node) });
+      const hint = descriptionOf(node);
+      all.push({ id, name: rowName(node, schema), ...(hint === null ? {} : { hint }) });
     }
   }
   all.sort((a, b) => a.name.localeCompare(b.name));
