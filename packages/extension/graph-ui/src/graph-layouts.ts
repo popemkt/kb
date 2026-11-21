@@ -82,39 +82,35 @@ export function radialLayout(
 }
 
 /**
- * Layer columns by BFS depth from lowest-in-degree roots (or first id).
- * Deterministic within a fixture.
+ * The layers of a hierarchy: each node at its shortest depth from the roots,
+ * walked breadth-first. The roots are the nodes no edge enters, or the first
+ * id when every node has one (a cycle); a node already layered is never
+ * walked again, so a cycle ends the walk, and a node no root reaches stands
+ * in the first layer. Edges off the node set are ignored. Layers are keyed by
+ * depth, each sorted by id.
+ *
+ * This is not the tree's spanning forest (`buildTreeForest`): a tree puts a
+ * node under the first parent it is walked from, depth-first, while a layer
+ * is the shortest distance, so a shortcut edge pulls its target forward.
  */
-// oxlint-disable-next-line complexity -- GAP [[01M1MGCR50QEXX7R4JDJ51HQFY]]
-export function hierarchicalLayout(
-  nodes: LensNode[],
-  edges: LensEdge[],
-  size: { width: number; height: number },
-  spacing: LayoutSpacing = NO_SPACING,
-): Map<string, LayoutPoint> {
-  const out = new Map<string, LayoutPoint>();
+export function depthLayers(
+  nodes: readonly LensNode[],
+  edges: readonly LensEdge[],
+): ReadonlyMap<number, readonly string[]> {
   const ids = nodes.map((n) => n.id).toSorted();
-  const idSet = new Set(ids);
-  const children = new Map<string, string[]>();
-  const indeg = new Map<string, number>();
-  for (const id of ids) {
-    children.set(id, []);
-    indeg.set(id, 0);
-  }
+  const children = new Map<string, string[]>(ids.map((id) => [id, []]));
+  const entered = new Set<string>();
   for (const e of edges) {
-    if (!idSet.has(e.source) || !idSet.has(e.target)) continue;
+    if (!children.has(e.source) || !children.has(e.target)) continue;
     children.get(e.source)?.push(e.target);
-    indeg.set(e.target, (indeg.get(e.target) ?? 0) + 1);
+    entered.add(e.target);
   }
   for (const [, kids] of children) kids.sort();
 
-  let roots = ids.filter((id) => (indeg.get(id) ?? 0) === 0);
-  const [firstId] = ids;
-  if (roots.length === 0 && firstId !== undefined) roots = [firstId];
-
-  const depth = new Map<string, number>();
+  const unentered = ids.filter((id) => !entered.has(id));
+  const roots = unentered.length > 0 ? unentered : ids.slice(0, 1);
+  const depth = new Map<string, number>(roots.map((r) => [r, 0]));
   const queue = [...roots];
-  for (const r of roots) depth.set(r, 0);
   for (let cur = queue.shift(); cur !== undefined; cur = queue.shift()) {
     const d = depth.get(cur) ?? 0;
     for (const kid of children.get(cur) ?? []) {
@@ -123,7 +119,6 @@ export function hierarchicalLayout(
       queue.push(kid);
     }
   }
-  for (const id of ids) if (!depth.has(id)) depth.set(id, 0);
 
   const layers = new Map<number, string[]>();
   for (const id of ids) {
@@ -132,11 +127,25 @@ export function hierarchicalLayout(
     list.push(id);
     layers.set(d, list);
   }
+  return layers;
+}
+
+/**
+ * Layer columns by depth (`depthLayers`): one column per layer, left to
+ * right, its nodes spread down it. Deterministic within a fixture.
+ */
+export function hierarchicalLayout(
+  nodes: LensNode[],
+  edges: LensEdge[],
+  size: { width: number; height: number },
+  spacing: LayoutSpacing = NO_SPACING,
+): Map<string, LayoutPoint> {
+  const out = new Map<string, LayoutPoint>();
+  const layers = depthLayers(nodes, edges);
   const maxDepth = Math.max(0, ...layers.keys());
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const colGap = Math.max(size.width / (maxDepth + 2), widest(nodes, spacing));
   for (const [d, layer] of layers) {
-    layer.sort();
     const rowGap = size.height / (layer.length + 1);
     const column = layer.flatMap((id) => byId.get(id) ?? []);
     const offsets = along(column, rowGap, spacing);

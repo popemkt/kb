@@ -905,14 +905,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Body tones in canvas-style.ts, both painters resolving them, and a look-contract assertion.
 - **node** — `01M540YKDP4WQPSJR41GH0Q90V`
 
-### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
-
-- **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
-- **current** — lib.dom marks caretRangeFromPoint @deprecated. A direct Document call is typescript/no-deprecated (ratchet rise). The one remaining assertion is document as unknown as CaretDocument so the probe stays off that type and the method is called bound.
-- **impact** — ui src keeps one typescript/no-unsafe-type-assertion that a check cannot replace until the DOM lib drops the deprecation or the ratchet promotes no-deprecated to error with a pinpoint disable.
-- **closes** — lib.dom removes @deprecated from caretRangeFromPoint, or caretPositionFromPoint is the only probe and Chrome implements it everywhere this app runs.
-- **node** — `01M1P2R0XMSK1MRVQ8P2JH5V0Z`
-
 ### GAP: charts have no categorical palette
 
 - **expected** — each design system carries a categorical chart palette, checked for colour-blind separation and contrast in light and dark
@@ -1135,14 +1127,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Re-introduce policies: contribute the guards again from governancePlugin, seed the defaults, and derive who calls from the wire inside the family, once the actor model is settled. Write the enforcement tests again with them: who is asked or refused per actor, force as the owner's, configuration and policy writes needing a person, and the surface contract's properties that an approval and a policy decide the same on every surface (git history before this gap's cleanup holds the old ones).
 - **node** — `01M5E2DAVRH5CWKM27BVDYW19T`
 
-### GAP: GraphPage carries 35 branches of renderer and perspective selection
-
-- **expected** — GraphPage picks a renderer and hands it a resolved lens; renderer capability differences live in graph-capabilities.ts, not in the page.
-- **current** — The page branches on renderer, perspective presence, query error, selection and capability flags in one component body.
-- **impact** — Adding a renderer means editing the page, which is exactly the coupling capabilitiesFor was introduced to remove.
-- **closes** — Move the remaining renderer-specific branches behind RendererCapabilities and render one <GraphCanvasFrame> for every renderer.
-- **node** — `01M1MGCFTMWY5EYHEWP9QVH8Z9`
-
 ### GAP: helpers two families need are copied between them
 
 - **expected** — a helper that two families need has one home in the layer they share
@@ -1150,14 +1134,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a fix to one copy silently misses the other
 - **closes** — E16 of the extension SDK plan
 - **node** — `01M43ASYY0EC1E4TYFXYXHZEME`
-
-### GAP: hierarchicalLayout mixes forest construction with placement in 21 branches
-
-- **expected** — Forest construction (from edges) and placement (from a forest) are separate pure functions, as they already are for the tree renderer.
-- **current** — hierarchicalLayout derives roots, walks children and assigns coordinates in one pass with cycle guards inline.
-- **impact** — The cycle guard - the subtle part - is not separately testable, and the same forest logic exists again in tree-graph.
-- **closes** — Reuse the forest builder tree-graph already has and leave this function as placement only.
-- **node** — `01M1MGCR50QEXX7R4JDJ51HQFY`
 
 ### GAP: icon-only buttons are hand-rolled outside IconButton
 
@@ -2001,14 +1977,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Rows derived from the fold's family list with an explicit not-hosted row for hosted families, and a test.
 - **node** — `01M53M9XA8FN8Q25QJVFF8MBE4`
 
-### GAP: the palette index pre-sizes its arrays with new Array(n)
-
-- **expected** — buildPaletteIndex and searchPalette allocate their result arrays the way unicorn/no-new-array wants (Array.from({ length: n }) or push), with no pinpoint disable.
-- **current** — Both keep new Array(n) plus index assignment, each carrying // oxlint-disable-next-line unicorn/no-new-array.
-- **impact** — Two pinpoint disables of a rule that is error everywhere else, on the one ui path with a measured latency bar.
-- **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
-- **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
-
 ### GAP: the phone app cannot record a voice memo
 
 - **expected** — The phone records audio and queues it as a file capture, delivered raw like any share; the host stores it as an asset and may transcribe it, optionally, on its side.
@@ -2674,6 +2642,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1XCB0ETCJH03FGJS6E75AFP`
 
+### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
+
+- **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
+- **current** — Closed: caretRangeAt probes each spelling with in and calls the vendor caretRangeFromPoint bound, under a pinpoint typescript/no-deprecated disable with its reason now that the rule is error; no type assertion is left.
+- **impact** — ui src keeps one typescript/no-unsafe-type-assertion that a check cannot replace until the DOM lib drops the deprecation or the ratchet promotes no-deprecated to error with a pinpoint disable.
+- **closes** — lib.dom removes @deprecated from caretRangeFromPoint, or caretPositionFromPoint is the only probe and Chrome implements it everywhere this app runs.
+- **node** — `01M1P2R0XMSK1MRVQ8P2JH5V0Z`
+
 ### GAP: check audit matched substrings instead of wired invocations
 
 - **expected** — A check names a command at the start of a simple shell command or an enabled lint rule by its complete key.
@@ -2886,6 +2862,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The point plus a kind row, and decoding against contributed ids.
 - **node** — `01M54PYCJ6FGCT8SGZDZPVQW7Y`
 
+### GAP: GraphPage carries 35 branches of renderer and perspective selection
+
+- **expected** — GraphPage picks a renderer and hands it a resolved lens; renderer capability differences live in graph-capabilities.ts, not in the page.
+- **current** — Closed: GraphPage is a composition of named hooks (sys switch, active perspective, lens extraction, picking, frame, settings) and two pieces (header, view); it renders one GraphCanvasFrame for every renderer, and no function in graph-page.tsx is over the complexity limit.
+- **impact** — Adding a renderer means editing the page, which is exactly the coupling capabilitiesFor was introduced to remove.
+- **closes** — Move the remaining renderer-specific branches behind RendererCapabilities and render one <GraphCanvasFrame> for every renderer.
+- **node** — `01M1MGCFTMWY5EYHEWP9QVH8Z9`
+
 ### GAP: GraphPage embeds the ontology surface's picker
 
 - **expected** — A surface composes its own chrome; a control shared by two surfaces is a primitive or is lifted into the shell that owns both.
@@ -2911,6 +2895,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — No token needs to enter the graph or the ledger.
 - **closes** — Dotenv rotation, file mode and refusal tests.
 - **node** — `01M6EKFSVWFZQTWABBHQJ86CJ8`
+
+### GAP: hierarchicalLayout mixes forest construction with placement in 21 branches
+
+- **expected** — Forest construction (from edges) and placement (from a forest) are separate pure functions, as they already are for the tree renderer.
+- **current** — Closed: depthLayers is the pure layer construction, its cycle guard tested on its own, and hierarchicalLayout only places columns. It does not reuse buildTreeForest: a layer is a node's shortest depth, a tree hangs it under the first parent a depth-first walk meets, so reuse would move nodes.
+- **impact** — The cycle guard - the subtle part - is not separately testable, and the same forest logic exists again in tree-graph.
+- **closes** — Reuse the forest builder tree-graph already has and leave this function as placement only.
+- **node** — `01M1MGCR50QEXX7R4JDJ51HQFY`
 
 ### GAP: import graph misses package-entry bypasses
 
@@ -3609,6 +3601,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Add the point, make the outline palette render contributed steps, and have graph-ui contribute the step.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M545DBMQA0RGRWZY21HT3XD9`
+
+### GAP: the palette index pre-sizes its arrays with new Array(n)
+
+- **expected** — buildPaletteIndex and searchPalette allocate their result arrays the way unicorn/no-new-array wants (Array.from({ length: n }) or push), with no pinpoint disable.
+- **current** — Closed: buildPaletteIndex and searchPalette build their arrays with map and carry no disable; the 50k-node test counts entry reads (365b84db), which the allocation shape does not change.
+- **impact** — Two pinpoint disables of a rule that is error everywhere else, on the one ui path with a measured latency bar.
+- **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
+- **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
 
 ### GAP: the preferences popover renders outline's PrefFieldRow
 

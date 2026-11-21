@@ -89,7 +89,7 @@
       "kit/ui-sdk/src/lib/stale-build.ts": 1
     },
     "blocking": {
-      "eslint/max-lines-per-function": 21,
+      "eslint/max-lines-per-function": 20,
       "react/exhaustive-effect-dependencies": 7,
       "react/globals": 1,
       "react/memo-dependencies": 2,
