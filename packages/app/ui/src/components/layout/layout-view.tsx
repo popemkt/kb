@@ -3,12 +3,12 @@
  * are fixed: the arrangement is the view node's. Opening the layout as the
  * workspace and saving it makes a new layout node beside it.
  * Each of its panes is a pane like any other (its own id, `<outer>:<inner>`,
- * for the outline hosts and the slot chain), drawn through a slot shown for
+ * `nestedLayout`, for the outline hosts, the slot chain and the screen), drawn through a slot shown for
  * its location, so a layout that contains itself stops at the first repeat.
  */
 import { lazy, Suspense, useState } from "react";
 import { ArrowsOutSimpleIcon } from "@phosphor-icons/react";
-import { layoutPanes, type LayoutPane, type LayoutParams, type LayoutTree } from "@kb/views";
+import { layoutPanes, nestedLayout, type LayoutPane, type LayoutParams } from "@kb/views";
 import { IconButton, usePane, type ViewProps } from "@kb/ui-sdk";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { PaneFrame } from "./pane-frame";
@@ -17,29 +17,12 @@ import { usePaneBodies } from "./use-pane-bodies";
 
 const LayoutGrid = lazy(() => import("./layout-grid"));
 
-/** A dashboard pane's id: unique on screen, and still without a `/`. */
-function nestedId(outer: string, inner: string): string {
-  return `${outer}:${inner}`;
-}
-
-function nested(tree: LayoutTree, outer: string): LayoutTree {
-  if ("tabs" in tree) {
-    const [head, ...tail] = tree.tabs;
-    const first = { ...head, id: nestedId(outer, head.id) };
-    const rest = tail.map((pane) => ({ ...pane, id: nestedId(outer, pane.id) }));
-    return tree.active === undefined
-      ? { tabs: [first, ...rest] }
-      : { tabs: [first, ...rest], active: nestedId(outer, tree.active) };
-  }
-  return { ...tree, children: tree.children.map((child) => nested(child, outer)) };
-}
-
 const drawPane = (pane: LayoutPane) => <PaneFrame path={pane.path} subject={pane.path} />;
 
 // GAP [[01M5CRYMXMMZC9S8GS00CE6DFB]] a saved layout's arrangement cannot be written back to its node
 export function LayoutViewSurface({ params }: ViewProps<LayoutParams>) {
   const outer = usePane();
-  const tree = nested(params.root, outer);
+  const tree = nestedLayout(params.root, outer);
   const panes = layoutPanes(tree);
   const [focused, setFocused] = useState<string | null>(null);
   const { elementOf, bodies } = usePaneBodies(panes, drawPane, setFocused);

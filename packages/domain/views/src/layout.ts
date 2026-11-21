@@ -92,6 +92,28 @@ const LayoutTreeSchema: Schema.Codec<LayoutTree> = Schema.Union([
   LayoutSplitSchema,
 ]).annotate({ identifier: "LayoutTree" });
 
+/**
+ * A dashboard's pane's id on screen: its id in the layout under the id of the
+ * pane that shows the dashboard (`<outer>:<inner>`), unique on screen and
+ * still without a `/`.
+ */
+export function nestedPaneId(outer: string, inner: string): string {
+  return `${outer}:${inner}`;
+}
+
+/** `tree` as a dashboard in pane `outer` draws it: each pane under its id there (`nestedPaneId`). */
+export function nestedLayout(tree: LayoutTree, outer: string): LayoutTree {
+  if ("tabs" in tree) {
+    const [head, ...tail] = tree.tabs;
+    const first = { ...head, id: nestedPaneId(outer, head.id) };
+    const rest = tail.map((pane) => ({ ...pane, id: nestedPaneId(outer, pane.id) }));
+    return tree.active === undefined
+      ? { tabs: [first, ...rest] }
+      : { tabs: [first, ...rest], active: nestedPaneId(outer, tree.active) };
+  }
+  return { ...tree, children: tree.children.map((child) => nestedLayout(child, outer)) };
+}
+
 /** Every pane in `tree`, in reading order (left to right, top to bottom, tab by tab). */
 export function layoutPanes(tree: LayoutTree): readonly LayoutPane[] {
   return "tabs" in tree ? tree.tabs : tree.children.flatMap(layoutPanes);

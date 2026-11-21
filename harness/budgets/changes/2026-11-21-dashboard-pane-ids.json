@@ -1,0 +1,8 @@
+{
+  "reason": "A dashboard's pane ids are the layout's own vocabulary: @kb/views exports nestedPaneId and nestedLayout, which the layout view draws a dashboard with and the screen state lists its panes by.",
+  "raise": {
+    "surface": {
+      "@kb/views": 2
+    }
+  }
+}
