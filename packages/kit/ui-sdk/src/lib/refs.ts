@@ -3,6 +3,7 @@ import {
   declaresOptionSet,
   isAcyclicField,
   nodeName,
+  refValuesOf,
   targetQueryOf,
   targetTagsOf,
 } from "@kb/model";
@@ -94,17 +95,17 @@ export function refCreationOf(context: FieldContext, fieldId: string): RefCreati
 }
 
 /**
- * How many nodes already hold each value of `fieldId` — what "most used"
- * means to a field's picker (`orderCandidates`).
+ * How many nodes hold each ref value of `fieldId`. A tag is a ref value of
+ * the kind field, so the same count serves the tag and field value pickers.
  */
 export function refUses(
-  nodes: ReadonlyMap<string, OutlineNode>,
+  nodes: ReadonlyMap<string, Pick<OutlineNode, "props">>,
   fieldId: string,
 ): Map<string, number> {
   const uses = new Map<string, number>();
   for (const node of nodes.values()) {
-    for (const value of node.props[fieldId] ?? []) {
-      if (value.t === "ref") uses.set(value.v, (uses.get(value.v) ?? 0) + 1);
+    for (const id of new Set(refValuesOf(node, fieldId))) {
+      uses.set(id, (uses.get(id) ?? 0) + 1);
     }
   }
   return uses;

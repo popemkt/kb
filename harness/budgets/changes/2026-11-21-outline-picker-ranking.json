@@ -1,0 +1,4 @@
+{
+  "reason": "The outline's tag and field triggers show icons, usage counts and session ranking on the keystroke that opens the picker. The shared matching, ranking and row rendering must be available then. The production page measures 2,032,823 eager bytes, up from 2,031,815.",
+  "raise": { "page-eager": { "bytes": 1008 } }
+}

@@ -46,7 +46,10 @@ function graph(suggesting = true): WireNode[] {
     wire({
       id: "n.a",
       text: "A mentions [[n.b]]",
-      props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.topic" }] },
+      props: {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.topic" }],
+        "f.status": [{ t: "ref", v: "o.done" }],
+      },
     }),
     wire({ id: "n.b", text: "B" }),
     wire({

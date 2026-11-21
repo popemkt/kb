@@ -23,9 +23,11 @@ import {
   browserHost,
   emptyValueForType,
   nodeCandidates,
+  orderCandidates,
   type NodeMap,
   type PaletteStep,
   type PickerCandidate,
+  refUses,
   resolveFieldTypeById,
 } from "@kb/ui-sdk";
 import { outlineNodes, useOutlineStore } from "./outline.store";
@@ -33,12 +35,15 @@ import { moveRows } from "./row-moves";
 import { expandReference, removeReference } from "./reference-steps";
 import {
   declaresOptionSet,
+  fieldTypeOf,
   isSysPrefixed,
   nodeName,
   selectionRoots,
   SYSTEM_IDS,
   typeRefsOf,
 } from "@kb/model";
+import { fieldGlyphOf } from "./value-views";
+import { notePick, recentPicks } from "./picker-recency";
 
 /**
  * Nodes whose kind slot points at `kind`, by name: the tags (`sys.tag`) the
@@ -46,12 +51,50 @@ import {
  * and the same candidates wherever else a tag or a field is picked.
  */
 export function nodesOfKind(wireNodes: readonly WireNode[], kind: string): PickerCandidate[] {
-  const byId = new Map(wireNodes.map((n) => [n.id, n]));
+  return kindCandidates(new Map(wireNodes.map((n) => [n.id, n])), kind);
+}
+
+function kindCandidates(byId: ReadonlyMap<string, WireNode>, kind: string): PickerCandidate[] {
   const nodeOf = (id: string) => byId.get(id);
-  return wireNodes
-    .filter((n) => (n.props[SYSTEM_IDS.typeField] ?? []).some((v) => v.t === "ref" && v.v === kind))
+  return [...byId.values()]
+    .filter((n) => typeRefsOf(n).includes(kind))
     .map((n) => ({ id: n.id, label: nodeName(n.id, nodeOf) || n.id }))
     .toSorted((a, b) => a.label.localeCompare(b.label));
+}
+
+function fieldUses(nodes: Iterable<WireNode>): Map<string, number> {
+  const uses = new Map<string, number>();
+  for (const node of nodes) {
+    for (const [id, values] of Object.entries(node.props)) {
+      if (values.length > 0) uses.set(id, (uses.get(id) ?? 0) + 1);
+    }
+  }
+  return uses;
+}
+
+function schemaCandidates(
+  wireNodes: readonly WireNode[],
+  scope: "tag" | "field",
+): PickerCandidate[] {
+  const byId = new Map(wireNodes.map((node) => [node.id, node]));
+  const nodeOf = (id: string) => byId.get(id);
+  const uses = scope === "tag" ? refUses(byId, SYSTEM_IDS.typeField) : fieldUses(wireNodes);
+  const candidates = kindCandidates(byId, SYSTEM_IDS[scope]).map((candidate) => {
+    const { id } = candidate;
+    const count = uses.get(id) ?? 0;
+    const Glyph =
+      scope === "tag" ? HashIcon : fieldGlyphOf(fieldTypeOf(nodeOf(id)?.props, nodeOf), id);
+    return {
+      ...candidate,
+      glyph: <Glyph size={12} className="text-foreground/50" aria-hidden />,
+      note: count === 1 ? "1 node" : `${count} nodes`,
+    };
+  });
+  return orderCandidates(candidates, {
+    recent: recentPicks(scope),
+    uses,
+    emptyQuery: "recent-or-used",
+  });
 }
 
 export const addTag: PaletteStep = {
@@ -59,13 +102,17 @@ export const addTag: PaletteStep = {
   placeholder: "Search or name a tag...",
   icon: <HashIcon size={12} weight="bold" />,
   createLabel: (name) => `Create tag "${name}"`,
-  candidates: (graph) => nodesOfKind(graph.wireNodes, SYSTEM_IDS.tag),
+  candidates: (graph) => schemaCandidates(graph.wireNodes, "tag"),
   commit: async ({ targetNodeIds, pickedId, creating, name }) => {
     const { writes } = browserHost();
-    await asOneWrite(targetNodeIds, async () => {
+    const id = await asOneWrite(targetNodeIds, async () => {
       const tagId = creating ? await writes.defineTag(name) : pickedId;
-      if (tagId !== null) await Promise.all(targetNodeIds.map((id) => writes.addTag(id, tagId)));
+      if (tagId !== null) {
+        await Promise.all(targetNodeIds.map((nodeId) => writes.addTag(nodeId, tagId)));
+      }
+      return tagId;
     });
+    if (id !== null) notePick("tag", id);
   },
 };
 
@@ -102,17 +149,19 @@ export const addField: PaletteStep = {
   placeholder: "Search or name a field...",
   icon: <TextTIcon size={12} weight="bold" />,
   createLabel: (name) => `Create field "${name}"`,
-  candidates: (graph) => nodesOfKind(graph.wireNodes, SYSTEM_IDS.field),
+  candidates: (graph) => schemaCandidates(graph.wireNodes, "field"),
   commit: async ({ targetNodeIds, schema, pickedId, creating, name }) => {
     const { writes } = browserHost();
-    await asOneWrite(targetNodeIds, async () => {
+    const id = await asOneWrite(targetNodeIds, async () => {
       const fieldId = creating ? await writes.defineField(name) : pickedId;
-      if (fieldId === null) return;
+      if (fieldId === null) return null;
       // An empty typed value is what makes the row appear and focusable; the
       // field's own declared type decides which editor that row gets.
       const empty = emptyValueForType(resolveFieldTypeById(fieldId, schema));
-      await Promise.all(targetNodeIds.map((id) => writes.updateProp(id, fieldId, empty)));
+      await Promise.all(targetNodeIds.map((nodeId) => writes.updateProp(nodeId, fieldId, empty)));
+      return fieldId;
     });
+    if (id !== null) notePick("field", id);
   },
 };
 
@@ -123,7 +172,7 @@ export const addField: PaletteStep = {
  */
 function fieldOptions(wireNodes: readonly WireNode[]): PickerCandidate[] {
   const byId = new Map(wireNodes.map((n) => [n.id, n]));
-  return nodesOfKind(wireNodes, SYSTEM_IDS.field).flatMap((field) => {
+  return kindCandidates(byId, SYSTEM_IDS.field).flatMap((field) => {
     const node = byId.get(field.id);
     if (!declaresOptionSet(node)) return [];
     return (node?.children ?? []).flatMap((optionId) => {

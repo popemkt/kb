@@ -36,7 +36,7 @@ import {
   type TextTrigger,
   type TriggerPick,
 } from "../lib/text-triggers";
-import { rowTextReadOnlyReason } from "../lib/contextual-ref";
+import { rowTextReadOnlyReason, shownNodeId } from "../lib/contextual-ref";
 import { refLookOf } from "../lib/ref-look";
 import type { SchemaIndex } from "../lib/schema";
 import type { NodeMap, TagBadge } from "../lib/types";
@@ -183,13 +183,23 @@ const NONE: readonly TextTrigger[] = [];
  * its query changes or typing resumes (D14), and a trigger with nothing to
  * offer is closed, unless it answers Enter then.
  */
-function useOpenTrigger(
-  own: readonly TextTrigger[],
-  editing: boolean,
-  content: string,
-  cursor: number,
-  nodes: NodeMap,
-) {
+function useOpenTrigger({
+  own,
+  editing,
+  content,
+  cursor,
+  nodes,
+  nodeId,
+  textNodeId,
+}: {
+  own: readonly TextTrigger[];
+  editing: boolean;
+  content: string;
+  cursor: number;
+  nodes: NodeMap;
+  nodeId: string;
+  textNodeId: string;
+}) {
   const triggers = useMemo(() => [refTrigger, ...own], [own]);
   /** The query Escape dismissed the picker at, or null. */
   const [dismissed, setDismissed] = useState<string | null>(null);
@@ -199,8 +209,8 @@ function useOpenTrigger(
   }, [editing, triggers, content, cursor, dismissed]);
   // Rows exist only while a trigger is typed: a closed row asks for none.
   const rows = useMemo(
-    () => (typed === null ? [] : typed.trigger.rows(typed.open.query, nodes)),
-    [typed, nodes],
+    () => (typed === null ? [] : typed.trigger.rows(typed.open.query, nodes, nodeId, textNodeId)),
+    [typed, nodes, nodeId, textNodeId],
   );
   const triggered = typed !== null && (rows.length > 0 || typed.trigger.none !== undefined);
   return { open: triggered ? typed : null, rows, setDismissed };
@@ -257,7 +267,8 @@ export function NodeTextHost({
     latest.current = content;
   }, [content]);
   const [cursor, setCursor] = useState(0);
-  const readOnlyReason = rowTextReadOnlyReason(nodeId, nodes.get(nodeId), schema, isVirtual);
+  const node = nodes.get(nodeId);
+  const readOnlyReason = rowTextReadOnlyReason(nodeId, node, schema, isVirtual);
   /** How the text's references are inked, from the graph they point into. */
   const refs = refLookOf(schema);
   const readOnly = readOnlyReason !== null;
@@ -271,7 +282,15 @@ export function NodeTextHost({
     [content, onChange],
   );
 
-  const { open, rows, setDismissed } = useOpenTrigger(own, editing, content, cursor, nodes);
+  const { open, rows, setDismissed } = useOpenTrigger({
+    own,
+    editing,
+    content,
+    cursor,
+    nodes,
+    nodeId,
+    textNodeId: node === undefined ? nodeId : shownNodeId(node),
+  });
 
   useLayoutEffect(() => {
     if (!isActive || instanceKey === undefined) return undefined;

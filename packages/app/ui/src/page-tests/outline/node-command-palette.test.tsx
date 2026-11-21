@@ -94,7 +94,11 @@ function graph(): WireNode[] {
     }),
     ctxRefWire("n.ref", "n.plain"),
     // Where Move to… puts rows.
-    wire({ id: "n.inbox", text: "Inbox" }),
+    wire({
+      id: "n.inbox",
+      text: "Inbox",
+      props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.super" }] },
+    }),
   ];
 }
 
@@ -229,6 +233,13 @@ describe("node command palette", () => {
     await act(async () => present(row, label).click());
   }
 
+  async function pickTag(id: string) {
+    const row = dom.document.querySelector<InstanceType<typeof dom.HTMLElement>>(
+      `[data-palette-list="true"] [data-picker-id="${id}"]`,
+    );
+    await act(async () => present(row, id).click());
+  }
+
   it("over a range, offers only the commands that act on each row", async () => {
     await openOver(["n.plain", "n.query"]);
     expect(labels()).toEqual([
@@ -265,7 +276,7 @@ describe("node command palette", () => {
   it("tags every row of a range with the tag picked, as one undo step", async () => {
     await openOver(["n.plain", "n.query"]);
     await pick("Add tag");
-    await pick("project");
+    await pickTag("t.super");
     await vi.waitFor(() => expect(typesOf("n.query")).toContain("t.super"));
     expect(typesOf("n.plain")).toContain("t.super");
     expect(useGraphStore.getState().undoStack).toHaveLength(1);
@@ -274,7 +285,7 @@ describe("node command palette", () => {
   it("removes a tag from the rows of a range that carry it", async () => {
     await openOver(["n.plain", "n.query"]);
     await pick("Add tag");
-    await pick("project");
+    await pickTag("t.super");
     await vi.waitFor(() => expect(typesOf("n.query")).toContain("t.super"));
     await openOver(["n.plain", "n.query"]);
     expect(labels()).toContain("Remove tag…");

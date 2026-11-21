@@ -14,6 +14,7 @@ import { parseDateInput, present, SYSTEM_IDS } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import { DateTargetService, outlineInstanceKey, syncUiPlugins } from "@kb/ui-sdk";
 import { mutations } from "@/actions/mutations";
+import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { useGraphStore } from "@/stores/graph.store";
 import { rankedFixture } from "@/test-support/ranked-fixture";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -61,7 +62,21 @@ describe("triggers in the text", () => {
 
   beforeEach(() => {
     resetOutlineStore();
-    useGraphStore.getState().hydrateFromWire(rankedFixture(), 1, "fixtures");
+    const nodes = rankedFixture();
+    for (const [id, text] of [
+      ["ex.tag.task", "task"],
+      ["sys.tag.calendar", "calendar"],
+    ] as const) {
+      nodes.push({
+        id,
+        text,
+        props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
+        children: [],
+        createdAt: "2026-11-20T00:00:00.000Z",
+        updatedAt: "2026-11-20T00:00:00.000Z",
+      });
+    }
+    useGraphStore.getState().hydrateFromWire(nodes, 1, "fixtures");
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
     dom.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
@@ -72,9 +87,9 @@ describe("triggers in the text", () => {
     container.remove();
   });
 
-  /** Edit row `row` with `text` in it, the caret at its end. */
-  async function typed(text: string, row = ROW): Promise<HTMLElement> {
-    await act(async () => mutations.updateNodeContent(row, text));
+  /** Edit the text shown by `row`, the caret at its end. */
+  async function typed(text: string, row = ROW, textNodeId = row): Promise<HTMLElement> {
+    await act(async () => mutations.updateNodeContent(textNodeId, text));
     const key = outlineInstanceKey(row, outlineNodes());
     act(() => useOutlineStore.getState().activateNode(row, text.length, key));
     await act(async () => {
@@ -87,10 +102,8 @@ describe("triggers in the text", () => {
   }
 
   /** The labels the open picker lists. */
-  const listed = () =>
-    [...container.querySelectorAll('[role="listbox"] [role="option"]')].map((o) =>
-      o.textContent.trim(),
-    );
+  const options = () => [...container.querySelectorAll('[role="listbox"] [role="option"]')];
+  const listed = () => options().map((o) => o.textContent.trim());
 
   async function press(el: HTMLElement, key: string): Promise<boolean> {
     let prevented = false;
@@ -105,12 +118,30 @@ describe("triggers in the text", () => {
   describe("#", () => {
     it("offers the tags, and a pick takes the trigger out of the text and tags the row", async () => {
       const el = await typed("Read-only #to");
-      expect(listed()).toContain("todo");
+      expect(listed()).toContain("todo2 nodes");
       expect(await press(el, "Enter")).toBe(true);
       await vi.waitFor(() =>
         expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "tag.todo" }),
       );
       expect(textOf(ROW)).toBe("Read-only ");
+    });
+
+    it("hides unused tags until searched and puts a recent pick before a more used tag", async () => {
+      await typed("#");
+      expect(
+        options().some((option) => option.getAttribute("data-picker-id") === "sys.tag.calendar"),
+      ).toBe(false);
+      expect(listed()).toContain("todo2 nodes");
+      const el = await typed("#ta");
+      expect(listed()[0]).toBe("task0 nodes");
+      expect(options()[0]?.querySelector("svg")).not.toBeNull();
+      expect(listed().some((label) => label.includes("calendar"))).toBe(false);
+      await press(el, "Enter");
+      await vi.waitFor(() =>
+        expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "ex.tag.task" }),
+      );
+      await typed("#");
+      expect(listed()[0]).toBe("task1 node");
     });
 
     it("makes a tag by the name typed", async () => {
@@ -140,7 +171,8 @@ describe("triggers in the text", () => {
   describe(">", () => {
     it("on a row that is only it, offers the fields, and a pick empties the row and adds one", async () => {
       const el = await typed(">stat");
-      expect(listed()).toContain("status");
+      expect(listed()).toContain("status2 nodes");
+      expect(options()[0]?.querySelector("svg")).not.toBeNull();
       await press(el, "Enter");
       await vi.waitFor(() => expect(propOf(ROW, "field.status")).toHaveLength(1));
       expect(textOf(ROW)).toBe("");
@@ -221,6 +253,28 @@ describe("triggers in the text", () => {
   });
 
   describe("[[", () => {
+    it("excludes the edited row from matching candidates", async () => {
+      await typed("Search jumps [[Search jumps");
+      expect(options().map((option) => option.getAttribute("data-picker-id"))).toEqual([
+        "n.root-b",
+      ]);
+    });
+
+    it("excludes the reference row and its target when editing through it", async () => {
+      const graph = useGraphStore.getState();
+      graph.hydrateFromWire(
+        [...graph.wireNodes, ...REF_SEED_WIRES, ctxRefWire("n.ctx", ROW)],
+        1,
+        "fixtures",
+      );
+      await typed("Search jumps [[Search jumps", "n.ctx", ROW);
+      expect(options().map((option) => option.getAttribute("data-picker-id"))).toEqual([
+        "n.root-b",
+      ]);
+      await typed("Search jumps [[n.ctx", "n.ctx", ROW);
+      expect(options()).toHaveLength(0);
+    });
+
     it("offers the nodes matching what follows, and a pick inserts a reference to one", async () => {
       const el = await typed("See [[Search jumps");
       expect(listed()[0]).toContain("Search jumps to matching nodes");
