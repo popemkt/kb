@@ -143,6 +143,37 @@ describe("browser action runtime", () => {
     });
   });
 
+  it("pushes the ids a batch's local commit minted for adds that named none", async () => {
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    const since = vi.fn();
+    setBrowserLink({ since, fetchSnapshot: vi.fn(), retryAfter: vi.fn() });
+    const post = vi.fn(async (invocation: ActionRequest) => ({
+      status: "succeeded" as const,
+      id: invocation.id,
+      output: { ids: (invocation.input as { ids: string[] }).ids },
+      rev: 2,
+    }));
+    setPostAction(post);
+
+    const input = {
+      calls: [
+        { action: "node.update", input: { id: "n.root-a", text: "Renamed" } },
+        { action: "node.add", input: { text: "Batched row", parent: "n.root-a" } },
+      ],
+    };
+    const { receipt, settled } = await invokeSettled({ id: "node.batch", input });
+    if (receipt.status !== "succeeded") throw new Error(receipt.message);
+    const { ids } = receipt.output as { ids: string[] };
+    expect(index()?.getNode(ids[1] ?? "")?.text).toBe("Batched row");
+    expect(await settled).toMatchObject({ status: "succeeded", output: { ids } });
+    expect(since).not.toHaveBeenCalled();
+    expect(post).toHaveBeenCalledExactlyOnceWith({
+      id: "node.batch",
+      input: { ...input, ids },
+      session: tabSession(),
+    });
+  });
+
   it("drops optimistic outline ids and catches up when the server minted different ones", async () => {
     useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
     const response = Promise.withResolvers<ActionResponse>();

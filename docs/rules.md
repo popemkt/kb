@@ -1419,14 +1419,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Give the two decoders' reports a home in the ui the way ontology warnings have one — a store field plus a badge — and have the config surfaces read it instead of the log seam. Component + store work: out of g8's zone (docs/kb/waves/2026-09-09/briefs/g8-domain-typing.md).
 - **node** — `01M1XF1NA2RBAX1E6NNX6PMZ6N`
 
-### GAP: node.batch mints missing add ids twice when run optimistically
-
-- **expected** — A node.batch add creates the same node on the page and on the server, including when the caller omits id.
-- **current** — The isomorphic node.batch planner mints an id for each node.add with no id. The page pushes the original nested calls, so the server mints other ids.
-- **impact** — A caller holding an id from the local batch receipt can lose its selection or refer to a node the server never stored.
-- **closes** — Project the ids in the local batch receipt into the corresponding node.add inputs before pushing, using the same action declaration as outline paste. Prove mixed batches keep their call order and explicit ids.
-- **node** — `01M7X43QWW4ZHWA2WFWJ6WP5ZY`
-
 ### GAP: nodes have no icon, so refs cannot show one
 
 - **expected** — A node can carry an icon or emoji (as a field, a node like any other) and a ref shows it before its label, as Tana does.
@@ -3107,6 +3099,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Anything a page reads from a pasted tree before the push settles names nodes that will not exist: a selection made at once is lost, and a write that refers to a returned id (a setting naming the new Library) is refused or dangles. The gallery runs its starter on the server (ext.gallery.starter) to avoid it
 - **closes** — node.addTree takes the ids to mint (one per flattened item), filled from the local commit and pushed with the invocation, as node.add's id is
 - **node** — `01M5ZBC8DQWB1DY5Z9AAABGPYR`
+
+### GAP: node.batch mints missing add ids twice when run optimistically
+
+- **expected** — A node.batch add creates the same node on the page and on the server, including when the caller omits id.
+- **current** — The isomorphic node.batch planner mints an id for each node.add with no id. The page pushes the original nested calls, so the server mints other ids.
+- **impact** — A caller holding an id from the local batch receipt can lose its selection or refer to a node the server never stored.
+- **closes** — Project the ids in the local batch receipt into the corresponding node.add inputs before pushing, using the same action declaration as outline paste. Prove mixed batches keep their call order and explicit ids.
+- **node** — `01M7X43QWW4ZHWA2WFWJ6WP5ZY`
 
 ### GAP: NodeBlock decides row chrome with 28 branches
 

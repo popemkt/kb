@@ -71,11 +71,18 @@ export const nodeBatchDef = {
     "what the calls before it wrote, so a later call sees an earlier one. A node.add names " +
     "its parent (null for the top level). All or nothing; returns each call's node id in order.",
   mode: { kind: "write" } as const,
+  mints: "ids",
   // Every call is a batch of these: a guard on any of them governs it too,
   // by that part's own mode.
   batchOf: [nodeAddDef.id, nodeUpdateDef.id, nodeDeleteDef.id, fieldDefineDef.id],
   inputSchema: z.object({
     calls: z.array(BatchCallSchema).min(1),
+    ids: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "one id per call in call order: the id a node.add with none of its own is created with, minted if omitted",
+      ),
     /** Bypass sys.* write-guard (browse yes / break no), for the whole commit. */
     force: z.boolean().optional(),
   }),
@@ -114,12 +121,12 @@ const planCall = Effect.fn("node.batch.call")(function* (
   nodes: KbNode[],
   call: BatchCall,
   at: string,
+  given: NodeId | undefined,
 ): Effect.fn.Return<{ id: NodeId; write: PlannedNodeWrite }, DomainError> {
   if (call.action === "node.add" || call.action === "field.define") {
     const input =
       call.action === "field.define" ? yield* fieldDefinitionInput(nodes, call.input) : call.input;
-    // GAP [[01M7X43QWW4ZHWA2WFWJ6WP5ZY]] an optimistic batch re-mints missing ids on the server.
-    const id = input.id ?? (yield* freshId);
+    const id = input.id ?? given ?? (yield* freshId);
     const graph = IndexedNodes.of(nodes);
     const { written } = yield* syncDomain(() =>
       planNodeAdd(graph, { ...input, parent: input.parent ?? undefined }, id, at),
@@ -146,11 +153,19 @@ const planNodeBatch = Effect.fn("node.batch.plan")(function* (
   nodes: readonly KbNode[],
 ): Effect.fn.Return<{ ids: NodeId[]; upserts: KbNode[]; deletes: NodeId[] }, DomainError> {
   const at = yield* currentIso;
+  if (input.ids !== undefined && input.ids.length !== input.calls.length) {
+    return yield* domainError(
+      "invalid_input",
+      `expected ${input.calls.length} batch ids, got ${input.ids.length}`,
+    );
+  }
   let working: KbNode[] = [...nodes];
   const ids: NodeId[] = [];
   const touched = new Set<NodeId>();
   for (const [index, call] of input.calls.entries()) {
-    const { id, write } = yield* planCall(working, call, at).pipe(Effect.mapError(atCall(index)));
+    const { id, write } = yield* planCall(working, call, at, input.ids?.[index]).pipe(
+      Effect.mapError(atCall(index)),
+    );
     ids.push(id);
     for (const node of write.upserts) touched.add(node.id);
     for (const gone of write.deletes) touched.add(gone);
