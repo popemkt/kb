@@ -11,7 +11,7 @@ import { createRoot } from "react-dom/client";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TagFieldsConfigView } from "./tag-fields-config";
-import { resolveTagFields, type TagFieldRef } from "./tag-fields";
+import { movedTemplate, resolveTagFields, type TagFieldRef } from "./tag-fields";
 
 /** The real outline shape, narrowed — not a lookalike that can drift from it. */
 type TestNode = Pick<OutlineNode, "text" | "props">;
@@ -79,6 +79,7 @@ const view = (over: Partial<Parameters<typeof TagFieldsConfigView>[0]> = {}) =>
       shipped: new Set<string>(),
       onAdd: () => undefined,
       onRemove: () => undefined,
+      onMove: () => undefined,
       onFollow: () => undefined,
       ...over,
     }),
@@ -118,7 +119,83 @@ describe("resolveTagFields", () => {
   });
 });
 
+describe("movedTemplate", () => {
+  const ids = ["a", "b", "c", "d"];
+  it("moves a field to an index of the order it leaves", () => {
+    expect(movedTemplate(ids, "a", 2)).toEqual(["b", "c", "a", "d"]);
+    expect(movedTemplate(ids, "d", 0)).toEqual(["d", "a", "b", "c"]);
+    expect(movedTemplate(ids, "b", 3)).toEqual(["a", "c", "d", "b"]);
+  });
+
+  it("clamps the index, and leaves a field it does not hold where nothing moves", () => {
+    expect(movedTemplate(ids, "c", 99)).toEqual(["a", "b", "d", "c"]);
+    expect(movedTemplate(ids, "c", -1)).toEqual(["c", "a", "b", "d"]);
+    expect(movedTemplate(ids, "x", 0)).toEqual(ids);
+  });
+});
+
 describe("TagFieldsConfigView", () => {
+  it("moves a person's field up and down, and offers no step past either end", () => {
+    const html = view({
+      template: [
+        { id: "f_owner", name: "owner" },
+        { id: "f_due", name: "due" },
+      ],
+    });
+    expect(html).toContain('aria-label="Move owner down"');
+    expect(html).toContain('aria-label="Move due up"');
+    expect(html).not.toContain('aria-label="Move owner up"');
+    expect(html).not.toContain('aria-label="Move due down"');
+    expect(html.match(/draggable="true"/g)).toHaveLength(2);
+  });
+
+  it("keeps a shipped field where its owner put it: no move and no drag", () => {
+    const html = view({
+      template: [
+        { id: "sys.f.shipped", name: "when" },
+        { id: "f_mine", name: "location" },
+      ],
+      shipped: new Set(["sys.f.shipped"]),
+    });
+    expect(html).not.toContain('aria-label="Move when down"');
+    expect(html).toContain('aria-label="Move location up"');
+    expect(html.match(/draggable="true"/g)).toHaveLength(1);
+  });
+
+  it("writes the order a move button asks for", async () => {
+    const dom = installDomGlobals();
+    (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+    const host = dom.window.document.createElement("div") as unknown as HTMLDivElement;
+    dom.window.document.body.appendChild(host as unknown as never);
+    const root = createRoot(host);
+    const onMove = vi.fn();
+    try {
+      await act(async () => {
+        root.render(
+          createElement(TagFieldsConfigView, {
+            template: [
+              { id: "f_owner", name: "owner" },
+              { id: "f_due", name: "due" },
+            ],
+            suggestions: [],
+            shipped: new Set<string>(),
+            onAdd: () => undefined,
+            onRemove: () => undefined,
+            onMove,
+            onFollow: () => undefined,
+          }),
+        );
+      });
+      const down = host.querySelector('[aria-label="Move owner down"]') as HTMLElement | null;
+      await act(async () => down?.click());
+      expect(onMove).toHaveBeenCalledWith("f_owner", 1);
+    } finally {
+      act(() => root.unmount());
+      delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
+      dom.restore();
+    }
+  });
+
   it("offers the add-field input that was missing entirely", () => {
     expect(view()).toContain('aria-label="Add a field to this tag"');
   });
@@ -145,6 +222,7 @@ describe("TagFieldsConfigView", () => {
             shipped: new Set<string>(),
             onAdd: () => undefined,
             onRemove: () => undefined,
+            onMove: () => undefined,
             onFollow: () => undefined,
           }),
         );

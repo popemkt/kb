@@ -7,6 +7,7 @@ import {
   lookupChord,
   matchesChord,
   parseChord,
+  representativeKey,
   type Chord,
   type KeyChordEvent,
 } from "../src/chord.ts";
@@ -134,5 +135,38 @@ describe("chordIncludes", () => {
     expect(chordIncludes(at("NumpadEnter"), at("NumpadEnter", { mod: false }))).toBe(true);
     expect(chordIncludes(at("NumpadEnter"), { key: "Enter" })).toBe(false);
     expect(chordIncludes(at("NumpadEnter"), at("Enter"))).toBe(false);
+  });
+});
+
+describe("representativeKey", () => {
+  it("is the key a press of the chord carries, which the chord itself matches", () => {
+    const cases: readonly [Chord, string][] = [
+      [{ key: ["k", "K"], mod: true }, "k"],
+      [{ physicalKey: "Space" }, " "],
+      [{ physicalKey: "Numpad7" }, "7"],
+      [{ physicalKey: "Escape" }, "Escape"],
+      [{ physicalKey: "KeyH" }, "h"],
+      [{ physicalKey: "Digit3" }, "3"],
+      [{ physicalKey: "BracketLeft" }, "["],
+      [{ physicalKey: "MediaPlayPause" }, ""],
+      [{ mod: true }, ""],
+    ];
+    for (const [chord, key] of cases) {
+      expect(representativeKey(chord)).toBe(key);
+      if (key !== "")
+        expect(
+          matchesChord(
+            { key, ...(chord.physicalKey === undefined ? {} : { physicalKey: chord.physicalKey }) },
+            { ...chord, mod: undefined },
+          ),
+        ).toBe(true);
+    }
+  });
+
+  it("meets a chord that names both the place and its character", () => {
+    const byPlace: Chord = { physicalKey: "Space" };
+    const both: Chord = { physicalKey: "Space", key: " " };
+    const press: KeyChordEvent = { key: representativeKey(byPlace), physicalKey: "Space" };
+    expect(matchesChord(press, both)).toBe(true);
   });
 });

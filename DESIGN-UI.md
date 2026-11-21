@@ -692,7 +692,12 @@ point's `combine`:
   only when the holder covers the replacement’s whole chord. Another owner still
   needs replacement approval for any shared press. Layout-independent
   keys, including numpad digits with NumLock on or off, narrow that overlap;
-  layout-dependent positions are checked conservatively. Reserved page-owner
+  layout-dependent positions are checked conservatively. A shortcut's hint
+  names a chord only while a press of it still reaches its binding, and that
+  press is read from the same key domain (`representativeKey`: a place's own
+  key, Space's `" "`, a US layout's character where the layout decides), so
+  a replacement that names both the place and its character takes the hint
+  with it. Reserved page-owner
   bindings remain ahead of conflicting surface-owner claims;
 - a binding over a held chord is refused unless it names the holder in
   `replaces` (the record's §9 default 7: an occupied chord is never taken
@@ -1188,7 +1193,11 @@ of its last before its first lands (a view node is minted before a frame
 names it; an upload is made before the text that names it), so a refusal
 leaves nothing behind. A tag's Fields list offers "Add field" on every tag;
 a field its owner ships (`isShipped`) is marked "shipped" and offers no
-remove. Only a row whose text is changed elsewhere is read-only at the door:
+remove and no move. A person's field moves: a step up or down from its
+row's controls, or dragged onto another row, landing at that row's place
+(one `replaceField` of `sys.f.fields`, which the commit accepts because the
+shipped fields keep their order). The template's order is the order its
+members' field rows show in. Only a row whose text is changed elsewhere is read-only at the door:
 `store.activateNode` degrades it to selection so no caret enters it, and the
 row shows a hover padlock with the reason.
 
@@ -1291,6 +1300,13 @@ An inline mark never moves it:
   their words on one column. Why: a value's lead glyph is part of the value,
   not a column of its own, and giving every value an empty glyph slot would
   move plain values a step to the right.
+- **Where a field row is drawn sets its label column.** The surface states
+  the column's width (`--kb-field-label`) and whether a name too long for it
+  wraps (`--kb-field-name-space`, cut short with an ellipsis unless the
+  surface says `normal`), and the field row reads both. An outline row keeps
+  the 120px column and cuts. A Settings row (`kb-setting`) takes Settings'
+  wider column (`--kb-setting-label`) and draws a setting's whole name,
+  wrapped where it must, because a family's settings read as sentences.
 
 A block, such as a table, a board or a still preview's box, starts where a
 child row's box does, on the child's glyph column. Its rows, if it draws

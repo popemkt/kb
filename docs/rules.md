@@ -532,15 +532,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Tools as nodes, and a how-to as a child node (or a field value) that refers to its tool; the starter writes it so and the art direction groups by it
 - **node** — `01M68CQN0E7CMMEATHT0RDYV10`
 
-### GAP: a tag's template fields cannot be reordered
-
-- **expected** — The fields a tag templates are an ordered list a person reorders where they add and remove them.
-- **current** — tag-fields-config.tsx adds and removes a template field; the order is the order they were added.
-- **impact** — Field rows on every tagged node show in an order nobody chose; fixing it needs node.update on the tag from the CLI.
-- **closes** — Reorder in tag-fields-config (drag or move up/down), writing the template's order.
-- **rule** — Editor first (the editor is the main human editing surface)
-- **node** — `01M5CRYP40YAHA2ZQFB850ARVZ`
-
 ### GAP: a tag's view pickers offer view types that cannot play their part
 
 - **expected** — the picker on a tag's view.default offers only the view types a node can be shown in (showsANode), the outline among them; the one on its view.row only the views a page draws at placement row
@@ -1315,15 +1306,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Phase 2 of the note: child #rule clauses for the core-philosophy subset, evidence-stale from a bound digest, and resolved file#test citation, all in @kb/ext-check.
 - **node** — `01M7EY3MTKXJQQT4XGJYF3J88A`
 
-### GAP: physical shortcut hints must use the shared chord key domain
-
-- **expected** — Shortcut hints agree with actual election for chords that constrain both physical code and character key, deriving representative keys from the shared chord model.
-- **current** — PR #181 at 0e4fcc8c is approved but its canvas pressOf uses an empty key for code-only chords. A replacement of canvas.rest.pan using code Space and key space runs correctly while the old pan hint still advertises Space.
-- **impact** — A stale shortcut hint can advertise a key that runs another binding. Dispatch, reservations and approval remain correct; Sol classifies this as non-blocking P3.
-- **closes** — After #181 lands, derive physical representative key values from the shared chord model and retain the review181-r3-hint-probe regression as coverage.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M75H9VJT3C118T7DHK87PSFD`
-
 ### GAP: picking and stacking treat rounded corners as square
 
 - **expected** — hitTest and surface snap follow the rounded rect corners that are drawn
@@ -1477,14 +1459,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Bulk-setting a date, a number or a reference across a selection takes one gesture per row
 - **closes** — A Set field step that, after the field is picked, opens the field's own value editor once (the field row's editor, through the picker step) and writes its value to every target in one asOneWrite
 - **node** — `01M7CY0205F8GSDTNMSSG35S97`
-
-### GAP: Settings cuts a setting's name short
-
-- **expected** — A setting in Settings shows its whole name, wrapping if it must, so a family's settings read as the sentences they are (show child counts, suggest relations).
-- **current** — Settings draws each setting with the generic field row (settings-fold.tsx), whose name column is sized for an outline row's field names and cuts a longer one with an ellipsis: show child cou…, suggest relati….
-- **impact** — A setting cannot be read without hovering or opening it, and a family has to choose short names to fit a column meant for another place.
-- **closes** — The field row takes its name column's width from where it is drawn: the full name in Settings, wrapped if it must; the outline row keeps its column.
-- **node** — `01M7F9300H9FDW5BGCBVQQFTXW`
 
 ### GAP: Settings does not preview a family switch
 
@@ -2306,6 +2280,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Digest-name the frame script (Vite entry with a hash, the page reading its name from the build) or add the sandbox protocol's schemas to the wire fingerprint.
 - **node** — `01M6GY0MXXXY2YQ8C3P77M2QNF`
 
+### GAP: a tag's template fields cannot be reordered
+
+- **expected** — The fields a tag templates are an ordered list a person reorders where they add and remove them.
+- **current** — Fixed: tag-fields-config moves a person's template field a step up or down from its row's controls, or by dragging it onto another row (movedTemplate in tag-fields.ts), writing the new sys.f.fields order with replaceField; a shipped field shows no move, as it shows no remove, so the order the owner ships stays.
+- **impact** — Field rows on every tagged node show in an order nobody chose; fixing it needs node.update on the tag from the CLI.
+- **closes** — Reorder in tag-fields-config (drag or move up/down), writing the template's order.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYP40YAHA2ZQFB850ARVZ`
+
 ### GAP: a theme's motion personality is CSS tokens, not options kb can read or set
 
 - **expected** — motion (mode, intensity, style, speed, each effect on or off) is a set of core options, each defaulting to the shown theme's value, settable through kb's actions, with Preferences showing each effective value and where it comes from
@@ -3060,6 +3043,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An androidTest suite run on an emulator from nix (androidenv system image, KVM), wired into the same gate as the unit tests.
 - **node** — `01M7QTAJ9GSK02FMWNR4XQGFMT`
 
+### GAP: physical shortcut hints must use the shared chord key domain
+
+- **expected** — Shortcut hints agree with actual election for chords that constrain both physical code and character key, deriving representative keys from the shared chord model.
+- **current** — Fixed: @kb/keybindings exports representativeKey, the key a press of a chord carries read from the shared key domain (keyDomain: Space's " ", a numpad digit, a named key, a US layout's character for a layout-dependent place); canvas-keymap's hint probe (pressOf) presses it instead of an empty key, so replacing canvas.rest.pan with code Space and key space leaves the old pan no hint. The hint-probe regression is canvas-keymap.test.ts (the hint probe), with unit cases in keychord.test.ts.
+- **impact** — A stale shortcut hint can advertise a key that runs another binding. Dispatch, reservations and approval remain correct; Sol classifies this as non-blocking P3.
+- **closes** — After #181 lands, derive physical representative key values from the shared chord model and retain the review181-r3-hint-probe regression as coverage.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M75H9VJT3C118T7DHK87PSFD`
+
 ### GAP: placing a top-level item inserts into the plan graph's ordered roots array
 
 - **expected** — placing an item at the forest roots costs O(log R) in a plan (an ordered structure with logarithmic insert)
@@ -3267,6 +3259,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A search for the words a person reads beside a reference misses the node; searching an id or a label still finds it.
 - **closes** — Match plainWords(nodeTitleOf(...)) beside the text in every index implementation, a property in the shared index contract.
 - **node** — `01M7HCW2CRPCQ04SSRNG2FHSNS`
+
+### GAP: Settings cuts a setting's name short
+
+- **expected** — A setting in Settings shows its whole name, wrapping if it must, so a family's settings read as the sentences they are (show child counts, suggest relations).
+- **current** — Fixed: the field row's name reads its wrapping from the cascade (--kb-field-name-space, nowrap unless a surface says normal) as it reads its width (--kb-field-label); Settings' rows carry kb-setting, which sets a 200px column (--kb-setting-label) and normal wrapping, so a setting's whole name shows; the outline row keeps its 120px column and cuts.
+- **impact** — A setting cannot be read without hovering or opening it, and a family has to choose short names to fit a column meant for another place.
+- **closes** — The field row takes its name column's width from where it is drawn: the full name in Settings, wrapped if it must; the outline row keeps its column.
+- **node** — `01M7F9300H9FDW5BGCBVQQFTXW`
 
 ### GAP: seven terminal .then callbacks disable promise/always-return
 

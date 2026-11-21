@@ -59,7 +59,13 @@ function FieldGlyph({
   );
 }
 
-/** The field's name, on the text column, as wide as the label column. */
+/**
+ * The field's name, on the text column, as wide as the label column. Where it
+ * is drawn says how wide that is (`--kb-field-label`) and whether a name too
+ * long for it wraps or is cut short (`--kb-field-name-space`, `nowrap` unless
+ * the surface says `normal`): an outline row keeps its column and cuts, and
+ * Settings, whose names are sentences, draws them whole.
+ */
 function FieldName({
   fieldId,
   label,
@@ -69,7 +75,7 @@ function FieldName({
   return (
     <span
       className={cn(
-        "flex h-6 shrink-0 items-start self-start truncate pt-px",
+        "flex min-h-6 shrink-0 items-start self-start overflow-hidden pt-px",
         // Same type scale as node text — only the tint differs (Tana).
         "kb-text",
         debug ? "text-foreground/25" : "text-faint-foreground",
@@ -78,13 +84,18 @@ function FieldName({
       data-field-name=""
       title={labelTitle ?? (fieldId !== undefined ? `${label} (${fieldId})` : label)}
     >
-      <span className="truncate">{label}</span>
+      <span className="overflow-hidden text-ellipsis" style={FIELD_NAME_SPACE}>
+        {label}
+      </span>
       {debug && fieldId !== undefined && (
         <span className="ml-1 truncate font-mono text-caption text-foreground/25">{fieldId}</span>
       )}
     </span>
   );
 }
+
+/** Whether a name too long for its column wraps: the surface's to say, cut short unless it does. */
+const FIELD_NAME_SPACE = { whiteSpace: "var(--kb-field-name-space, nowrap)" } as const;
 
 /** The glyph of a row with no field node behind it: the icon button's box, drawn still. */
 function InertGlyph({ icon: Glyph }: { icon: Icon }) {

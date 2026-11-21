@@ -6,6 +6,7 @@ export {
   matchesChord,
   parseChord,
   printableExcept,
+  representativeKey,
   PALETTE_CHORD,
   TEXT_HISTORY_CHORD,
   type Chord,

@@ -42,9 +42,18 @@
   --kb-field-label: 120px;
   /* How far into a horizontal scroller an edge that hides more fades. */
   --kb-edge-fade: calc(48px * var(--density));
+  /* Settings' label column: a setting's name is a sentence, drawn whole. */
+  --kb-setting-label: 200px;
 }
 
 @layer components {
+  /* A setting's row: its name column is Settings' own, and a name too long
+   * for it wraps instead of being cut short (FieldName in @kb/ui-sdk). */
+  .kb-setting {
+    --kb-field-label: var(--kb-setting-label);
+    --kb-field-name-space: normal;
+  }
+
   .kb-text {
     font-size: var(--type-body);
     line-height: var(--kb-text-leading);

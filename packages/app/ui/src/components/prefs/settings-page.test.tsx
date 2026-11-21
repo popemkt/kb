@@ -179,6 +179,22 @@ describe("Settings", () => {
     }
   });
 
+  it("draws each setting's whole name, in Settings' own name column, wrapped where it must", () => {
+    for (const part of SETTINGS_PARTS) {
+      show(part);
+      for (const row of container.querySelectorAll("[data-setting]")) {
+        const setting = row.getAttribute("data-setting") ?? "";
+        // The surface states its column; the field row reads it (`--kb-field-label`, `--kb-field-name-space`).
+        expect(row.classList.contains("kb-setting"), setting).toBe(true);
+        const name = row.querySelector("[data-field-name] > span");
+        expect(name?.getAttribute("style") ?? "", setting).toContain(
+          "var(--kb-field-name-space, nowrap)",
+        );
+        expect(name?.classList.contains("truncate"), setting).toBe(false);
+      }
+    }
+  });
+
   it("notes each motion setting's value in force and where it comes from", () => {
     show("appearance");
     const note = (field: string) =>
