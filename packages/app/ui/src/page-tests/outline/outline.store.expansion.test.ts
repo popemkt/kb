@@ -10,6 +10,7 @@ import {
   childInstanceKey,
   EXPANDED_STORAGE_KEY,
   EXPANSION_STORAGE_KEY,
+  MAIN_OUTLINE_HOST,
   outlineInstanceKey,
   syncUiPlugins,
 } from "@kb/ui-sdk";
@@ -113,23 +114,23 @@ describe("a row's whole subtree opens and closes at once", () => {
   it("opens the row and every row under it, and closes them all again; siblings untouched", () => {
     seedSiblingAndReference();
     expect(["n.root-a", "n.child-a2", "n.root-c"].map(collapsed)).toEqual([true, true, true]);
-    outline().expandSubtree(keyOf("n.root-a"));
+    outline().expandSubtree(keyOf("n.root-a"), MAIN_OUTLINE_HOST);
     expect(["n.root-a", "n.child-a2", "n.root-c"].map(collapsed)).toEqual([false, false, true]);
-    outline().collapseSubtree(keyOf("n.root-a"));
+    outline().collapseSubtree(keyOf("n.root-a"), MAIN_OUTLINE_HOST);
     expect(["n.root-a", "n.child-a2", "n.root-c"].map(collapsed)).toEqual([true, true, true]);
   });
 
   it("closes what was open below a closed row too", () => {
     outline().toggleCollapse("n.child-a2");
     expect(collapsed("n.child-a2")).toBe(false);
-    outline().collapseSubtree(keyOf("n.root-a"));
+    outline().collapseSubtree(keyOf("n.root-a"), MAIN_OUTLINE_HOST);
     expect(collapsed("n.child-a2")).toBe(true);
   });
 
   it("a reference's subtree is its target's rows, under the reference", () => {
     seedSiblingAndReference();
     outline().toggleCollapse("n.root-c");
-    outline().expandSubtree(childInstanceKey(keyOf("n.root-c"), "n.ref"));
+    outline().expandSubtree(childInstanceKey(keyOf("n.root-c"), "n.ref"), MAIN_OUTLINE_HOST);
     expect(collapsed("n.ref")).toBe(false);
     expect(collapsed("n.child-a2")).toBe(false);
     // The target's own row is another place: its choice is its own.

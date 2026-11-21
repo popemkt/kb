@@ -89,8 +89,8 @@ export type EditingIntent =
   | { type: "toggleCheck"; nodeId: string }
   | { type: "toggleCollapse"; nodeId: string }
   /** Open the row and every row under it; or close them. */
-  | { type: "expandSubtree"; instanceKey: string }
-  | { type: "collapseSubtree"; instanceKey: string }
+  | { type: "expandSubtree"; instanceKey: string; host: string }
+  | { type: "collapseSubtree"; instanceKey: string; host: string }
   /** A new empty row directly above this one, edited. */
   | { type: "createBefore"; nodeId: string }
   | { type: "zoom"; nodeId: string; host: string }
@@ -265,8 +265,8 @@ const EDITING_INTENTS = new Map<string, IntentOf>([
   ["collapse-or-leave", (ctx) => revealIntent(ctx, "ArrowUp")],
   ["expand", (ctx) => revealIntent(ctx, "ArrowDown")],
   // Opening and closing is the reader's, never structure: a projected row's too.
-  ["expand-subtree", (ctx) => ({ type: "expandSubtree", instanceKey: ctx.instanceKey })],
-  ["collapse-subtree", (ctx) => ({ type: "collapseSubtree", instanceKey: ctx.instanceKey })],
+  ["expand-subtree", ({ instanceKey, host }) => ({ type: "expandSubtree", instanceKey, host })],
+  ["collapse-subtree", ({ instanceKey, host }) => ({ type: "collapseSubtree", instanceKey, host })],
   ["zoom", (ctx) => ({ type: "zoom", nodeId: ctx.nodeId, host: ctx.host })],
   ["zoom-out", (ctx) => ({ type: "zoomOut", host: ctx.host })],
   ["line-up", (ctx) => crossRowIntent(ctx, "ArrowUp")],

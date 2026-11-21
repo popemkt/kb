@@ -207,10 +207,10 @@ describe("a row's subtree keys walk the rows the outline draws", () => {
   it("opens the results a query draws and the rows under them, then closes them", async () => {
     await queryOpen();
     expect(["n.root-a", "n.child-a2", "n.qc"].map(collapsed)).toEqual([true, true, true]);
-    outline().expandSubtree("tree/n.q1");
+    outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
     // n.root-a is drawn under the query as its result; its rows open with it.
     expect(["n.root-a", "n.child-a2", "n.qc"].map(collapsed)).toEqual([false, false, false]);
-    outline().collapseSubtree("tree/n.q1");
+    outline().collapseSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
     expect(["n.q1", "n.root-a", "n.child-a2", "n.qc"].map(collapsed)).toEqual([
       true,
       true,
@@ -219,16 +219,30 @@ describe("a row's subtree keys walk the rows the outline draws", () => {
     ]);
   });
 
+  it("walks the rows of the pane the key was pressed in", async () => {
+    // A second pane on the query's page: its results are that pane's rows,
+    // while the main outline holds n.q1 closed and draws none of them.
+    setOutlineHost("pane:p2", { root: "n.q1", chain: [], open: null });
+    try {
+      outline().getVisibleInstances("pane:p2");
+      await present(useGraphStore.getState().queries, "replica queries").ask(TODO_EDN);
+      outline().expandSubtree(projectedRowKey("n.q1", "n.root-a"), "pane:p2");
+      expect(["n.root-a", "n.child-a2"].map(collapsed)).toEqual([false, false]);
+    } finally {
+      setOutlineHost("pane:p2", null);
+    }
+  });
+
   it("leaves the stored children a query's view does not draw as they are", async () => {
     const { mutations } = await import("@/actions/mutations");
     await mutations.setFrameView("n.q1", CollectionTableView);
     outline().toggleCollapse("n.qc");
     await queryOpen();
-    outline().collapseSubtree("tree/n.q1");
+    outline().collapseSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
     expect(collapsed("n.q1")).toBe(true);
     expect(collapsed("n.qc")).toBe(false);
     outline().toggleCollapse("n.qc");
-    outline().expandSubtree("tree/n.q1");
+    outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
     expect(collapsed("n.q1")).toBe(false);
     expect(collapsed("n.qc")).toBe(true);
   });

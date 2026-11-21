@@ -207,15 +207,19 @@ const SELECTION_STEPS: SelectionSteps = {
   moveUp: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesUp(ids), nodeId),
   moveDown: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesDown(ids), nodeId),
   moveToGroup,
-  // The selection's keys are the page's, pressed in no pane, so the row's
+  // The selection's keys are the page's, pressed in no pane, so a row's
   // outline is the one its key names. GAP [[01M411FPC839XBJJ873V1VYYYD]]
   zoom: ({ nodeId, instanceKey }) => zoomIntoRow(nodeId, outlineHostOfInstance(instanceKey)),
   zoomOut: ({ instanceKey }) => zoomOut(outlineHostOfInstance(instanceKey)),
   expandSubtree: ({ instanceKey }) => {
-    for (const key of eachInstance(instanceKey)) useOutlineStore.getState().expandSubtree(key);
+    for (const key of eachInstance(instanceKey)) {
+      useOutlineStore.getState().expandSubtree(key, outlineHostOfInstance(key));
+    }
   },
   collapseSubtree: ({ instanceKey }) => {
-    for (const key of eachInstance(instanceKey)) useOutlineStore.getState().collapseSubtree(key);
+    for (const key of eachInstance(instanceKey)) {
+      useOutlineStore.getState().collapseSubtree(key, outlineHostOfInstance(key));
+    }
   },
   createAfter,
   createBefore: ({ nodeId }) => void createNodeBefore(nodeId),

@@ -141,10 +141,13 @@ interface OutlineState {
   toggleCollapse: (id: string) => void;
   /** Open the reference to `targetId` in the text of `sourceId` under its row, or close it. */
   toggleReference: (sourceId: string, targetId: string) => void;
-  /** Open the row at `instanceKey` and every row drawn under it (`subtreeOf`). */
-  expandSubtree: (instanceKey: string) => void;
-  /** Close the row at `instanceKey` and every row drawn under it. */
-  collapseSubtree: (instanceKey: string) => void;
+  /**
+   * Open the row at `instanceKey` and every row drawn under it (`subtreeOf`),
+   * as the outline of host `host`, the one the key was pressed in, draws them.
+   */
+  expandSubtree: (instanceKey: string, host: string) => void;
+  /** Close the row at `instanceKey` and every row drawn under it, as `expandSubtree` finds them. */
+  collapseSubtree: (instanceKey: string, host: string) => void;
   /** Open every row the scope's outline draws, as it draws them all open. */
   expandAllInScope: () => void;
   collapseAllInScope: () => void;
@@ -695,9 +698,9 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       choose([[key, get().expansion.get(key) !== true]]);
     },
 
-    expandSubtree: (instanceKey) => openRows(subtreeDrawnOpen(instanceKey), true),
+    expandSubtree: (instanceKey, host) => openRows(subtreeDrawnOpen(instanceKey, host), true),
 
-    collapseSubtree: (instanceKey) => openRows(subtreeDrawnOpen(instanceKey), false),
+    collapseSubtree: (instanceKey, host) => openRows(subtreeDrawnOpen(instanceKey, host), false),
 
     expandAllInScope: () => openRows(scopeDrawnOpen(), true),
 
@@ -1004,14 +1007,13 @@ function rowsDrawnOpen(
 }
 
 /**
- * The rows of the subtree at row `instanceKey`, as its outline draws it all
- * open (`subtreeOf`): their nodes, whose choice is every row's of that node.
+ * The rows of the subtree at row `instanceKey`, as the outline of host `host`
+ * draws it all open (`subtreeOf`): their nodes, whose choice is every row's
+ * of that node.
  */
 // GAP [[01M7XP1SNNVNYZKH5GCSW3RH6C]] a node drawn at several places shares one choice
-function subtreeDrawnOpen(instanceKey: string): string[] {
-  return rowsDrawnOpen(walkHostOf(instanceKey), graphNow(), (rows, nodes) =>
-    subtreeOf(rows, instanceKey, nodes),
-  );
+function subtreeDrawnOpen(instanceKey: string, host: string): string[] {
+  return rowsDrawnOpen(host, graphNow(), (rows, nodes) => subtreeOf(rows, instanceKey, nodes));
 }
 
 /** Every row of the scope's outline, as it draws them all open. */
