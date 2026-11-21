@@ -2121,14 +2121,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Rows derived from the fold's family list with an explicit not-hosted row for hosted families, and a test.
 - **node** — `01M53M9XA8FN8Q25QJVFF8MBE4`
 
-### GAP: the palette index pre-sizes its arrays with new Array(n)
-
-- **expected** — buildPaletteIndex and searchPalette allocate their result arrays the way unicorn/no-new-array wants (Array.from({ length: n }) or push), with no pinpoint disable.
-- **current** — Both keep new Array(n) plus index assignment, each carrying // oxlint-disable-next-line unicorn/no-new-array.
-- **impact** — Two pinpoint disables of a rule that is error everywhere else, on the one ui path with a measured latency bar.
-- **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
-- **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
-
 ### GAP: the phone app cannot record a voice memo
 
 - **expected** — The phone records audio and queues it as a file capture, delivered raw like any share; the host stores it as an asset and may transcribe it, optionally, on its side.
@@ -3609,6 +3601,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Add the point, make the outline palette render contributed steps, and have graph-ui contribute the step.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M545DBMQA0RGRWZY21HT3XD9`
+
+### GAP: the palette index pre-sizes its arrays with new Array(n)
+
+- **expected** — buildPaletteIndex and searchPalette allocate their result arrays the way unicorn/no-new-array wants (Array.from({ length: n }) or push), with no pinpoint disable.
+- **current** — Closed: buildPaletteIndex and searchPalette build their arrays with map and carry no disable; the 50k-node test counts entry reads (365b84db), which the allocation shape does not change.
+- **impact** — Two pinpoint disables of a rule that is error everywhere else, on the one ui path with a measured latency bar.
+- **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
+- **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
 
 ### GAP: the preferences popover renders outline's PrefFieldRow
 

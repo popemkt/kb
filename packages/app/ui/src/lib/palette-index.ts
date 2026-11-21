@@ -42,12 +42,14 @@ export function buildPaletteIndex(nodes: WireNode[], rev: number): PaletteIndex 
   const global = nodes.filter(
     (node) => !isCommandNode(node) || node.props[SHORTCUT_IDS.commandContext] === undefined,
   );
-  // oxlint-disable-next-line unicorn/no-new-array -- GAP [[01M1MFJXAQ8NVBMA6E6CZ7CY9W]]
-  const entries: PaletteEntry[] = new Array(global.length);
-  for (const [i, n] of global.entries()) {
-    const name = nodeName(n.id, nodeOf, hostOf);
-    entries[i] = entryOf(n.id, name || n.id, isCommandNode(n) ? "command" : "node", n.text);
-  }
+  const entries = global.map((n) =>
+    entryOf(
+      n.id,
+      nodeName(n.id, nodeOf, hostOf) || n.id,
+      isCommandNode(n) ? "command" : "node",
+      n.text,
+    ),
+  );
   // Commands first for empty-query browsing, then stable by text.
   entries.sort((a, b) => {
     if (a.kind !== b.kind) return a.kind === "command" ? -1 : 1;
@@ -133,13 +135,7 @@ function cmpHit(a: PaletteHit, b: PaletteHit): number {
 export function searchPalette(index: PaletteIndex, query: string, limit = 20): PaletteHit[] {
   const q = query.trim().toLowerCase();
   if (!q) {
-    const slice = index.entries.slice(0, limit);
-    // oxlint-disable-next-line unicorn/no-new-array -- GAP [[01M1MFJXAQ8NVBMA6E6CZ7CY9W]]
-    const out: PaletteHit[] = new Array(slice.length);
-    for (const [i, e] of slice.entries()) {
-      out[i] = { ...e, score: 0 };
-    }
-    return out;
+    return index.entries.slice(0, limit).map((e) => ({ ...e, score: 0 }));
   }
 
   const hits: PaletteHit[] = [];
