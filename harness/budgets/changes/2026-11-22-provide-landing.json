@@ -1,0 +1,6 @@
+{
+  "reason": "The landing role is an official page hook (DESIGN.md → Provider roles, ui.landing): @kb/ui-sdk exports provideLanding, which days, core and a repository extension's page half (kb-ext-sdk/page) answer where the page opens through.",
+  "raise": {
+    "surface": { "@kb/ui-sdk": 1 }
+  }
+}

@@ -13,6 +13,7 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   browserHost,
+  MAIN_OUTLINE_HOST,
   pageTitleInstanceKey,
   syncUiPlugins,
   usePageActivity,
@@ -94,7 +95,9 @@ describe("the page title's edit", () => {
     await act(async () => {
       title.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
     });
-    expect(useOutlineStore.getState().activeInstanceKey).toBe(pageTitleInstanceKey(PAGE));
+    expect(useOutlineStore.getState().activeInstanceKey).toBe(
+      pageTitleInstanceKey(PAGE, MAIN_OUTLINE_HOST),
+    );
     expect(browserHost().editing()).toBe(true);
 
     const typedFrom = seen.length;
@@ -164,7 +167,7 @@ describe("the page title's edit", () => {
   /** The row Enter opened: the one being edited now, empty and transient. */
   function openedRow(): string {
     const { activeNodeId, activeInstanceKey, transientIds } = useOutlineStore.getState();
-    expect(activeInstanceKey).not.toBe(pageTitleInstanceKey(PAGE));
+    expect(activeInstanceKey).not.toBe(pageTitleInstanceKey(PAGE, MAIN_OUTLINE_HOST));
     if (activeNodeId === null) throw new Error("Enter opened no row");
     expect(useGraphStore.getState().index?.getNode(activeNodeId)?.text).toBe("");
     expect(transientIds.has(activeNodeId)).toBe(true);

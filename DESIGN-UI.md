@@ -1380,6 +1380,22 @@ its title, tags and fields, its children in its view, and then what
 reaches it from elsewhere: for a tag or field, what carries it (Schema),
 then its References.
 
+- **The crumbs never scroll sideways.** The head's crumb row (Home, then
+  each node down to the page's) keeps Home and the page's own node on
+  screen at any width. When the row would not fit, the crumbs between fold
+  into one "…", the oldest first and only as many as the width needs; the
+  page's own name is cut with an ellipsis only once nothing is left to
+  fold. "…" names the folded crumbs on hover and opens them as a menu on
+  click or Enter, its first row focused, each row opening its node as a
+  crumb does. A wider pane unfolds them again.
+- **The title selected holds the keyboard.** The page's title is its
+  node's own instance in its pane (`pageTitleInstanceKey`, under the pane's
+  outline host, as a row's key is): selected, it takes the keyboard focus,
+  so Enter edits it, its caret at the end. A gesture that opens a node for
+  the keyboard (⌘K's Enter) selects it in the focused pane, where it opens,
+  so another pane showing the same node keeps its title unselected; a page
+  loaded or opened by pointer selects nothing.
+
 - **A page that takes rows** (a list, not a projected view or a query;
   `takesRows`) offers two ways to its rows, the same on every node's page:
   - **Enter in its title** ends the title's edit and opens a first row
@@ -3428,7 +3444,12 @@ the one menu builder (`listNodeCommands`) reads the place from the
 command: no list position means anything, and no row is the shell's by
 being listed first.
 
-⌘K with no row anchored is the page's search (`CommandPalette`), and it
+⌘K with no row anchored is the page's search (`CommandPalette`). A node
+it finds opens at its page (`/node/<id>`, [Node pages](#node-pages)) in the
+focused pane, wherever the node lives, by click or by Enter: the outline
+is not moved home to reveal it. The page's title is then selected, so the
+keyboard is on the node: Enter edits its title and the node menu's
+commands act on it. It
 finds the node menu's commands too: those `listNodeCommands` offers the
 node it acts on — the selected row, else the node the page stands at, the
 one its focused pane is shown for (`paneSubjectAt`: a zoom, or a node
@@ -4223,8 +4244,11 @@ until "Save workspace".
   that dockview reports back into a kb tree. The kb tree is canonical, and
   dockview's JSON is never kept: projecting a tree and reading it back is
   the identity (a property test). A tree changed from outside is shown to
-  dockview again. dockview (MIT) and kb's theme (`dockview-theme.css`, every
-  value a design-system token) load in the grid's own chunk, only when a
+  dockview again; a pane that only moved to another place keeps its panel,
+  which is told its new path: rebuilding the grid would take every pane's
+  body off the page and back, and drop the keyboard on the way. dockview
+  (MIT) and kb's theme (`dockview-theme.css`, every value a design-system
+  token) load in the grid's own chunk, only when a
   second pane opens or a dashboard is shown. Floating and pop-out windows
   are off (GAP [[01M3Q5DP9TQF0E9DZMHAKHMGWD]]).
 - **Panels first, then splits and tabs, on the one tree.** A Shift-click on
@@ -5729,12 +5753,17 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   families' plugins are first in (`landOnce`), so switching days on later,
   or reloading a plugin, never moves the page. The shell asks only while
   the page is at `/` with nothing in its URL, and moves only if the page
-  has not moved by the time the answer comes. The move replaces the root's
-  history entry, so Back leaves the page. The landing has no clock: days
-  answers once today's node is in the page's replica, which on a slow
-  machine or connection is when the live connection brings it. If days
-  fails (the action refused today's node), the page stays home and a toast
-  says "Stayed home:" and why.
+  has not moved by the time the answer comes. Until the answer settles the
+  workspace shows its neutral "Opening your workspace…" state, never the
+  root, so a load that opens on today paints today first; a navigation
+  while it is asked (a sidebar row, Back) ends the wait where the person
+  went. The move replaces the root's
+  history entry, so Back leaves the page. Days answers once today's node
+  is in the page's replica, which on a slow machine or connection is when
+  the live connection brings it. The wait is bounded by one deadline over
+  the whole election, about 4 s: if days fails (the action refused today's node) or has not
+  answered by then, the page stays home, drawn at once, and a toast says
+  "Stayed home:" and why ("the landing did not answer in time").
 - **The capture target's replacement** answers today's node through
   `ext.days.today`, with the page's local day, unless the family's
   `captures` setting says the top level. ⌘K "Add node" with nothing

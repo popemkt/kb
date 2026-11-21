@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   cn,
   useFollow,
@@ -30,6 +30,7 @@ import { NodeContent } from "./node-content";
 import { useOutlineStore } from "./outline.store";
 import { createFirstChild } from "./editing-writes";
 import { takesRows } from "./takes-rows";
+import { useOutlineHost } from "./outline-host";
 
 /**
  * D13: everything is a node — the zoomed page title edits in place with
@@ -57,7 +58,7 @@ function EditableTitle({
   // Its edit is the page editor's, as a row's is: activated under its own
   // instance, so the page (and every backdrop reading `editing()`) knows the
   // owner is typing, and ended when that instance stops being the active one.
-  const key = pageTitleInstanceKey(node.id);
+  const key = pageTitleInstanceKey(node.id, useOutlineHost());
   const editing = useOutlineStore((s) => s.activeInstanceKey === key);
   const startEditing = useCallback(() => {
     const store = useOutlineStore.getState();
@@ -68,6 +69,18 @@ function EditableTitle({
     const store = useOutlineStore.getState();
     if (store.activeInstanceKey === key) store.deactivateNode();
   }, [key]);
+
+  // The title selected is the page's node selected, in this pane: it holds
+  // the keyboard, so Enter edits it and the page's keys act from it. Opening
+  // a node from ⌘K selects it in the pane it opened in, and the title takes
+  // the keyboard as that pane draws it (DESIGN-UI.md → Node pages).
+  const selected = useOutlineStore(
+    (s) => s.selectedInstanceKey === key && s.activeInstanceKey === null,
+  );
+  const restingTitle = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selected) restingTitle.current?.focus({ preventScroll: true });
+  }, [selected]);
 
   if (readOnly) {
     return (
@@ -108,6 +121,7 @@ function EditableTitle({
 
   return (
     <div
+      ref={restingTitle}
       role="button"
       tabIndex={0}
       onClick={(e) => {
@@ -201,6 +215,7 @@ export function ZoomedRootHeader({
   // A query page's control holds its query, one click away: never behind the gear.
   const tucked = isList && !isQueryNode(node);
   const owner = useOwner(node.id);
+  const host = useOutlineHost();
 
   return (
     <div
@@ -217,7 +232,7 @@ export function ZoomedRootHeader({
             onEnter={takesRows(node, view) ? () => void createFirstChild(node.id) : undefined}
           />
         }
-        {...menuAnchor(pageTitleInstanceKey(node.id))}
+        {...menuAnchor(pageTitleInstanceKey(node.id, host))}
       />
 
       {/* Its tags and its owner: no line when it has neither. */}
