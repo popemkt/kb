@@ -217,6 +217,25 @@ describe("expansion keeps only choices the reader can undo", () => {
     expect(stored().open).toContain("n.child-a2");
   });
 
+  it("a deleted row's choice leaves storage, and the undo that restores the row writes it back", () => {
+    outline().toggleCollapse("n.child-a2");
+    const parent = wireOf("n.root-a");
+    const row = wireOf("n.child-a2");
+    graph().applyTx([{ ...parent, children: ["n.child-a1"] }], ["n.child-a2"], { rev: 2 });
+    expect(stored().open).not.toContain("n.child-a2");
+    graph().applyTx([parent, row], [], { rev: 3 });
+    expect(stored().open).toContain("n.child-a2");
+  });
+
+  it("a choice storage holds for a row gone at load leaves storage with this tab's next save", () => {
+    anotherTabStores(["n.gone", "n.child-a2"]);
+    reload();
+    // A load writes nothing.
+    expect(stored().open).toContain("n.gone");
+    outline().toggleCollapse("n.root-a");
+    expect(stored().open.toSorted()).toEqual(["n.child-a2", "n.root-a"]);
+  });
+
   it("storage holds exactly the outline's choices", () => {
     outline().toggleCollapse("n.root-a");
     outline().toggleCollapse("n.child-a2");

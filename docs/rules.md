@@ -1516,14 +1516,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — derive changes from gestures only; apply keeps to changed ids only
 - **node** — `01M52E01JB6CFKT2M8CAS171EJ`
 
-### GAP: outline expansion storage keeps choices for deleted rows forever
-
-- **expected** — a choice for a row deleted and not restored is pruned from kb-expansion
-- **current** — isUndoable keeps every choice for a row the graph does not hold, so restored rows (undo) keep theirs; nothing ever prunes
-- **impact** — storage grows with every distinct row the reader ever toggled and is re-serialised on each save
-- **closes** — prune on a delete that is not undone, restore the choice on undo
-- **node** — `01M52E0177292798G5908A74GG`
-
 ### GAP: outline paste deletes its source and focuses a row before server acceptance
 
 - **expected** — An outline paste keeps an empty source row until the server accepts the tree. Focus moves to the last authoritative row after it reaches the outline.
@@ -3164,6 +3156,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move MdView into the primitives zone; it takes text and options and touches no store.
 - **rule** — UI import matrix
 - **node** — `01M1RXNKKK31EGJWCA1KCV6V20`
+
+### GAP: outline expansion storage keeps choices for deleted rows forever
+
+- **expected** — a choice for a row deleted and not restored is pruned from kb-expansion
+- **current** — Fixed: storage keeps a row choice only while the graph holds the row (isStored); a delete drops it, the undo that restores the row writes it back, and a choice for a row gone at load leaves with the next save. The tab keeps the choice in memory for the undo.
+- **impact** — storage grows with every distinct row the reader ever toggled and is re-serialised on each save
+- **closes** — prune on a delete that is not undone, restore the choice on undo
+- **node** — `01M52E0177292798G5908A74GG`
 
 ### GAP: outline view modes and graph renderers are local registries, not ViewPoint members
 

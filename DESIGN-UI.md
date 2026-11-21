@@ -1063,8 +1063,11 @@ open or closed, and the references opened in place (Contextual references
 reader can undo it: a choice that equals the row's default, or names a row
 that can no longer expand, is dropped (`undoable`), so no row is held
 collapsed with no gesture to open it. A row the graph does not hold now
-keeps its choice, so a row restored by an undo comes back as the reader
-left it. A row shown open stays open when the graph
+keeps its choice in the tab, so a row restored by an undo comes back as the
+reader left it, but storage does not keep it: a delete takes the row's
+choice out of storage, the undo that restores the row writes it back, and a
+choice storage holds for a row gone at load leaves with the tab's next save.
+A row shown open stays open when the graph
 gives it children or fields. Each tab keeps its own expansion while it is
 open, and storage seeds it at load: another tab's choices are read at the
 next load, never merged in by a graph move. Storage is shared, so a save
