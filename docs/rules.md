@@ -1248,14 +1248,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The store list and the capture path ask the remote's kb.manifest (with the device credential) for captureContract, update accepts, and show waiting or paused states as Android does.
 - **node** — `01M7WZGP3B84JK08R43Y642C7N`
 
-### GAP: kb desktop stamps build-machine paths into the app
-
-- **expected** — A built app carries no path of the machine or checkout it was built on; a kb for it is bundled or installed.
-- **current** — electrobun.config.ts stamps KB_DESKTOP_CHECKOUT_KB (the checkout bin/kb) and KB_DESKTOP_BUILD_BUN (the Bun the build ran with, often a Nix store path) into the bundle.
-- **impact** — The app works on the machine it was built on only while that checkout and that Bun exist: a removed worktree or a Nix garbage collection turns both candidates into ones the probe passes over.
-- **closes** — build:mac bundles a kb release (bin/release-bundle) by default, and the checkout candidate is kept for dev builds only.
-- **node** — `01M7WV5DQDNMQMR9QYJN839TNJ`
-
 ### GAP: kb desktop typechecks its Electrobun adapter against a hand-kept declaration
 
 - **expected** — The shell adapter typechecks against Electrobun's own declarations, so an Electrobun upgrade that changes an API the adapter calls goes red in tsc.
@@ -3032,6 +3024,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A kb installed, rebuilt or removed while the app runs is not seen until the person quits and reopens kb; the store list then says the kb could not run, and the advice says to reopen.
 - **closes** — KbCli resolves lazily and re-resolves after a run that failed without a receipt, behind the same KbRunner port.
 - **node** — `01M7WV5D06HSMA1JFBBRGE0B13`
+
+### GAP: kb desktop stamps build-machine paths into the app
+
+- **expected** — A built app carries no path of the machine or checkout it was built on; a kb for it is bundled or installed.
+- **current** — electrobun.config.ts stamps KB_DESKTOP_CHECKOUT_KB (the checkout bin/kb) and KB_DESKTOP_BUILD_BUN (the Bun the build ran with, often a Nix store path) into the bundle.
+- **impact** — The app works on the machine it was built on only while that checkout and that Bun exist: a removed worktree or a Nix garbage collection turns both candidates into ones the probe passes over.
+- **closes** — build:mac bundles a kb release (bin/release-bundle) by default, and the checkout candidate is kept for dev builds only.
+- **node** — `01M7WV5DQDNMQMR9QYJN839TNJ`
 
 ### GAP: kb mutation skipped saving its baseline after a report failure
 

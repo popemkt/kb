@@ -6,14 +6,12 @@
  */
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { Updater } from "electrobun/bun";
 import { Effect, Layer } from "effect";
 import { Desktop, DesktopLive } from "../../core/app.ts";
 import { currentConfig } from "../../core/config.ts";
 import { platformFocusReturn } from "../../core/focus.ts";
 import {
   kbCandidates,
-  kbChannel,
   kbEnvironment,
   kbProcessRunner,
   processProbe,
@@ -29,13 +27,11 @@ import {
 import { electrobunShell } from "./shell.ts";
 
 /**
- * Build constants (`electrobun.config.ts` → `define`): the checkout's
- * `bin/kb`, and the Bun the build ran with ("" when it found none). They
- * are not environment variables, so nothing at run time can set or clear
- * them.
+ * A build constant (`electrobun.config.ts` → `define`): the `bin/kb` of the
+ * checkout a dev build was built from, "" in any other build. It is not an
+ * environment variable, so nothing at run time can set or clear it.
  */
 declare const KB_DESKTOP_CHECKOUT_KB: string;
-declare const KB_DESKTOP_BUILD_BUN: string;
 
 /** The app's bundle id (`electrobun.config.ts`), so focus return skips kb itself. */
 const BUNDLE_ID = "dev.kb.desktop";
@@ -48,7 +44,8 @@ const env = kbEnvironment({
   path: PATH,
   home: homedir(),
   user: USER,
-  runtimes: KB_DESKTOP_BUILD_BUN === "" ? [] : [KB_DESKTOP_BUILD_BUN],
+  // The Bun the app runs on, which the build pins to its own version.
+  runtimes: [process.execPath],
 });
 const places = {
   setting: config.settings.kb,
@@ -58,7 +55,6 @@ const places = {
   checkout: KB_DESKTOP_CHECKOUT_KB,
   path: env.PATH ?? "",
 };
-const channel = kbChannel(await Updater.localInfo.channel());
 const services = Layer.mergeAll(
   Layer.succeed(DesktopShell, shell),
   Layer.succeed(DeviceSettings, config),
@@ -67,7 +63,7 @@ const services = Layer.mergeAll(
   Layer.effect(
     KbCli,
     kbProcessRunner({
-      candidates: () => kbCandidates(places, channel),
+      candidates: () => kbCandidates(places),
       probe: processProbe(env),
       env,
       settingsFile: config.settingsFile,

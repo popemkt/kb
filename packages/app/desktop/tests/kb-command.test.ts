@@ -1,10 +1,10 @@
 /**
  * Which kb the desktop runs, and the environment it runs in: the order of
- * the candidates for a dev and a release build, a candidate that cannot run
- * passed over with its reason, and a kb script that execs `bun` by name
- * finding the build's Bun when the app inherited a PATH without one (an
- * app opened from Finder). Every environment here is built from a bare
- * PATH, never this test run's, which has Bun on it.
+ * the candidates, a candidate that cannot run passed over with its reason,
+ * and a kb script that execs `bun` by name finding the app's own Bun when
+ * the app inherited a PATH without one (an app opened from Finder). Every
+ * environment here is built from a bare PATH, never this test run's, which
+ * has Bun on it.
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
@@ -15,7 +15,6 @@ import { WIRE_PROTOCOL } from "@kb/contracts";
 import { KB_SOURCE_BIN } from "@kb/test-kit";
 import {
   kbCandidates,
-  kbChannel,
   kbEnvironment,
   kbProcessRunner,
   processProbe,
@@ -106,18 +105,19 @@ describe("kbCandidates", () => {
     return { dir, checkout, installed, path };
   }
 
-  test("a release build runs the installed kb before the checkout's", () => {
+  test("a dev build's checkout kb comes before kb on the PATH", () => {
     const { checkout, installed, path } = places();
-    expect(kbCandidates({ checkout, path }, "release")).toEqual([
-      { source: "path", file: installed },
+    expect(kbCandidates({ checkout, path })).toEqual([
       { source: "checkout", file: checkout },
+      { source: "path", file: installed },
     ]);
   });
 
-  test("a dev build runs its checkout's kb first", () => {
-    const { checkout, installed, path } = places();
-    expect(kbCandidates({ checkout, path }, "dev")).toEqual([
-      { source: "checkout", file: checkout },
+  test("a build that records no checkout runs the kb it carries, then kb on the PATH", () => {
+    const { dir, installed, path } = places();
+    const bundled = script(join(dir, "app", "kb", "bin", "kb"), "echo 1");
+    expect(kbCandidates({ bundled, checkout: "", path })).toEqual([
+      { source: "bundled", file: bundled },
       { source: "path", file: installed },
     ]);
   });
@@ -125,26 +125,18 @@ describe("kbCandidates", () => {
   test("a kb the person named comes first, even with no file there; an empty place is skipped", () => {
     const { dir, checkout, installed, path } = places();
     expect(
-      kbCandidates(
-        {
-          setting: join(dir, "gone", "kb"),
-          env: "",
-          bundled: join(dir, "app", "kb", "bin", "kb"),
-          checkout,
-          path,
-        },
-        "release",
-      ),
+      kbCandidates({
+        setting: join(dir, "gone", "kb"),
+        env: "",
+        bundled: join(dir, "app", "kb", "bin", "kb"),
+        checkout,
+        path,
+      }),
     ).toEqual([
       { source: "setting", file: join(dir, "gone", "kb") },
-      { source: "path", file: installed },
       { source: "checkout", file: checkout },
+      { source: "path", file: installed },
     ]);
-  });
-
-  test("only a dev build is dev; stable, canary and an unread channel are releases", () => {
-    expect(kbChannel("dev")).toBe("dev");
-    expect(["stable", "canary", ""].map(kbChannel)).toEqual(["release", "release", "release"]);
   });
 });
 
@@ -213,7 +205,7 @@ describe("a kb that runs but does not speak this app's wire protocol", () => {
 });
 
 describe("a kb that execs bun, from an app with a bare PATH", () => {
-  test("without the build's Bun it cannot run, and says why", async () => {
+  test("without a Bun on its program path it cannot run, and says why", async () => {
     const dir = scratchDir();
     const kb: KbCandidate = { source: "checkout", file: script(join(dir, "kb"), NEEDS_BUN) };
     const env = kbEnvironment({ path: BARE, home: join(dir, "home"), user: undefined });
@@ -222,7 +214,7 @@ describe("a kb that execs bun, from an app with a bare PATH", () => {
     expect(why).toContain(RUNTIME);
   });
 
-  test("with the build's Bun on its program path it runs", async () => {
+  test("with the app's Bun on its program path it runs", async () => {
     const dir = scratchDir();
     const bun = script(join(dir, "store", "bun-1.4", "bin", RUNTIME), FAKE_BUN);
     const kb: KbCandidate = { source: "checkout", file: script(join(dir, "kb"), NEEDS_BUN) };
@@ -247,18 +239,13 @@ describe("a kb that execs bun, from an app with a bare PATH", () => {
     });
   });
 
-  test("a release build that finds the checkout's kb broken runs the installed one", async () => {
+  test("a dev build that finds its checkout's kb broken runs the installed one, and says why", async () => {
     const dir = scratchDir();
     const checkout = script(join(dir, "checkout", "bin", "kb"), NEEDS_BUN);
     const installed = script(join(dir, "profile", "bin", "kb"), speaks(WIRE_PROTOCOL));
     const env = kbEnvironment({ path: BARE, home: join(dir, "home"), user: undefined });
     const places = { checkout, path: `${join(dir, "profile", "bin")}${delimiter}${env.PATH}` };
-    const release = await Effect.runPromise(
-      resolveKb(kbCandidates(places, "release"), processProbe(env)),
-    );
-    expect(release).toEqual({ kb: { source: "path", file: installed }, skipped: [] });
-    // A dev build tries its checkout first, passes over it, and says why.
-    const dev = await Effect.runPromise(resolveKb(kbCandidates(places, "dev"), processProbe(env)));
+    const dev = await Effect.runPromise(resolveKb(kbCandidates(places), processProbe(env)));
     expect(dev.kb).toEqual({ source: "path", file: installed });
     expect(dev.skipped.map((s) => s.kb)).toEqual([{ source: "checkout", file: checkout }]);
     expect(dev.skipped[0]?.why).toContain("exited 127");

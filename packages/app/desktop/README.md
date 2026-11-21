@@ -17,7 +17,7 @@ bun install
 cd packages/app/desktop
 bun run dev            # build and launch a dev build (logs in the terminal)
 # or
-bun run build:mac      # a stable build: build/stable-macos-arm64/kb.app
+bun run build:mac      # a kb release, then a stable app carrying it: build/stable-macos-arm64/kb.app
 open build/*/kb.app    # unsigned, so the first open may need right-click → Open
 ```
 
@@ -30,13 +30,12 @@ needs one, it tries these in order and runs the first whose
 
 1. `"kb"` in `settings.json` (see below)
 2. `KB_DESKTOP_KB`
-3. a kb release copied into the app (`Resources/app/kb`). `build:mac` copies
-   `out/kb-<version>` in when it exists, so run `sh bin/release-bundle`
-   first to get it
-4. in a stable or canary build (`build:mac`), `kb` on the PATH, then the
-   checkout's `bin/kb`; in a dev build (`bun run dev`, `build:app`), the
-   checkout's `bin/kb` first, then `kb` on the PATH. The build records the
-   path of the checkout it was built from
+3. the kb release a stable or canary build carries (`Resources/app/kb`):
+   `build:mac` runs `sh bin/release-bundle` and copies `out/kb-<version>`
+   in, and such a build stops with that advice when there is none
+4. in a dev build (`bun run dev`, `build:app`), the `bin/kb` of the checkout
+   it was built from, the one being changed
+5. `kb` on the PATH
 
 A kb that does not answer is passed over, never chosen, and so is one that
 answers with another wire protocol: an older one is told to update kb, a
@@ -55,23 +54,21 @@ then, it stopped answering, and the kb chosen in its place runs the
 command. When no kb answers, the app still starts: the store list says
 which kbs it tried and why, and every command looks again.
 
-Why a stable build runs the installed kb before the checkout's: a stable
-build is the app you use every day, and the installed kb is the one you
-chose and pinned (Nix, Homebrew, a release). The checkout's kb is whatever
-branch that checkout has checked out today. It needs a Bun and builds its UI
-on the first `kb ui`, and the checkout may be a worktree that is gone next
-week. A dev build is run while kb itself is being changed, so there the
-checkout's kb, the one being changed, comes first. Either way the other one
-is still tried, so an app with only one of them runs it.
+Only a dev build records a path of the machine that built it: the checkout
+it runs beside. A stable build carries its own kb and no path of the build
+machine, so it runs on any Mac, and keeps running after the checkout it was
+built from is gone.
 
 **PATH.** An app opened from Finder inherits launchd's bare PATH, not your
 shell's. Every kb the app runs (the probe, `kb locations`, `kb open`) gets
-the same PATH, with the places Nix, Homebrew and bun install to added. The
-checkout's `bin/kb` execs `bun` by name, and a Nix dev shell's Bun lives
-only in the store, so the build also records the Bun it ran with and adds
-its directory last: an installed Bun wins, and the build's Bun is there when
-none is. A `kb ui` that kb starts runs on the same Bun as the kb that
-started it.
+the same PATH, with the places Nix, Homebrew and bun install to added. A kb
+(the carried release, the checkout's `bin/kb`) execs `bun` by name, and a
+Mac may have none installed, so the directory of the app's own Bun
+(`process.execPath`) goes last: an installed Bun wins, and the app's is
+there when none is. The build pins the app's Bun to the version it ran
+with (`bunVersion` in `electrobun.config.ts`), so that Bun is one kb runs
+on. A `kb ui` that kb starts runs on the same Bun as the kb that started
+it.
 
 If the store list says it could not list your stores, its message names the
 kb that ran. Set `"kb"` in `settings.json` to the full path of a kb that
@@ -163,8 +160,6 @@ offset), source: {app: "kb desktop"}, text}`. The host maps the text to
   store list in WKWebView, with the installed kb and with the checkout's
   kb on the build's Bun. The tray, `open-url`, dock reopen and focus return
   are not run there yet.
-- **Which kb runs.** The checkout and Bun paths a build records are those
-  of the build machine (GAP `01M7WV5DQDNMQMR9QYJN839TNJ`).
 - **The capture wire is declared twice.** The capture envelope and the
   `capture.pair` answer are written out in `src/core/capture.ts`, matching
   `@kb/contracts` by hand (GAP `01M7QTTTHGVFE32XRVV96A696K`).

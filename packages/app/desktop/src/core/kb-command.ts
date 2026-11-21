@@ -20,8 +20,8 @@ export interface ProgramPlaces {
   readonly user: string | undefined;
   /**
    * Runtimes a kb script execs by name, by absolute path: the Bun the app
-   * was built with, which may live only in a Nix store or a dev shell, where
-   * no PATH an app opened from Finder has would find it.
+   * runs on (`process.execPath`), which no PATH an app opened from Finder
+   * has would find.
    */
   readonly runtimes?: readonly string[];
 }
@@ -31,7 +31,7 @@ export interface ProgramPlaces {
  * bare PATH, not the person's shell's, so the places kb and Bun are
  * installed to (Nix, Homebrew, bun's installer) are added to it, and the
  * directories of `runtimes` after them: an installed Bun wins, and the
- * build's Bun is there when none is installed.
+ * app's own Bun is there when none is installed.
  */
 export function programPath({ path, home, user, runtimes = [] }: ProgramPlaces): string {
   const extra = [
@@ -103,24 +103,10 @@ export interface KbPlaces {
   readonly env?: string;
   /** A kb release bundled into the app (`Resources/app/kb/bin/kb`). */
   readonly bundled?: string;
-  /** The `bin/kb` of the checkout the app was built from. */
+  /** The `bin/kb` of the checkout a dev build was built from (`electrobun.config.ts`). */
   readonly checkout?: string;
   /** The program path (`programPath`), searched for `kb`. */
   readonly path: string;
-}
-
-/**
- * How the build is used, which decides whether the checkout's kb or an
- * installed one comes first: a `dev` build is run while kb itself is being
- * changed, so its checkout's kb leads; any other build (`stable`, `canary`,
- * or a channel the app cannot read) is used day to day and runs the kb the
- * person installed.
- */
-export type KbChannel = "dev" | "release";
-
-/** The kb channel of an Electrobun build channel (`version.json` → `channel`). */
-export function kbChannel(buildChannel: string): KbChannel {
-  return buildChannel === "dev" ? "dev" : "release";
 }
 
 /** A kb the person named: a candidate whether or not its file is there. */
@@ -137,9 +123,11 @@ function found(source: KbSource, file: string | undefined): KbCandidate[] {
  * The kbs to try, in order (README → Which kb it runs). A kb the person
  * named (the setting, `KB_DESKTOP_KB`) is tried even when its file is
  * missing, so that it is reported rather than passed over in silence; a
- * place the app looks on its own is tried only when a kb is there.
+ * place the app looks on its own is tried only when a kb is there. Only a
+ * dev build records a checkout, which it runs beside, so its checkout's kb,
+ * the one being changed, comes before an installed one.
  */
-export function kbCandidates(places: KbPlaces, channel: KbChannel): KbCandidate[] {
+export function kbCandidates(places: KbPlaces): KbCandidate[] {
   const seen = new Set<string>();
   const onPath = places.path.split(delimiter).flatMap((dir): KbCandidate[] => {
     const file = join(dir, "kb");
@@ -149,12 +137,12 @@ export function kbCandidates(places: KbPlaces, channel: KbChannel): KbCandidate[
     seen.add(real);
     return [{ source: "path", file }];
   });
-  const checkout = found("checkout", places.checkout);
   return [
     ...named("setting", places.setting),
     ...named("env", places.env),
     ...found("bundled", places.bundled),
-    ...(channel === "dev" ? [...checkout, ...onPath] : [...onPath, ...checkout]),
+    ...found("checkout", places.checkout),
+    ...onPath,
   ];
 }
 
