@@ -1842,14 +1842,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3KA39WTMVDWE004ZQA59FQ5`
 
-### GAP: table and board cells are not in the arrow-key path
-
-- **expected** — Arrow keys move through table and board cells' values the way they move through an outline row's values.
-- **current** — Keyboard nav into field values reads outline DOM order only; table and board cells are skipped.
-- **impact** — Tables and boards need the mouse to reach a value.
-- **closes** — Give table/board cells the same slot navigation order the outline uses.
-- **node** — `01M3KA3A8JZN1GH9DXK2SNZ1N1`
-
 ### GAP: the # and > pickers list rows that do not match the query and ignore recency
 
 - **expected** — A trigger picker lists what matches the query, ranked by recency and use, the way the value picker does (orderCandidates, picker-recency).
@@ -3414,6 +3406,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M63C0GJ5M78G1TFKM00RN4X6`
+
+### GAP: table and board cells are not in the arrow-key path
+
+- **expected** — Arrow keys move through table and board cells' values the way they move through an outline row's values.
+- **current** — Fixed: a row fields section is one marker (fieldsSectionProps in @kb/ui-sdk: data-fields-for and data-fields-of) carried by an outline row fields, a table row and a card fields; value-slot-nav finds a row values by it, so the arrows and Tab walk table and board cells as they walk an outline row values.
+- **impact** — Tables and boards need the mouse to reach a value.
+- **closes** — Give table/board cells the same slot navigation order the outline uses.
+- **node** — `01M3KA3A8JZN1GH9DXK2SNZ1N1`
 
 ### GAP: tables and boards sort, filter and group references by their own empty props
 

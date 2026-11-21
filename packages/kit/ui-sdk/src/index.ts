@@ -433,6 +433,10 @@ export { oklchToRgb, readTokenColor, toRenderableColor, provideColorTokens } fro
 export {
   asElement,
   asInstance,
+  FIELDS_SECTION_SELECTOR,
+  fieldsSectionForSelector,
+  fieldsSectionOfSelector,
+  fieldsSectionProps,
   isTextEntry,
   isTyping,
   isTextNode,

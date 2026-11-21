@@ -1,0 +1,6 @@
+{
+  "reason": "A row's fields section is one kit marker (fieldsSectionProps and its three selectors) that an outline row's fields, a table row and a card's fields carry, so the keyboard's path through a row's values reads every surface that draws them.",
+  "raise": {
+    "surface": { "@kb/ui-sdk": 4 }
+  }
+}

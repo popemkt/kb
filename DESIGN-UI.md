@@ -1629,7 +1629,11 @@ editor keep their own keys. The chord tables are
 The rows' keymaps pass through the values: ↓ off a row's last line (editing
 or selected) lands on its first value, ↓ from its last value goes to the next
 row, ↑ comes back the same way (`enterFields`; the order is read off the DOM
-by `outline-ui/src/value-slot-nav.ts`, never kept a second time).
+by `outline-ui/src/value-slot-nav.ts`, never kept a second time) A row's
+values are those of its fields section (`fieldsSectionProps`), which an
+outline row's fields, a table row's cells and a card's fields each carry, so
+the arrows pass through a table's and a board's rows as through the
+outline's.
 
 **Adding has no line of its own.** Enter at the end of a value of a
 many-valued field commits it and opens the next value's slot; Enter on that
@@ -1882,8 +1886,7 @@ commits without opening a next value, and its Tab does not move on. Pasting
 several lines into a many-valued field is not split into values. The node
 palette has no "Add value to …" command. `sys.f.color` keeps its always-open
 swatch row. The PropValue union still carries the legacy `date` variant so old
-stores decode (opening rewrites it). Table and board cells are not in the
-arrow path (the outline's rows are).
+stores decode (opening rewrites it).
 
 ### Ontology scope (i6)
 

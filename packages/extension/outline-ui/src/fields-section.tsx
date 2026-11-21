@@ -11,6 +11,7 @@ import {
 import { cardinalityOf, declaresOptionSet, type FieldType } from "@kb/model";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import {
+  fieldsSectionProps,
   browserHost,
   cn,
   type FieldContext,
@@ -572,7 +573,7 @@ export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps
   };
 
   return (
-    <div className="fields-section" data-fields-for={nodeId} ref={section}>
+    <div className="fields-section" {...fieldsSectionProps(nodeId, instanceKey)} ref={section}>
       <CloseOpenedField.Provider value={close}>
         {rows.map((p) => (
           <Field

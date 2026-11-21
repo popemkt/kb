@@ -5,15 +5,22 @@
  * outline's arrows pass through them: ↓ from a row's last line lands on its
  * first value, ↓ from its last value lands on the next row, and ↑ comes back
  * the same way. The order is the order they are drawn in — a row's values
- * are the `[data-value-slot]` elements of its own fields section — so this
- * reads it off the DOM rather than keeping a second list of the same thing.
+ * are the `[data-value-slot]` elements of its own fields section
+ * (`fieldsSectionProps`: an outline row's section, a table row's cells, a
+ * card's fields) — so this reads it off the DOM rather than keeping a second
+ * list of the same thing.
  *
  * A slot registers a control on its element (`registerSlot`), so a
  * neighbour can be opened for editing, not only focused, when the keyboard
  * arrives on it (Backspace on an empty value lands at the end of the one
  * before).
  */
-import { asInstance } from "@kb/ui-sdk";
+import {
+  asInstance,
+  FIELDS_SECTION_SELECTOR,
+  fieldsSectionForSelector,
+  fieldsSectionOfSelector,
+} from "@kb/ui-sdk";
 
 /** What another slot, or a row, may ask of a value slot. */
 export interface SlotControl {
@@ -36,7 +43,7 @@ const SLOT = "[data-value-slot]";
 
 /** The value slots of the fields section a slot sits in, in drawn order. */
 function sectionSlots(slot: Element): HTMLElement[] {
-  const section = slot.closest("[data-fields-for]");
+  const section = slot.closest(FIELDS_SECTION_SELECTOR);
   if (section === null) return [];
   return [...section.querySelectorAll(SLOT)].flatMap((el) => {
     const html = asInstance(el, HTMLElement);
@@ -70,15 +77,12 @@ export function neighbourSlot(slot: Element, delta: -1 | 1): HTMLElement | null 
 }
 
 /**
- * The value slots of one row instance in the outline: its own fields
- * section's, never a descendant row's.
+ * The value slots of one row instance: its own fields section's, never a
+ * descendant row's, whether it is an outline row, a table row or a card.
  */
 function instanceSlots(instanceKey: string, root: ParentNode = document): HTMLElement[] {
-  const block = root.querySelector(
-    `[data-node-block][data-instance-key="${CSS.escape(instanceKey)}"]`,
-  );
-  const section = block?.querySelector(":scope > .children-container > [data-fields-for]");
-  if (section === null || section === undefined) return [];
+  const section = root.querySelector(fieldsSectionOfSelector(instanceKey));
+  if (section === null) return [];
   const first = section.querySelector(SLOT);
   return first === null ? [] : sectionSlots(first);
 }
@@ -115,7 +119,7 @@ export function landInFieldsOf(instanceKey: string, nodeId: string): (fieldId: s
   );
   const around: Element[] = [];
   for (let at = row?.parentElement ?? null; at !== null; at = at.parentElement) around.push(at);
-  const sectionOf = `[data-fields-for="${CSS.escape(nodeId)}"]`;
+  const sectionOf = fieldsSectionForSelector(nodeId);
   return (fieldId) => {
     const land = () => {
       const section =

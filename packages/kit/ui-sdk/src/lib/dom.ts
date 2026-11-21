@@ -61,6 +61,33 @@ export const sidebarRegionProps = { [SIDEBAR_REGION_ATTR]: "true" } as const;
 export const SIDEBAR_REGION_SELECTOR = `[${SIDEBAR_REGION_ATTR}="true"]`;
 
 /**
+ * A row's fields section: the element that holds the field values one row
+ * instance draws, in drawn order. An outline row's fields section, a table
+ * row's cells and a card's fields each carry it, so the keyboard's path
+ * through a row's values (outline-ui's `value-slot-nav`) reads every surface
+ * that draws them. It names the node whose values they are and the row
+ * instance that draws them.
+ */
+const FIELDS_FOR_ATTR = "data-fields-for";
+const FIELDS_OF_ATTR = "data-fields-of";
+export function fieldsSectionProps(
+  nodeId: string,
+  instanceKey: string | undefined,
+): Readonly<Record<string, string | undefined>> {
+  return { [FIELDS_FOR_ATTR]: nodeId, [FIELDS_OF_ATTR]: instanceKey };
+}
+/** Any row's fields section. */
+export const FIELDS_SECTION_SELECTOR = `[${FIELDS_FOR_ATTR}]`;
+/** The fields sections of node `nodeId`, wherever it is drawn. */
+export function fieldsSectionForSelector(nodeId: string): string {
+  return `[${FIELDS_FOR_ATTR}="${CSS.escape(nodeId)}"]`;
+}
+/** The fields section row instance `instanceKey` draws. */
+export function fieldsSectionOfSelector(instanceKey: string): string {
+  return `[${FIELDS_OF_ATTR}="${CSS.escape(instanceKey)}"]`;
+}
+
+/**
  * True when an event landed in a text-entry surface. Every hotkey handler that
  * declines to act "while the user is typing" asks exactly this question.
  */
