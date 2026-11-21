@@ -177,6 +177,13 @@ async function runPlan(plan: PlannedMutation): Promise<RunOptimisticResult> {
   return result;
 }
 
+/**
+ * Run `plan` as a page write: one undo step, or part of the gesture being
+ * made (`together`). For a write the page makes outside `PageWrites`, such
+ * as a proposed view (`proposeView`), so it is undone as every page write is.
+ */
+export const runPageWrite = runPlan;
+
 async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
   return plan === null ? false : (await runPlan(plan)).ok;
 }

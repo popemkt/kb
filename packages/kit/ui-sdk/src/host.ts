@@ -153,3 +153,20 @@ export function browserHost(): BrowserHost {
   if (host === undefined) throw new Error("no BrowserHost: the shell's host plugin is not loaded");
   return host;
 }
+
+/**
+ * Once the page has drawn what was just written: edit row `nodeId` at
+ * `caret` where it is drawn now, when nothing holds the focus. A write that
+ * redraws the row (an indent puts it under another; its undo puts it back)
+ * takes its editor away, and editing goes on where the row is now, its text
+ * history with it (`useTextHistory`); one that opens something (a step in
+ * the node palette, a dialog) holds the focus itself.
+ */
+export function keepEditing(nodeId: string, caret: number): void {
+  const resume = () => {
+    const held = document.activeElement;
+    if (held === null || held === document.body) browserHost().activateNode(nodeId, caret);
+  };
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(resume);
+  else resume();
+}

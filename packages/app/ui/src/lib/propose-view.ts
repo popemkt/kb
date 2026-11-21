@@ -4,25 +4,29 @@
  * exactly what an agent could propose. The UI mints the node's id and names
  * it in the call (DESIGN-UI.md → Mutations: the client mints final ULIDs), so
  * the local commit and the server's are one node: left to the action, each
- * would mint its own.
+ * would mint its own. The call is a page write (`runPageWrite`), so the view
+ * node is one undo step, or part of the gesture that made it.
  */
-import { Predicate } from "effect";
 import { ulid } from "ulid";
 import type { ProposedView, ViewProposal } from "@kb/ui-sdk";
-import { invoke } from "@/session/runtime";
+import { runPageWrite } from "@/actions/mutations";
 
-/** The new view node's id, or the receipt's message when the proposal was refused. */
+/** The new view node's id, or why the proposal was refused. */
 export async function proposeView(proposal: ViewProposal): Promise<ProposedView> {
-  const receipt = await invoke("view.propose", {
-    id: ulid(),
-    view: proposal.view.id,
-    params: proposal.params,
-    ...(proposal.host === undefined ? {} : { host: proposal.host }),
-    ...(proposal.text === undefined ? {} : { text: proposal.text }),
+  const id = ulid();
+  const written = await runPageWrite({
+    actions: [
+      {
+        id: "view.propose",
+        input: {
+          id,
+          view: proposal.view.id,
+          params: proposal.params,
+          ...(proposal.host === undefined ? {} : { host: proposal.host }),
+          ...(proposal.text === undefined ? {} : { text: proposal.text }),
+        },
+      },
+    ],
   });
-  if (receipt.status === "failed") return { refused: receipt.message };
-  const { output } = receipt;
-  return Predicate.isObject(output) && typeof output.id === "string"
-    ? { id: output.id }
-    : { refused: "view.propose answered without an id" };
+  return written.ok ? { id } : { refused: written.refused ?? "view.propose was refused" };
 }

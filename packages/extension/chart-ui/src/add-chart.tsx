@@ -25,17 +25,15 @@ export const addChartCommand: NodeCommand = {
       ctx.target.nodeId === null ? undefined : ctx.outline.nodes.get(ctx.target.nodeId),
     ) !== null,
   run: (ctx) =>
-    nodeAction(ctx, (nodeId) => {
-      void (async () => {
-        const def = queryDefOf(ctx.outline.nodes.get(nodeId));
-        const columns = def === null ? [] : queryRecords(def.edn, []).columns;
-        const proposed = await browserHost().proposeView({
-          view: ChartView,
-          params: { spec: starterChartSpec(columns) },
-          host: nodeId,
-        });
-        if ("refused" in proposed) toast(`Could not add a chart: ${proposed.refused}`);
-        else ctx.workspace.openBeside(ctx.workspace.focused, nodePath(nodeId, proposed.id));
-      })();
+    nodeAction(ctx, async (nodeId) => {
+      const def = queryDefOf(ctx.outline.nodes.get(nodeId));
+      const columns = def === null ? [] : queryRecords(def.edn, []).columns;
+      const proposed = await browserHost().proposeView({
+        view: ChartView,
+        params: { spec: starterChartSpec(columns) },
+        host: nodeId,
+      });
+      if ("refused" in proposed) toast(`Could not add a chart: ${proposed.refused}`);
+      else ctx.workspace.openBeside(ctx.workspace.focused, nodePath(nodeId, proposed.id));
     }),
 };

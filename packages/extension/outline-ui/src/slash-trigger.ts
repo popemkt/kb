@@ -7,6 +7,7 @@
 import {
   browserHost,
   type CommandTarget,
+  keepEditing,
   type NodeCommandListing,
   type PaletteSurface,
   pickerRows,
@@ -26,25 +27,6 @@ const FROM_TEXT: PaletteSurface = {
 function commandsOf(nodeId: string): readonly NodeCommandListing[] {
   const target: CommandTarget = { nodeId, frameId: nodeId, nodeIds: [nodeId] };
   return browserHost().nodeCommands(target, FROM_TEXT);
-}
-
-/**
- * Once the page has drawn what was just written: edit row `nodeId` at
- * `caret` where it is drawn now, when nothing holds the focus. A command
- * that redraws the row (an indent puts it under another) takes its editor
- * away; one that opens something (a step in the node palette, a dialog)
- * holds the focus itself.
- *
- * GAP [[01M7X9MKS1DM5JEAR2DRWS7KT6]] a row redrawn here starts its text
- * history over, so ⌘Z in it reaches only what is typed since.
- */
-function keepEditing(nodeId: string, caret: number): void {
-  const resume = () => {
-    const held = document.activeElement;
-    if (held === null || held === document.body) browserHost().activateNode(nodeId, caret);
-  };
-  if (typeof requestAnimationFrame === "function") requestAnimationFrame(resume);
-  else resume();
 }
 
 /**
@@ -81,7 +63,6 @@ export function slashTrigger(
           await host.writes.updateNodeContent(row.textNodeId, left);
           // The editor takes the text as written, the caret where `/` was.
           host.activateNode(row.nodeId, typed.start, instanceKey);
-          // GAP [[01M7XSNFCYHHYD7VKTZXPYG60B]] a command that does not answer its writes makes them apart.
           // GAP [[01M7XVRNAJBC9Q09SKCGRQTMHC]] the gesture is the page's: an edit made while it is open joins it.
           await host.writes.together(command.run);
           keepEditing(row.nodeId, typed.start);

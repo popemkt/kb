@@ -6,6 +6,8 @@ import { useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPF
 
 export type RunOptimisticResult = {
   ok: boolean;
+  /** Why a write was refused, as the person was told. */
+  refused?: string;
   focusId?: string;
   focusCursor?: number;
   /** The row instance the plan's focus names, when it names one. */
@@ -78,8 +80,9 @@ export async function runOptimistic(
     // oxlint-disable-next-line eslint/no-await-in-loop -- plans are deliberately ordered (split and merge depend on prior writes)
     const receipt = await write(action);
     if (receipt.status === "failed") {
-      toast(failureText(receipt));
-      return { ok: false };
+      const refused = failureText(receipt);
+      toast(refused);
+      return { ok: false, refused };
     }
     outputs.push(receipt.output);
   }

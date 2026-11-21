@@ -1003,8 +1003,14 @@ of its steps marks the store's last undo entry when it was taken
 it made, in its place (Triggers in the text), and ⌘Z in the row takes back
 first whatever the store wrote since the row's last step (a command run on
 the row, a pick in the palette) through the store's undo, then shows the
-text the store holds. So ⌘Z in the row takes back the last thing done
-while it is edited, and what the row shows is what the store holds.
+text the store holds. The history is the row's, not its host's: a write
+that draws the row at another instance (an indent from `/` or Tab) takes
+its host away while the row is edited, and the host drawn there takes the
+history up when the text is as it was; a store undo that redraws the row
+leaves it edited where it is drawn now (`keepEditing`). Leaving the row
+(Escape, a click elsewhere) ends its history. So ⌘Z in the row takes back
+the last thing done while it is edited, wherever that put the row, and what
+the row shows is what the store holds.
 
 **Refs are atomic in the editor.** `[[id|label]]` renders as a
 `contenteditable=false` link carrying its serialized token, in both states, so
@@ -1865,8 +1871,8 @@ the caret as they were.
   query go from the text as typing takes text away, then the command runs
   about the row through the page's write path (`PageWrites.together`), so
   the writes it answers are one undo step, and no undo brings the typed
-  trigger back, whether a command's write joins that step or not (Add
-  chart's view is not a page write). A command that opens a picker step
+  trigger back. Every node command answers the writes it makes (its run
+  awaits them, never `void`s them), so they join that step. A command that opens a picker step
   (Add tag, Move to…) opens it in the node palette, on the row. Once the
   write has landed and nothing else holds the focus, the row is edited
   where it is drawn then (under its new parent, after Indent), the caret
@@ -4338,7 +4344,9 @@ every node by its key) reach it with nothing of its own.
   it, started from the query's columns (`starterChartSpec`: its first
   aggregate column by its first non-id column, else a count of rows by that
   column), and opens it in a panel beside. `lib/propose-view` is the UI's
-  one way to call `view.propose`; "Save workspace" goes through it too.
+  one way to call `view.propose`; "Save workspace" goes through it too. It
+  calls it as a page write (`runPageWrite`), so the view node it makes is
+  one undo step, or part of the gesture that made it.
 
 ### Code views
 

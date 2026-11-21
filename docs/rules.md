@@ -386,14 +386,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — packageShards packs mutants by line range instead of by file, emitting file:start-end entries in a shard's mutate.
 - **node** — `01M558MRWHR92991GYFRC5WWXY`
 
-### GAP: a node command that does not answer its writes makes them apart from its undo step
-
-- **expected** — Every node command's run answers the writes it makes, through the page's write path (PageWrites), so a / pick or a palette run waits for them and they are one undo step (PageWrites.together).
-- **current** — NodeCommandListing.run and nodeAction answer the command's promise, but several command bodies fire their write without answering it (void writes.defineTag in Make my tag, void writes.updateProp in Make query, the makeSupertag and Add chart async blocks, void setFrameView, void invokeAction in command-forms), and Add chart's view.propose goes to invoke directly, not through PageWrites, so it has no undo step at all.
-- **impact** — Such a command's write is not part of the / pick's undo step (or the palette run's): it is its own step, or, for Add chart, no step. The typed trigger never comes back (the / pick consumes it as typing), but undo takes the command back in more than one step or not at all.
-- **closes** — Each listed body returns its write instead of voiding it (commands.tsx is WP-5's file, chart-ui and command-forms are shared), and view.propose becomes a planned write in mutations (WP-4's), so its view node is made and undone as any page write.
-- **node** — `01M7XSNFCYHHYD7VKTZXPYG60B`
-
 ### GAP: a node drawn at several places shares one open or closed choice
 
 - **expected** — Each place a node is drawn (a row instance: under its parent, as a query result, under a reference) keeps its own open or closed choice, so opening or closing one row's subtree changes only the rows drawn under it
@@ -530,14 +522,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Signed or stored connect state (docs/research/2026-11-11-cli-host-modes.md step 9).
 - **rule** — Hosts are accelerators: the store is the truth
 - **node** — `01M75MA0QYHNYGSNMJAGTZKZQ1`
-
-### GAP: a row a pick redraws starts its text history over, so ⌘Z in it cannot reach the pick
-
-- **expected** — ⌘Z in a row takes back the last thing done in it, a pick included, wherever the pick put the row: the row's history follows it when a write draws it at another instance (an /indent), or the row's ⌘Z steps the page's history once its own is spent.
-- **current** — The row's history lives in its text host (use-text-history.ts). A / pick that indents or outdents the row redraws it under a new instance key, so a new text host starts with an empty history; slashTrigger re-edits it there (keepEditing) but ⌘Z in it reaches only the typing since. Escape, then ⌘Z (the page's undo) takes the pick back in one step.
-- **impact** — After /indent or /outdent, ⌘Z while still typing in the row does not undo the indent; the person has to leave the row first. Tab-indent while editing has the same limit today.
-- **closes** — The page editor (outline.store.ts, WP-4's file in the 2026-11-20 parity work) keeps the active row's text history across a re-key of its instance, or the text host falls through to PageWrites.undo/redo when its history is empty, with the editor following the row to its new instance.
-- **node** — `01M7X9MKS1DM5JEAR2DRWS7KT6`
 
 ### GAP: a sandboxed graph.query is bounded in size, not in time
 
@@ -2433,6 +2417,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYPQ3CGJKP20TQFADPRH1`
 
+### GAP: a node command that does not answer its writes makes them apart from its undo step
+
+- **expected** — Every node command's run answers the writes it makes, through the page's write path (PageWrites), so a / pick or a palette run waits for them and they are one undo step (PageWrites.together).
+- **current** — NodeCommandListing.run and nodeAction answer the command's promise, but several command bodies fire their write without answering it (void writes.defineTag in Make my tag, void writes.updateProp in Make query, the makeSupertag and Add chart async blocks, void setFrameView, void invokeAction in command-forms), and Add chart's view.propose goes to invoke directly, not through PageWrites, so it has no undo step at all.
+- **impact** — Such a command's write is not part of the / pick's undo step (or the palette run's): it is its own step, or, for Add chart, no step. The typed trigger never comes back (the / pick consumes it as typing), but undo takes the command back in more than one step or not at all.
+- **closes** — Each listed body returns its write instead of voiding it (commands.tsx is WP-5's file, chart-ui and command-forms are shared), and view.propose becomes a planned write in mutations (WP-4's), so its view node is made and undone as any page write.
+- **node** — `01M7XSNFCYHHYD7VKTZXPYG60B`
+
 ### GAP: a node's title reaches its row, ref values, search and the picker, not every place the page names a node
 
 - **expected** — Every surface that names a node (breadcrumbs, the zoomed page's title, tab and pane titles, graph and canvas labels, backlinks) names it by nodeTitleOf, as rows, ref values, search and the node picker do (DESIGN-UI.md → Titles from fields).
@@ -2481,6 +2473,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A local extension is always on and its configuration lives in code, not in the graph.
 - **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
 - **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
+
+### GAP: a row a pick redraws starts its text history over, so ⌘Z in it cannot reach the pick
+
+- **expected** — ⌘Z in a row takes back the last thing done in it, a pick included, wherever the pick put the row: the row's history follows it when a write draws it at another instance (an /indent), or the row's ⌘Z steps the page's history once its own is spent.
+- **current** — The row's history lives in its text host (use-text-history.ts). A / pick that indents or outdents the row redraws it under a new instance key, so a new text host starts with an empty history; slashTrigger re-edits it there (keepEditing) but ⌘Z in it reaches only the typing since. Escape, then ⌘Z (the page's undo) takes the pick back in one step.
+- **impact** — After /indent or /outdent, ⌘Z while still typing in the row does not undo the indent; the person has to leave the row first. Tab-indent while editing has the same limit today.
+- **closes** — The page editor (outline.store.ts, WP-4's file in the 2026-11-20 parity work) keeps the active row's text history across a re-key of its instance, or the text host falls through to PageWrites.undo/redo when its history is empty, with the editor following the row to its new instance.
+- **node** — `01M7X9MKS1DM5JEAR2DRWS7KT6`
 
 ### GAP: a seeded default the owner deletes comes back on the next open
 

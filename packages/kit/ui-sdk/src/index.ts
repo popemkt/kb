@@ -48,6 +48,7 @@ export {
   browserHost,
   type BrowserHost,
   BrowserHostService,
+  keepEditing,
   type ProposedView,
   type ViewProposal,
 } from "./host";
