@@ -1564,19 +1564,73 @@ opens a sibling, where an expanded ordinary row opens its first child, because
 reference needs both a host row and a target, and the global palette has no
 two-step for that.
 
-On a zoomed node, **References** lists the other nodes with a
-`:node/mentions` edge to it. Each referrer has a clickable ancestor path
-above it. Its chevron reveals the shown node’s children visible in the current
-outline as ordinary rows. For a contextual reference, those are its target’s
-children. The referrer stays in place.
+### References
 
-**Unlinked mentions** follows References. It finds a case-insensitive
-whole-word or phrase match for the displayed title in plain-text segments.
+On a zoomed node, **References** lists the other nodes with a
+`:node/mentions` edge to it, then its **Unlinked mentions**. It is drawn
+as the page's outline is drawn, with the same lines, bullets, rhythm and
+type, and it discloses a step at a time, so a node referenced from
+hundreds of places costs one line until the reader asks for more
+(`references-section.tsx`).
+
+- **Closed by default, one line.** Its heading is a section heading
+  whose caret sits in the glyph column, where a row's bullet is, and says
+  how many: "References (44 · 15 unlinked)". The whole line opens and
+  closes it. Which parts are open is the reader's, held by the section for
+  as long as the page shows the node, and never stored.
+- **Grouped by place.** A reference's place is its parent: the node whose
+  page shows it in context (`groupByPlace`, `reference-groups.ts`). Each
+  place is drawn as its own row, and its references are drawn under it one
+  level in, so References reads as that place's outline does. The place
+  written in most recently comes first, and its references keep the
+  place's own order. A reference at the top level has no place and stands
+  at depth 0. The compact path above a place is drawn once, on one line
+  that shortens its crumbs rather than wrap, and only where it differs
+  from the path of the place before. Each crumb opens its node.
+- **A few at a time.** The first 5 places are shown, then "Show 10 more
+  places"; each place shows its first 3 references, then "Show N more",
+  which reveals more of that place only. A place's bullet folds it as an
+  outline row's bullet folds its children (`bulletClickIntent`: a click
+  toggles, ⌘/Ctrl-click opens, Shift-click opens beside), and a folded
+  place carries the halo. A click on a place's or a reference's words
+  opens that node. These rows have no outline keymap, so a bullet that
+  folds is their keyboard way to do it: it takes Tab, says whether it is
+  open (`aria-expanded`), and Enter or Space toggles it (`Bullet`'s
+  `focusable`). An outline row's bullet folds by the outline's keys and
+  stays out of the tab order.
+- **A reference's own children** fold by its bullet in the same way. Open,
+  they are the shown node's children that are visible in the current
+  outline, drawn as ordinary rows one level further in; for a contextual
+  reference, they are its target's children. The referrer stays in place.
+- **Unlinked mentions wait behind their own line**, a second disclosure
+  heading inside the open section, closed by default and grouped and
+  paged as references are.
+
+**Row actions take no width.** An action a row offers, such as Link on an
+unlinked mention, is drawn over the right end of the row's words, before
+its tags, while the row is hovered or holds focus (`NodeLinkRow`'s
+`action`). It never covers a tag chip, so both stay reachable. It sits on
+the page's own ground, faded in from the left, so the words under it stay
+legible up to it. It takes no width, so showing it never moves or rewraps
+a word of the row. Only the action itself takes the pointer, and only
+while shown: the fade never does, so a click or tap beside it still
+reaches the row. It is a button, so Tab reaches it and focus shows it.
+Where nothing hovers (`hover: none`), it is always shown. The alternatives
+we rejected:
+
+- an inline button: it pushed the row's words aside;
+- a reserved actions gutter: it shortens every row to keep space for an
+  action that most rows never show;
+- the row's menu only (⌘K or the bullet's menu): it is a reach for the
+  one thing a reader comes to Unlinked mentions to do;
+- keyboard only: it hides the action from the pointer.
+
+**Unlinked mentions** finds a case-insensitive whole-word or phrase match
+for the displayed title in plain-text segments.
 The inline parser must read the replacement as a reference at that span.
 Titles must have at least three characters.
 The node, its ancestors and descendants, system and schema nodes, and
-rows with a mention edge are excluded. The section shows up to 50 rows at
-first and reveals another 50 with **Show more**. **Link** replaces the
+rows with a mention edge are excluded. **Link** replaces the
 first matched span with an inline reference using the matched wording.
 It is one text write and one undo step. The write requires the source text
 the match was read from ([Conditional text edits](DESIGN.md#conditional-text-edits)),
@@ -1584,12 +1638,12 @@ so the server may refuse what the replica took; its undo step is recorded
 once the server takes it, as every text write on a reading is
 (`planUpdateText`), and a refused Link leaves none.
 
-An outline row with incoming mentions has a count at its right edge.
-Clicking the count opens the node in the same pane and scrolls to
-References. A single query groups the mention relation by target for all
-mounted counters in the replica. Each row subscribes to its own count.
-Counts appear by default. The outline family's **hide reference counts**
-checkbox turns them off.
+An outline row draws no reference count. A count at the end of a row
+sits in its text's flow, so every referenced row reads as a row with a
+number after it, and a row's reading should be its words. How many
+references a node has is said once, on its own page, in the References
+heading. The outline family's former **hide reference counts** setting is
+retired (`retires`), since there is no count to hide.
 
 A References row names each field its referrer points here through
 (`NodeIndex.referenceFields`, read by the carriers that made the
@@ -4211,9 +4265,10 @@ until "Save workspace".
   row: the chip of that tag, which already says why the node is special,
   grows a ↗ segment behind a hairline (`TagChip`'s `action`), "Open in
   Canvas", the same step as the menu's row. The chip's name still goes to
-  the tag. On a pointer that hovers the segment shows while the row is
-  hovered or holds focus; on touch (`hover: none`) it is always there. It
-  is a button, so Tab reaches it. A click on the bullet stays as resolved.
+  the tag. The segment is always there, faint until the row is hovered or
+  holds focus, so the chip is as wide at rest as under the pointer and the
+  row's words never rewrap when it shows ("Row actions take no width",
+  References). It is a button, so Tab reaches it. A click on the bullet stays as resolved.
 - **The bullet's menu.** A right click on a row's bullet, or a finger held
   on it for `LONG_PRESS_MS` (`useMenuGesture`, `@kb/ui-sdk`), selects the
   row and opens the node menu on it, as ⌘K does on a selected row. A long

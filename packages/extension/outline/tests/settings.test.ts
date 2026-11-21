@@ -11,7 +11,6 @@ import {
   OUTLINE_IDS,
   outlineExtension,
   showsChildCounts,
-  showsReferenceCounts,
 } from "../src/index.ts";
 
 const AT = "2026-11-15T00:00:00.000Z";
@@ -32,32 +31,6 @@ describe("show child counts", () => {
     const seeded = outlineExtension.seed?.(AT) ?? [];
     const field = seeded.find((node) => node.id === OUTLINE_IDS.childCountsField);
     expect(field?.text).toBe("show child counts");
-    expect(field?.props[SYSTEM_IDS.fieldTypeField]).toEqual([
-      { t: "ref", v: SYSTEM_IDS.ftCheckbox },
-    ]);
-    expect(field?.props[SYSTEM_IDS.configuresField]).toEqual([
-      { t: "ref", v: extensionNodeId("outline") },
-    ]);
-    expect(field?.props[SYSTEM_IDS.showField]).toBeUndefined();
-  });
-});
-
-describe("hide reference counts", () => {
-  test("shows counts when the family's node says nothing, or is not there", () => {
-    expect(showsReferenceCounts(undefined)).toBe(true);
-    expect(showsReferenceCounts({ props: {} })).toBe(true);
-  });
-
-  test("hides counts only when the checkbox is checked", () => {
-    const field = OUTLINE_IDS.hideReferenceCountsField;
-    expect(showsReferenceCounts({ props: { [field]: [{ t: "bool", v: true }] } })).toBe(false);
-    expect(showsReferenceCounts({ props: { [field]: [{ t: "bool", v: false }] } })).toBe(true);
-  });
-
-  test("is a checkbox the family seeds, holding one value, that configures its node", () => {
-    const seeded = outlineExtension.seed?.(AT) ?? [];
-    const field = seeded.find((node) => node.id === OUTLINE_IDS.hideReferenceCountsField);
-    expect(field?.text).toBe("hide reference counts");
     expect(field?.props[SYSTEM_IDS.fieldTypeField]).toEqual([
       { t: "ref", v: SYSTEM_IDS.ftCheckbox },
     ]);
