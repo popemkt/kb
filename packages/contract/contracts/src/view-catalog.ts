@@ -7,11 +7,10 @@
  * `kb.manifest.views`, so both list only what the server loaded.
  */
 import { CORE_POINT_DEFINITIONS } from "./point-definitions.ts";
-import { Context, Effect } from "effect";
-import type { KbNode, NodeId } from "@kb/model";
+import { Context, type Effect } from "effect";
+import type { KbNode } from "@kb/model";
 import { Point } from "@kb/plugin";
-import { issueText, writtenViewIssue, type ViewCatalogOf, type ViewKey } from "@kb/views";
-import type { ActionGuard } from "./interception.ts";
+import type { ViewCatalogOf, ViewKey } from "@kb/views";
 import type { KbContext } from "./session.ts";
 
 /**
@@ -50,33 +49,3 @@ export const ViewKeyPoint = Point<ViewDef<unknown>>()(
 export class ViewCatalog extends Context.Service<ViewCatalog, ViewCatalogOf<ViewDef<unknown>>>()(
   "kb/ViewCatalog",
 ) {}
-
-/**
- * The commit's check of the view nodes of `views` (DESIGN.md → View nodes →
- * every write of a view node is checked by its key): whatever action writes
- * one, a setting its view cannot read is refused, by `@kb/views`'
- * `writtenViewIssue`. The family that provides a view contributes it beside
- * the view (`declarationPlugin`), so a view is judged wherever its key is
- * loaded, and not where it is not.
- */
-export function viewSettingsGuard(views: readonly ViewDef<unknown>[]): ActionGuard {
-  const keys = new Map<NodeId, ViewKey<unknown>>(views.map(({ key }) => [key.option, key]));
-  return {
-    match: "every write",
-    commit: ({ writes, ctx }) =>
-      Effect.sync(() => {
-        const found = writtenViewIssue(
-          (option) => keys.get(option),
-          writes,
-          () => ctx.index.allNodes(),
-        );
-        if (found === null) return { decision: "allow" } as const;
-        return {
-          decision: "deny",
-          rule: "view-settings",
-          message: `view node ${found.id} (${found.view}): ${found.issues.map(issueText).join("; ")}`,
-          details: { id: found.id, view: found.view, issues: found.issues },
-        } as const;
-      }),
-  };
-}

@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Result } from "effect";
 import { SYSTEM_IDS, hostViewIds, type KbNode } from "@kb/model";
-import { LayoutView, paramsFromProps } from "@kb/views";
+import { paramsFromProps } from "@kb/views";
 import type { KbContext } from "@kb/contracts";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
@@ -142,129 +142,5 @@ describe("view.propose", () => {
     expect(hostless).toMatchObject({ status: "failed", code: "not_found" });
     expect(ctx.nodes.length).toBe(before);
     expect(hostViewIds(node(FRAME))).toEqual([]);
-  });
-});
-
-/**
- * Every write of a view node is checked by its view's key, whichever action
- * makes it (DESIGN.md → View nodes): a setting its view cannot read is
- * refused, and a store that already holds one stays editable.
- */
-const span = (v: string) => ({ field: SYSTEM_IDS.viewSpanField, value: { t: "str", v } });
-
-describe("a view node written by any action", () => {
-  const BOARD_VIEW = {
-    field: SYSTEM_IDS.viewField,
-    value: { t: "ref" as const, v: CollectionBoardView.option },
-  };
-  const LAYOUT_VIEW = {
-    field: SYSTEM_IDS.viewField,
-    value: { t: "ref" as const, v: LayoutView.option },
-  };
-
-  test("node.add refuses a view node whose setting its view cannot read, and writes nothing", async () => {
-    const before = ctx.nodes.length;
-    const refused = await invoke(ctx, {
-      id: "node.add",
-      input: { id: "v.bad", text: "", props: [BOARD_VIEW, span("fortnight")] },
-    });
-    expect(refused).toMatchObject({ status: "failed" });
-    expect(refused.status === "failed" ? refused.message : "").toContain("sys.f.view.span");
-    expect(ctx.nodes.length).toBe(before);
-    await mustInvoke("node.add", { id: "v.good", text: "", props: [BOARD_VIEW, span("week")] });
-    expect(node("v.good").props[SYSTEM_IDS.viewSpanField]).toEqual([{ t: "str", v: "week" }]);
-  });
-
-  test("node.update refuses a setting its view cannot read", async () => {
-    await mustInvoke("node.add", { id: "v.board", text: "", props: [BOARD_VIEW] });
-    const refused = await invoke(ctx, {
-      id: "node.update",
-      input: { id: "v.board", setProps: [span("fortnight")] },
-    });
-    expect(refused).toMatchObject({ status: "failed" });
-    expect(node("v.board").props[SYSTEM_IDS.viewSpanField]).toBeUndefined();
-  });
-
-  test("changing a view type still refuses an unreadable setting supplied in that write", async () => {
-    await mustInvoke("node.add", { id: "v.board", text: "", props: [BOARD_VIEW] });
-    const refused = await invoke(ctx, {
-      id: "node.update",
-      input: {
-        id: "v.board",
-        unsetProps: [{ field: SYSTEM_IDS.viewField }],
-        setProps: [
-          LAYOUT_VIEW,
-          { field: SYSTEM_IDS.layoutField, value: { t: "str", v: "not JSON" } },
-        ],
-      },
-    });
-    expect(refused).toMatchObject({
-      status: "failed",
-      message: expect.stringContaining("is not JSON"),
-    });
-    expect(node("v.board").props[SYSTEM_IDS.viewField]).toEqual([BOARD_VIEW.value]);
-  });
-
-  test("a type-only change can select a view before filling in its required settings", async () => {
-    await mustInvoke("node.add", { id: "v.board", text: "", props: [BOARD_VIEW] });
-    await mustInvoke("node.update", {
-      id: "v.board",
-      unsetProps: [{ field: SYSTEM_IDS.viewField }],
-      setProps: [LAYOUT_VIEW],
-    });
-    expect(node("v.board").props[SYSTEM_IDS.viewField]).toEqual([LAYOUT_VIEW.value]);
-    expect(node("v.board").props[SYSTEM_IDS.layoutField]).toBeUndefined();
-  });
-
-  test("a type switch cannot replace an old invalid setting with another with the same error", async () => {
-    const field = SYSTEM_IDS.layoutField;
-    const old = { t: "str" as const, v: "old broken" };
-    await mustInvoke("node.add", {
-      id: "v.board",
-      text: "",
-      props: [BOARD_VIEW, { field, value: old }],
-    });
-    const refused = await invoke(ctx, {
-      id: "node.update",
-      input: {
-        id: "v.board",
-        unsetProps: [{ field: SYSTEM_IDS.viewField }, { field }],
-        setProps: [LAYOUT_VIEW, { field, value: { t: "str", v: "new broken" } }],
-      },
-    });
-    expect(refused).toMatchObject({
-      status: "failed",
-      message: expect.stringContaining("is not JSON"),
-    });
-    expect(node("v.board").props[SYSTEM_IDS.viewField]).toEqual([BOARD_VIEW.value]);
-    expect(node("v.board").props[field]).toEqual([old]);
-  });
-
-  test("a view node that already holds one stays editable: only what a write adds is judged", async () => {
-    // Written past the actions, as a store from before the check holds it.
-    const at = new Date().toISOString();
-    const held: KbNode = {
-      id: "v.held",
-      text: "",
-      props: {
-        [SYSTEM_IDS.viewField]: [{ t: "ref", v: CollectionBoardView.option }],
-        [SYSTEM_IDS.viewSpanField]: [{ t: "str", v: "fortnight" }],
-      },
-      children: [],
-      createdAt: at,
-      updatedAt: at,
-    };
-    await Effect.runPromise(ctx.store.commitEffect({ upserts: [held], deletes: [] }, { at }));
-    ctx = await openKb(root);
-    await mustInvoke("node.update", { id: "v.held", text: "Fortnightly" });
-    await mustInvoke("node.update", {
-      id: "v.held",
-      setProps: [
-        { field: STATUS, value: { t: "str", v: "a person's own field" } },
-        { field: SYSTEM_IDS.viewHideEmptyField, value: { t: "bool", v: true } },
-      ],
-    });
-    expect(node("v.held").text).toBe("Fortnightly");
-    expect(node("v.held").props[SYSTEM_IDS.viewHideEmptyField]).toEqual([{ t: "bool", v: true }]);
   });
 });

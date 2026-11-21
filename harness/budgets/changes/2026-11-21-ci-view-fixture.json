@@ -1,4 +1,0 @@
-{
-  "reason": "MCP and materialization tests share holdDocsView for unreadable stored views, bringing the @kb/test-kit surface to 60 exports.",
-  "raise": { "surface": { "@kb/test-kit": 1 } }
-}

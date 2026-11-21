@@ -6,8 +6,8 @@
 import { Effect } from "effect";
 import { docsViewNodeId, docsViewProps, type DocsViewSpec } from "@kb/model";
 import { invokeReceiptEffect, IN_PROCESS_WIRE, kbRuntimeLayer } from "@kb/runtime";
-import { onWire, type KbContext } from "@kb/contracts";
-import { CONTRACT_AT, openSession, plainNode } from "./store-session.ts";
+import { onWire } from "@kb/contracts";
+import { openSession } from "./store-session.ts";
 
 export const addDocsView = Effect.fn("testKit.addDocsView")(function* (
   root: string,
@@ -29,11 +29,3 @@ export const addDocsView = Effect.fn("testKit.addDocsView")(function* (
     return yield* Effect.die(new Error(`docs view ${name}: ${receipt.message}`));
   return receipt;
 });
-
-/** Hold a docs view as a hand edit or merge can leave it, past the actions' checks. */
-export function holdDocsView(ctx: KbContext, name: string, spec: DocsViewSpec): Promise<void> {
-  const view = { ...plainNode(docsViewNodeId(name), name), props: docsViewProps(spec) };
-  return Effect.runPromise(
-    Effect.asVoid(ctx.store.commitEffect({ upserts: [view], deletes: [] }, { at: CONTRACT_AT })),
-  );
-}

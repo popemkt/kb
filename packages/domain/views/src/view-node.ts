@@ -11,19 +11,14 @@ import { Effect, Predicate, Result } from "effect";
 import {
   SYSTEM_IDS,
   canonicalJson,
-  changedFields,
   currentIso,
   domainError,
   freshId,
   hostViewIds,
   placedRank,
-  viewHostsOf,
-  viewOptionOf,
   type DomainError,
   type KbNode,
   type NodeId,
-  type NodeProps,
-  type NodeWrite,
   type PropValue,
   type SiblingGroups,
 } from "@kb/model";
@@ -60,8 +55,12 @@ export function viewNodeFor<P>(
   const params = paramsIssues(key, input, true);
   if (Result.isFailure(params)) return Result.fail(params.failure);
   const settings = key.config.write(params.success);
-  const { reported, back } = readViewNode(key, settings, host);
-  const issues = reported.map(({ issue }) => issue);
+  const reported: string[] = [];
+  const back = paramsIssues(
+    key,
+    key.config.read(settings, host, (warning) => reported.push(warning)),
+  );
+  const issues: ViewIssue[] = reported.map((message) => ({ path: [], message }));
   if (Result.isFailure(back))
     issues.push(...back.failure.map((issue) => unheld(key, issue.path, issue.message)));
   else issues.push(...differences(key, params.success, back.success));
@@ -71,127 +70,6 @@ export function viewNodeFor<P>(
     params: params.success,
     props: { [SYSTEM_IDS.viewField]: [{ t: "ref", v: key.option }], ...settings },
   });
-}
-
-/**
- * A view node's stored settings read by `key` for `host` (the node it is
- * shown for, null when none): what its read reported, each at the root, and
- * the params they decode as, or each setting they cannot decode, at its
- * path. The one reading of stored settings that both a proposal's round trip
- * and the commit's check of a written view node take.
- */
-function readViewNode<P>(
-  key: ViewKey<P>,
-  props: NodeProps,
-  host: NodeId | null,
-): {
-  readonly reported: readonly { issue: ViewIssue; fields?: readonly NodeId[] }[];
-  readonly back: Result.Result<P, readonly ViewIssue[]>;
-} {
-  const reported: { issue: ViewIssue; fields?: readonly NodeId[] }[] = [];
-  const read = key.config.read(props, host, (message, fields) =>
-    reported.push({ issue: { path: [], message }, fields }),
-  );
-  return { reported, back: paramsIssues(key, read) };
-}
-
-/** Stored read errors carry the actual inputs that produced them. */
-function storedIssues(key: ViewKey<unknown>, props: NodeProps, host: NodeId | null) {
-  const readFields = new Set<NodeId>();
-  const used = (field: string | symbol): void => {
-    if (typeof field === "string") readFields.add(field);
-  };
-  const observed = new Proxy<NodeProps & Record<symbol, unknown>>(props, {
-    get(target, field) {
-      used(field);
-      return target[field];
-    },
-    has(target, field) {
-      used(field);
-      return Reflect.has(target, field);
-    },
-    getOwnPropertyDescriptor(target, field) {
-      used(field);
-      return Reflect.getOwnPropertyDescriptor(target, field);
-    },
-    ownKeys(target) {
-      const fields = Reflect.ownKeys(target);
-      fields.forEach(used);
-      return fields;
-    },
-  });
-  const { reported, back } = readViewNode(key, observed, host);
-  const identified = (issue: ViewIssue, fields: Iterable<NodeId>) => ({
-    issue,
-    identity: canonicalJson([
-      issue,
-      [...fields].toSorted().map((field) => [field, props[field] ?? []]),
-    ]),
-  });
-  return [
-    ...reported.map(({ issue, fields }) => identified(issue, fields ?? readFields)),
-    ...(Result.isFailure(back) ? back.failure.map((issue) => identified(issue, readFields)) : []),
-  ];
-}
-
-/** A view node a commit writes whose settings its view cannot read, and why. */
-export interface WrittenViewIssue {
-  readonly id: NodeId;
-  readonly view: string;
-  readonly issues: readonly ViewIssue[];
-}
-
-/** The graph as a commit leaves it: `stored`, with each of `writes` applied. */
-function* committed(stored: Iterable<KbNode>, writes: readonly NodeWrite[]): Iterable<KbNode> {
-  const written = new Map<NodeId, KbNode | undefined>();
-  for (const { before, after } of writes) written.set(after?.id ?? before?.id ?? "", after);
-  for (const node of stored) {
-    if (!written.has(node.id)) yield node;
-  }
-  for (const node of written.values()) if (node !== undefined) yield node;
-}
-
-/**
- * The first view node `writes` leave holding a setting its view cannot read
- * (DESIGN.md → View nodes → every write of a view node is checked by its
- * key), whatever action wrote it. A view is judged by its key, found by
- * `keyOf` from the node's view option; a view no key is found for (its
- * family not loaded) is not judged, as the data outlives the code. It is
- * read for the node that names it among its views once the commit lands
- * (`viewHostsOf`), as a proposal is read for its host.
- *
- * Only what a write adds is judged, as a value is (`tx.ts`): a node whose
- * props the write leaves as they were is passed over. Both versions of an
- * existing node are read by the chosen key, so choosing a view can precede
- * filling in its settings. An issue carries forward only with its original
- * stored inputs. A field the view does not read is a person's own.
- */
-export function writtenViewIssue(
-  keyOf: (option: NodeId) => ViewKey<unknown> | undefined,
-  writes: readonly NodeWrite[],
-  stored: () => Iterable<KbNode>,
-): WrittenViewIssue | null {
-  const judged = writes.flatMap(({ before, after }) => {
-    if (after === undefined || changedFields(before, after).length === 0) return [];
-    const option = viewOptionOf(after);
-    const key = option === null ? undefined : keyOf(option);
-    return key === undefined ? [] : [{ before, after, key }];
-  });
-  if (judged.length === 0) return null;
-  const hostOf = viewHostsOf(committed(stored(), writes));
-  for (const { before, after, key } of judged) {
-    const host = hostOf(after.id) ?? null;
-    const held = new Set(
-      before === undefined
-        ? []
-        : storedIssues(key, before.props, host).map(({ identity }) => identity),
-    );
-    const issues = storedIssues(key, after.props, host).flatMap(({ issue, identity }) =>
-      held.has(identity) ? [] : [issue],
-    );
-    if (issues.length > 0) return { id: after.id, view: key.id, issues };
-  }
-  return null;
 }
 
 /** A setting a view node of `key` cannot hold: what it reads back as instead. */

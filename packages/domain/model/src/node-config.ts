@@ -185,13 +185,12 @@ export type ConfigReader<T> = <K extends keyof T>(key: K) => T[K];
 export function decodeNodeConfig<T extends object>(
   slots: ConfigSlots<T>,
   props: NodeProps | undefined,
-  report: (warning: string, fields: readonly NodeId[]) => void,
+  report: (warning: string) => void,
 ): ConfigReader<T> {
   const from = props ?? {};
   return (key) => {
-    const slot = slots[key];
-    const decoded = slot.decode(from);
-    decoded.warnings.forEach((warning) => report(warning, slot.fields));
+    const decoded = slots[key].decode(from);
+    decoded.warnings.forEach(report);
     return decoded.value;
   };
 }

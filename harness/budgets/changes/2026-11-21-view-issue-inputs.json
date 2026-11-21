@@ -1,4 +1,0 @@
-{
-  "reason": "The production page measures 2,080,457 eager bytes when the view write guard attaches stored field values to diagnostics and the config readers identify their report fields.",
-  "raise": { "page-eager": { "bytes": 559 } }
-}

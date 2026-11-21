@@ -47,8 +47,7 @@ import {
   type Plugin,
   type PointKey,
 } from "@kb/plugin";
-import { ViewKeyPoint, viewSettingsGuard, type ViewDef } from "./view-catalog.ts";
-import { ActionGuardPoint } from "./interception.ts";
+import { ViewKeyPoint, type ViewDef } from "./view-catalog.ts";
 import { KeyContextPoint, KeybindingPoint, contributeKeyboard } from "./keybindings.ts";
 import { ContextReferencePoint, type ContextReference } from "./context.ts";
 import {
@@ -260,9 +259,7 @@ function accepts(host: KernelHost, ...points: readonly { readonly spec: KernelSp
 
 /**
  * What every host loads of a declaration: its views, each contributed to
- * {@link ViewKeyPoint} under its view id, with the commit guard that checks
- * every view node of them a write leaves (`viewSettingsGuard`, as
- * `<name>.view-settings`), its context references, and each
+ * {@link ViewKeyPoint} under its view id, its context references, and each
  * migration with the procedure that runs it. A view id already carries its
  * namespace (`<namespace>.<local id>`), so the plugin sits in the root
  * namespace. A host's entry plugin loads it as a child, or loads it as is.
@@ -288,7 +285,6 @@ export function declarationPlugin(declaration: ExtensionDeclaration): Plugin {
             discard: true,
           },
         );
-      const views = declaration.views ?? [];
       const migrations = (declaration.migrations ?? []).map((migration) => ({
         id: `${declaration.name}.${migration.id}`,
         migration,
@@ -306,13 +302,7 @@ export function declarationPlugin(declaration: ExtensionDeclaration): Plugin {
           ),
           contributeEach(
             ViewKeyPoint,
-            views.map((view) => ({ id: view.key.id, value: view })),
-          ),
-          contributeEach(
-            ActionGuardPoint,
-            views.length === 0
-              ? []
-              : [{ id: `${declaration.name}.view-settings`, value: viewSettingsGuard(views) }],
+            (declaration.views ?? []).map((view) => ({ id: view.key.id, value: view })),
           ),
           contributeEach(
             ContextReferencePoint,

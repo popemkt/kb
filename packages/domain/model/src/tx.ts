@@ -191,9 +191,10 @@ function writtenValueError(
  * a store that already holds a bad name stays editable and `docs.check`
  * reports it.
  *
- * The rest of a view node's settings are checked by its view's key, which
- * builds on this package: the family providing the view guards its view
- * nodes at the commit (`@kb/contracts`' `viewSettingsGuard`).
+ * The rest of a view node's settings are not checked here: the check that
+ * would (`@kb/views`' `viewNodeFor`) needs the view keys, which build on
+ * this package, so only `view.propose` runs it.
+ * GAP [[01M40X308W34T0PGSN12S9K2K2]]
  */
 function writtenDocsViewNameError(
   before: Map<NodeId, KbNode>,

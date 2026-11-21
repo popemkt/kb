@@ -1,6 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { DOCS_VIEW_OPTION, SYSTEM_IDS, present, type KbNode } from "@kb/model";
-import { holdDocsView } from "@kb/test-kit";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -276,14 +275,9 @@ describe("docs.materialize + docs.check", () => {
   });
 
   test("a docs view that cannot be read is a warning; the others are still checked", async () => {
-    let ctx = await seedTodos(root);
+    const ctx = await seedTodos(root);
     await mustInvoke(ctx, "docs.materialize", {});
-    await holdDocsView(ctx, "bare", {
-      output: "docs/kb/bare.md",
-      query: TODOS_QUERY,
-      template: "",
-    });
-    ctx = await openKb(root);
+    await addDocsView(ctx, "bare", { output: "docs/kb/bare.md", query: TODOS_QUERY });
     const check = (await mustInvoke(ctx, "docs.check", {})) as {
       clean: boolean;
       views: { view: string; output: string; status: string }[];
@@ -311,14 +305,9 @@ describe("docs.materialize + docs.check", () => {
   });
 
   test("invalid docs views fail with typed receipts naming what is wrong", async () => {
-    let ctx = await seedTodos(root);
+    const ctx = await seedTodos(root);
 
-    await holdDocsView(ctx, "bare", {
-      output: "docs/kb/bare.md",
-      query: TODOS_QUERY,
-      template: "",
-    });
-    ctx = await openKb(root);
+    await addDocsView(ctx, "bare", { output: "docs/kb/bare.md", query: TODOS_QUERY });
     const bare = await invoke(ctx, { id: "docs.check", input: { view: "bare" } });
     expect(bare.status).toBe("failed");
     if (bare.status === "failed") {
@@ -326,12 +315,11 @@ describe("docs.materialize + docs.check", () => {
       expect(bare.message).toContain("template");
     }
 
-    await holdDocsView(ctx, "escape", {
+    await addDocsView(ctx, "escape", {
       output: "../outside.md",
       query: TODOS_QUERY,
       template: "todos",
     });
-    ctx = await openKb(root);
     const escape = await invoke(ctx, {
       id: "docs.check",
       input: { view: "escape" },
@@ -339,12 +327,11 @@ describe("docs.materialize + docs.check", () => {
     expect(escape.status).toBe("failed");
     if (escape.status === "failed") expect(escape.code).toBe("invalid_input");
 
-    await holdDocsView(ctx, "untpl", {
+    await addDocsView(ctx, "untpl", {
       output: "docs/kb/untpl.md",
       query: TODOS_QUERY,
       template: "nope",
     });
-    ctx = await openKb(root);
     const untpl = await invoke(ctx, {
       id: "docs.check",
       input: { view: "untpl" },
