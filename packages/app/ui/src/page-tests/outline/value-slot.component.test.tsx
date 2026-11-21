@@ -20,6 +20,7 @@ import {
   fieldContextOf,
   TAG_PALETTE,
   wireToOutlineMap,
+  type FieldHandle,
   type FollowHow,
   type FollowTarget,
   type NodeMap,
@@ -910,5 +911,118 @@ describe("an option value is a chip", () => {
     // The picker keeps the field's own order of its options.
     const offered = [...container.querySelectorAll('[role="option"]')].map((o) => o.textContent);
     expect(offered).toEqual(["Todo", "Done"]);
+  });
+});
+
+describe("a date value keeps the slot's keys", () => {
+  let dom: InstalledDom;
+  let container: HTMLDivElement;
+  let root: Root;
+  let committed: PropValue[];
+  let calls: string[];
+  let leaked: number;
+
+  beforeAll(() => {
+    dom = installDomGlobals();
+    (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
+    dom.restore();
+  });
+
+  beforeEach(() => {
+    committed = [];
+    calls = [];
+    leaked = 0;
+    container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
+    dom.window.document.body.appendChild(container as unknown as never);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  /** A many-valued date field holding one date, its editor open. */
+  async function editDate(v: string) {
+    const field: FieldHandle = {
+      holder: "n.task",
+      values: [{ t: "str", v }],
+      many: true,
+      add: () => undefined,
+      remove: () => undefined,
+      create: () => Promise.resolve(null),
+      openPicker: () => undefined,
+      addSlot: () => calls.push("addSlot"),
+      leave: (to) => calls.push(`leave:${to}`),
+      claimKeyboard: () => undefined,
+      focusSlot: () => undefined,
+    };
+    await act(async () => {
+      root.render(
+        createElement(
+          "div",
+          { onKeyDown: () => (leaked += 1) },
+          createElement(ValueSlot, {
+            value: { t: "str", v },
+            fieldType: "date",
+            fieldId: "f.due",
+            context,
+            field,
+            onCommit: (next: PropValue) => committed.push(next),
+            onFollow: () => undefined,
+          }),
+        ),
+      );
+    });
+    const slot = present(container.querySelector<HTMLElement>("[data-value-slot]"), "slot");
+    await act(async () => {
+      slot.click();
+    });
+    return present(container.querySelector<HTMLInputElement>('input[aria-label="Date"]'), "input");
+  }
+
+  async function press(input: HTMLInputElement, key: string, shiftKey = false) {
+    await act(async () => {
+      input.setSelectionRange(input.value.length, input.value.length);
+      input.dispatchEvent(
+        new dom.window.KeyboardEvent("keydown", {
+          key,
+          shiftKey,
+          bubbles: true,
+          cancelable: true,
+        }) as unknown as Event,
+      );
+    });
+  }
+
+  it("Enter at the end of the date sets it and opens the next value", async () => {
+    const input = await editDate("2026-10-01");
+    await press(input, "ArrowDown");
+    await press(input, "Enter");
+    expect(committed).toEqual([{ t: "str", v: "2026-10-02" }]);
+    expect(calls).toEqual(["addSlot"]);
+    expect(leaked).toBe(0);
+  });
+
+  it("Tab sets the date and moves on", async () => {
+    const input = await editDate("2026-10-01");
+    await press(input, "ArrowDown");
+    await press(input, "Tab");
+    expect(committed).toEqual([{ t: "str", v: "2026-10-02" }]);
+    expect(calls).toEqual(["leave:down"]);
+  });
+
+  it("Escape leaves without setting, and no key reaches the outline behind", async () => {
+    const input = await editDate("2026-10-01");
+    await press(input, "ArrowDown");
+    await press(input, "a");
+    await press(input, "Escape");
+    expect(committed).toEqual([]);
+    expect(container.querySelector('input[aria-label="Date"]')).toBeNull();
+    expect(leaked).toBe(0);
   });
 });

@@ -503,9 +503,18 @@ export function CheckboxSurface({ value }: ValueSurfaceProps) {
  * A date value: at rest its label near today (`Today`, `Fri`, `Oct 12`),
  * read from its local calendar day, with the full date as the title; while
  * the slot edits, the date editor — typed phrases or the calendar — seeded
- * with the stored date, or with input the slot kept.
+ * with the stored date, or with input the slot kept, and keyed by the slot
+ * as every value is (its arrows aside).
  */
-export function DateSurface({ value, spec, editing, seed, rejected, onEnd }: ValueSurfaceProps) {
+export function DateSurface({
+  value,
+  spec,
+  editing,
+  seed,
+  rejected,
+  onEnd,
+  handleRef,
+}: ValueSurfaceProps) {
   const stored = spec.text(value);
   // A stored date in an older form (an ISO timestamp) still reads as its day.
   const canonical = stored === "" ? "" : (parseDateInput(stored) ?? stored);
@@ -517,6 +526,7 @@ export function DateSurface({ value, spec, editing, seed, rejected, onEnd }: Val
         initialText={seed ?? rejected?.text ?? canonical}
         onCommit={(text) => onEnd(spec.parse(text), text)}
         onCancel={() => onEnd()}
+        handleRef={handleRef}
       />
     );
   }

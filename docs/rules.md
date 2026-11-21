@@ -1988,14 +1988,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Phase 3 of the note: the three properties in storeContract over JSONL and SQLite, each with a falsifying case.
 - **node** — `01M7EY3NJJZMRTXJEM0TMKJCH4`
 
-### GAP: the date editor's Enter and Tab skip the value keymap
-
-- **expected** — Enter at the end of a date value opens the next value and Tab moves on, as in every other value kind.
-- **current** — DateEditor's Enter commits without opening a next value; its Tab does not move to the next slot.
-- **impact** — Dates are the one value kind that breaks the slot keyboard grammar.
-- **closes** — DateEditor delegates Enter/Tab to the ValueSlot keymap instead of handling them itself.
-- **node** — `01M3KA39ATBBJHPY4AWP7VKX8G`
-
 ### GAP: the days landing gives up on a fixed budget and silently leaves the person at home
 
 - **expected** — The landing on today waits for readiness: the page's live connection and the day node reaching its replica, however long a slow machine takes, and says so if it truly cannot land, instead of a fixed budget that falls back without a word.
@@ -3502,6 +3494,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a view extension cannot say itself in text without editing core, and core carries code-fence policy
 - **closes** — codeText moves to @kb/code with its key (E8)
 - **node** — `01M41H2ZG7C0SV1DYZE6MMKPFE`
+
+### GAP: the date editor's Enter and Tab skip the value keymap
+
+- **expected** — Enter at the end of a date value opens the next value and Tab moves on, as in every other value kind.
+- **current** — DateEditor's Enter commits without opening a next value; its Tab does not move to the next slot.
+- **impact** — Dates are the one value kind that breaks the slot keyboard grammar.
+- **closes** — DateEditor delegates Enter/Tab to the ValueSlot keymap instead of handling them itself.
+- **node** — `01M3KA39ATBBJHPY4AWP7VKX8G`
 
 ### GAP: the default design system's light accent and warning sit below body-text AA
 
