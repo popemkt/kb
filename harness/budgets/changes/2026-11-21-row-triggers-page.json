@@ -1,6 +1,8 @@
 {
-  "reason": "The outline's row triggers ship in the production page: `/` reads the node menu's commands in the text's picker, `@` as a row's whole text turns it into a reference, and a pick's text and write are one write the row's history holds as a page step. Measured against the field shortcut's tip (11f1adf7, 2035360 bytes), the eager set is 2037171 bytes.",
+  "reason": "The outline's row triggers ship in the production page: `/` reads the node menu's commands in the text's picker and runs one through the page's write path, `@` as a row's whole text turns it into a reference, and a pick's text and write are one write the row's history holds as a page step tied to the page's undo stack. Measured against the field shortcut's tip (11f1adf7, 2035360 bytes), the eager set is 2038712 bytes.",
   "raise": {
-    "page-eager": { "bytes": 1811 }
+    "page-eager": {
+      "bytes": 3352
+    }
   }
 }
