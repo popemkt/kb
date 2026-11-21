@@ -11,7 +11,7 @@
     "test": "bun test",
     "dev": "electrobun dev",
     "build:app": "electrobun build",
-    "build:mac": "electrobun build --env=stable"
+    "build:mac": "sh ../../../bin/release-bundle && electrobun build --env=stable"
   },
   "dependencies": {
     "@effect/platform-bun": "catalog:",

@@ -22,6 +22,7 @@ import {
   kbEnvironment,
   kbProcessRunner,
   KbCli,
+  processProbe,
   StoreDirectory,
   type KbRunner,
   type Stores,
@@ -48,15 +49,17 @@ async function alphaStore(): Promise<{ kb: KbRunner; stores: Stores; root: strin
   const pkg = join(scratch, "pkg");
   mkdirSync(pkg);
   const root = join(scratch, "alpha");
-  const kb = kbProcessRunner(
-    { kb: { source: "checkout", file: KB_SOURCE_BIN }, skipped: [] },
-    {
+  const env = kbEnvironment(
+    { path: process.env.PATH, home: homedir(), user: process.env.USER },
+    { KB_PKG_ROOT: pkg },
+  );
+  const kb = await Effect.runPromise(
+    kbProcessRunner({
+      candidates: () => [{ source: "checkout", file: KB_SOURCE_BIN }],
+      probe: processProbe(env, 30_000),
+      env,
       settingsFile: join(scratch, "desktop", "settings.json"),
-      env: kbEnvironment(
-        { path: process.env.PATH, home: homedir(), user: process.env.USER },
-        { KB_PKG_ROOT: pkg },
-      ),
-    },
+    }),
   );
   const stores = await Effect.runPromise(
     Effect.gen(function* () {

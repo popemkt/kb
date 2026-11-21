@@ -6,20 +6,15 @@
  */
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { Updater } from "electrobun/bun";
 import { Effect, Layer } from "effect";
 import { Desktop, DesktopLive } from "../../core/app.ts";
 import { currentConfig } from "../../core/config.ts";
 import { platformFocusReturn } from "../../core/focus.ts";
 import {
-  describeKb,
-  kbAdvice,
   kbCandidates,
-  kbChannel,
   kbEnvironment,
   kbProcessRunner,
   processProbe,
-  resolveKb,
 } from "../../core/kb-command.ts";
 import {
   CaptureClient,
@@ -32,13 +27,11 @@ import {
 import { electrobunShell } from "./shell.ts";
 
 /**
- * Build constants (`electrobun.config.ts` → `define`): the checkout's
- * `bin/kb`, and the Bun the build ran with ("" when it found none). They
- * are not environment variables, so nothing at run time can set or clear
- * them.
+ * A build constant (`electrobun.config.ts` → `define`): the `bin/kb` of the
+ * checkout a dev build was built from, "" in any other build. It is not an
+ * environment variable, so nothing at run time can set or clear it.
  */
 declare const KB_DESKTOP_CHECKOUT_KB: string;
-declare const KB_DESKTOP_BUILD_BUN: string;
 
 /** The app's bundle id (`electrobun.config.ts`), so focus return skips kb itself. */
 const BUNDLE_ID = "dev.kb.desktop";
@@ -51,44 +44,37 @@ const env = kbEnvironment({
   path: PATH,
   home: homedir(),
   user: USER,
-  runtimes: KB_DESKTOP_BUILD_BUN === "" ? [] : [KB_DESKTOP_BUILD_BUN],
+  // The Bun the app runs on, which the build pins to its own version.
+  runtimes: [process.execPath],
 });
-const candidates = kbCandidates(
-  {
-    setting: config.settings.kb,
-    env: KB_DESKTOP_KB,
-    // A kb release copied into the app by `build:mac` (Resources/app/kb).
-    bundled: join(import.meta.dir, "..", "kb", "bin", "kb"),
-    checkout: KB_DESKTOP_CHECKOUT_KB,
-    path: env.PATH ?? "",
-  },
-  kbChannel(await Updater.localInfo.channel()),
+const places = {
+  setting: config.settings.kb,
+  env: KB_DESKTOP_KB,
+  // A kb release copied into the app by `build:mac` (Resources/app/kb).
+  bundled: join(import.meta.dir, "..", "kb", "bin", "kb"),
+  checkout: KB_DESKTOP_CHECKOUT_KB,
+  path: env.PATH ?? "",
+};
+const services = Layer.mergeAll(
+  Layer.succeed(DesktopShell, shell),
+  Layer.succeed(DeviceSettings, config),
+  // The kb is resolved when a command first needs it, and again when the
+  // candidates change or the kb in use stops answering (kbProcessRunner).
+  Layer.effect(
+    KbCli,
+    kbProcessRunner({
+      candidates: () => kbCandidates(places),
+      probe: processProbe(env),
+      env,
+      settingsFile: config.settingsFile,
+    }),
+  ),
+  Layer.succeed(FocusKeeper, platformFocusReturn(process.platform, BUNDLE_ID)),
+  CaptureClient.layer,
+  CredentialKeychain.layer,
 );
-// GAP [[01M7WV5D06HSMA1JFBBRGE0B13]]: resolved once, at launch; a kb changed later needs a reopen.
-const choice = await Effect.runPromise(resolveKb(candidates, processProbe(env)));
-
-if (choice.kb === null) {
-  const tried = choice.skipped.map(({ kb, why }) => `• ${describeKb(kb)}: ${why}`);
-  shell.alert(
-    [
-      tried.length === 0 ? "kb desktop found no kb." : "kb desktop found no kb that runs:",
-      ...tried,
-      `Install kb, or: ${kbAdvice(config.settingsFile)}`,
-    ].join("\n"),
-  );
-  shell.exit();
-} else {
-  const services = Layer.mergeAll(
-    Layer.succeed(DesktopShell, shell),
-    Layer.succeed(DeviceSettings, config),
-    Layer.succeed(KbCli, kbProcessRunner(choice, { env, settingsFile: config.settingsFile })),
-    Layer.succeed(FocusKeeper, platformFocusReturn(process.platform, BUNDLE_ID)),
-    CaptureClient.layer,
-    CredentialKeychain.layer,
-  );
-  const main = Effect.gen(function* () {
-    const desktop = yield* Desktop;
-    yield* desktop.start;
-  });
-  Effect.runFork(main.pipe(Effect.provide(DesktopLive.pipe(Layer.provide(services)))));
-}
+const main = Effect.gen(function* () {
+  const desktop = yield* Desktop;
+  yield* desktop.start;
+});
+Effect.runFork(main.pipe(Effect.provide(DesktopLive.pipe(Layer.provide(services)))));

@@ -1176,28 +1176,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The store list and the capture path ask the remote's kb.manifest (with the device credential) for captureContract, update accepts, and show waiting or paused states as Android does.
 - **node** — `01M7WZGP3B84JK08R43Y642C7N`
 
-### GAP: kb desktop resolves its kb once, at launch
-
-- **expected** — The desktop notices when the kb it runs stops answering (or a better one appears) and resolves again, without a restart.
-- **current** — packages/app/desktop/src/shell/electrobun/index.ts probes the candidates once at launch and keeps the choice for the life of the process.
-- **impact** — A kb installed, rebuilt or removed while the app runs is not seen until the person quits and reopens kb; the store list then says the kb could not run, and the advice says to reopen.
-- **closes** — KbCli resolves lazily and re-resolves after a run that failed without a receipt, behind the same KbRunner port.
-- **node** — `01M7WV5D06HSMA1JFBBRGE0B13`
-
-### GAP: kb desktop stamps build-machine paths into the app
-
-- **expected** — A built app carries no path of the machine or checkout it was built on; a kb for it is bundled or installed.
-- **current** — electrobun.config.ts stamps KB_DESKTOP_CHECKOUT_KB (the checkout bin/kb) and KB_DESKTOP_BUILD_BUN (the Bun the build ran with, often a Nix store path) into the bundle.
-- **impact** — The app works on the machine it was built on only while that checkout and that Bun exist: a removed worktree or a Nix garbage collection turns both candidates into ones the probe passes over.
-- **closes** — build:mac bundles a kb release (bin/release-bundle) by default, and the checkout candidate is kept for dev builds only.
-- **node** — `01M7WV5DQDNMQMR9QYJN839TNJ`
-
 ### GAP: kb desktop typechecks its Electrobun adapter against a hand-kept declaration
 
 - **expected** — The shell adapter typechecks against Electrobun's own declarations, so an Electrobun upgrade that changes an API the adapter calls goes red in tsc.
 - **current** — Electrobun 1.18 ships electrobun/bun as TypeScript source that does not compile under kb's strictness, so packages/app/desktop/tsconfig.json maps it (paths) to src/shell/electrobun/api.d.ts, a hand-written slice of the API.
 - **impact** — An Electrobun upgrade can change a signature the slice still declares; tsc stays green and the app fails at run time.
-- **closes** — Electrobun publishes declarations (or its 2.x devkit's are usable from a Bun workspace), or the slice is generated from node_modules/electrobun at install and checked, and the paths delta in SANCTIONED_TSCONFIG_DELTAS goes.
+- **closes** — Tried 2026-11-21 (long/desktop-resolve): tsc declaration emit over node_modules/electrobun/dist/api/bun fails with TS4094 (private member of an exported anonymous class) and emits nothing, so a generated slice needs another emitter. Compiling the adapter against the source fails on 7 errors inside Electrobun: self is undeclared (5, native.ts) and noImplicitReturns (2, native.ts and Socket.ts); against the real types the adapter has 2 errors of its own (Tray menu items need type: "normal"), which the slice hid. Closing it needs an owner choice: sanction noImplicitReturns:false plus a declaration of Bun's self global for @kb/desktop in place of the paths delta, or move the Electrobun adapter into its own package with those deltas so the core stays strict. Or Electrobun ships declarations.
 - **node** — `01M7QTTS5YXQGNPZ1XRTVNTK4A`
 
 ### GAP: kb get without a host stops above D3's 100 ms target, inside the gate
@@ -2888,6 +2872,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a Mac whose installed kb is an older nightly, a release build runs it ahead of a newer checkout kb, so capture to local stores fails until the installed kb is updated or "kb" is set.
 - **closes** — kb --version (or a capabilities action) reports the contract versions it serves, and the probe requires the capture contract the desktop speaks.
 - **node** — `01M7WV5DBWNMEWS2QG6M4VP3QY`
+
+### GAP: kb desktop resolves its kb once, at launch
+
+- **expected** — The desktop notices when the kb it runs stops answering (or a better one appears) and resolves again, without a restart.
+- **current** — packages/app/desktop/src/shell/electrobun/index.ts probes the candidates once at launch and keeps the choice for the life of the process.
+- **impact** — A kb installed, rebuilt or removed while the app runs is not seen until the person quits and reopens kb; the store list then says the kb could not run, and the advice says to reopen.
+- **closes** — KbCli resolves lazily and re-resolves after a run that failed without a receipt, behind the same KbRunner port.
+- **node** — `01M7WV5D06HSMA1JFBBRGE0B13`
+
+### GAP: kb desktop stamps build-machine paths into the app
+
+- **expected** — A built app carries no path of the machine or checkout it was built on; a kb for it is bundled or installed.
+- **current** — electrobun.config.ts stamps KB_DESKTOP_CHECKOUT_KB (the checkout bin/kb) and KB_DESKTOP_BUILD_BUN (the Bun the build ran with, often a Nix store path) into the bundle.
+- **impact** — The app works on the machine it was built on only while that checkout and that Bun exist: a removed worktree or a Nix garbage collection turns both candidates into ones the probe passes over.
+- **closes** — build:mac bundles a kb release (bin/release-bundle) by default, and the checkout candidate is kept for dev builds only.
+- **node** — `01M7WV5DQDNMQMR9QYJN839TNJ`
 
 ### GAP: kb mutation skipped saving its baseline after a report failure
 
