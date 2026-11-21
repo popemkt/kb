@@ -280,21 +280,21 @@ function changesOf(before: Expansion, after: Expansion): ExpansionChanges {
  * the row is back.
  */
 function isStored(id: string, open: boolean, schema: SchemaIndex): boolean {
-  return !isReferenceKey(id) && schema.has(id) && isUndoable(id, open, schema);
-}
-
-/** What storage keeps of `expansion` over `schema` (`isStored`). */
-function storedOf(expansion: Expansion, schema: SchemaIndex): Expansion {
-  return new Map([...expansion].filter(([id, open]) => isStored(id, open, schema)));
+  return schema.has(id) && isUndoable(id, open, schema);
 }
 
 /**
  * `next` made `undoable` over `after`, the schema of the graph it is held
- * against; `current` was held against `before`. What this tab changed of what
- * storage keeps (`storedOf`) is applied onto storage's current expansion,
- * never a snapshot of this tab's, so another tab's choices survive; storage
- * drops the choices it no longer keeps on the way. So a row's choice leaves
- * storage with the row and comes back with it.
+ * against; `current` was held against `before`. A save writes only what
+ * this tab decided, each row as storage keeps it of the result
+ * (`isStored`): the rows `next` chose differently from `current` (the
+ * reader's gestures, and the rows a graph move keeps open), and the rows
+ * whose choice goes out of storage and back with the row, written with
+ * every save. A choice `undoable` drops because the graph moved is not
+ * written: another tab may see that row differently, and a load drops it
+ * again while it still cannot be undone. The changes are applied onto
+ * storage's current expansion, never a snapshot of this tab's, so another
+ * tab's choices survive.
  */
 function keptExpansion(
   current: Expansion,
@@ -303,11 +303,24 @@ function keptExpansion(
   after: SchemaIndex,
 ): Expansion {
   const kept = undoable(next, after);
-  const changes = changesOf(storedOf(current, before), storedOf(kept, after));
-  // GAP [[01M52E01JB6CFKT2M8CAS171EJ]]
-  if (changes.size > 0) {
-    saveExpansionChanges(changes, (id, open) => isStored(id, open, after));
+  const decided = new Set(changesOf(current, next).keys());
+  const gone: string[] = [];
+  for (const id of kept.keys()) {
+    if (!after.has(id)) gone.push(id);
+    else if (!before.has(id)) decided.add(id);
   }
+  for (const id of gone) if (before.has(id)) decided.add(id);
+  // The references opened in place are this tab's alone: storage holds rows' choices.
+  const ids = [...decided, ...(decided.size > 0 ? gone : [])].filter((id) => !isReferenceKey(id));
+  if (ids.length === 0) return kept;
+  saveExpansionChanges(
+    new Map(
+      ids.map((id) => {
+        const open = kept.get(id);
+        return [id, open !== undefined && isStored(id, open, after) ? open : null] as const;
+      }),
+    ),
+  );
   return kept;
 }
 

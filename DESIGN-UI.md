@@ -1072,8 +1072,12 @@ gives it children or fields. Each tab keeps its own expansion while it is
 open, and storage seeds it at load: another tab's choices are read at the
 next load, never merged in by a graph move. Storage is shared, so a save
 applies only the ids this tab changed onto what storage holds at that moment
-(`saveExpansionChanges`), never a snapshot of the tab's, and drops stored
-choices that are no longer undoable on the way. A load writes nothing. The
+(`saveExpansionChanges`), never a snapshot of the tab's, and the ids it
+changed are the ones it decided: the reader's gestures, the rows a graph move
+keeps open, and a row's choice going out of storage with the row and back
+with it. A choice the tab drops because the graph moved is not written,
+since another tab may see that row differently; a load drops it again while
+it still cannot be undone. A load writes nothing. The
 stored form is one key, `kb-expansion`, holding `{ open, closed }` and
 written in one `setItem`. While it is absent, the legacy `kb-expanded` (open
 ids) is read in its place. The legacy key is never written or deleted, so a

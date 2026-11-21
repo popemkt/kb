@@ -1508,14 +1508,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — WP4 folds kit/orbit.ts into the scene kit with the lab kit's view controls, and the graph's flight and the orbit share one camera rig.
 - **node** — `01M3E9QZ3D6EG2W2MERM93ABNA`
 
-### GAP: outline expansion save writes derived drops and filters other tabs' choices by this tab's schema
-
-- **expected** — only the reader's gestures are written as changes, and the keeps filter applies only to the ids this tab changed
-- **current** — changesOf counts drops made by undoable as changes, and saveExpansionChanges applies keeps to every stored id using this tab's schema
-- **impact** — a tab with a stale snapshot can erase another tab's newer choice for a row it sees differently
-- **closes** — derive changes from gestures only; apply keeps to changed ids only
-- **node** — `01M52E01JB6CFKT2M8CAS171EJ`
-
 ### GAP: outline paste deletes its source and focuses a row before server acceptance
 
 - **expected** — An outline paste keeps an empty source row until the server accepts the tree. Focus moves to the last authoritative row after it reaches the outline.
@@ -3156,6 +3148,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move MdView into the primitives zone; it takes text and options and touches no store.
 - **rule** — UI import matrix
 - **node** — `01M1RXNKKK31EGJWCA1KCV6V20`
+
+### GAP: outline expansion save writes derived drops and filters other tabs' choices by this tab's schema
+
+- **expected** — only the reader's gestures are written as changes, and the keeps filter applies only to the ids this tab changed
+- **current** — Fixed: keptExpansion writes only the ids this tab decided (the ids next chose differently from current, rows kept open by a graph move, and a row choice going out of storage and back with the row); saveExpansionChanges takes no keeps filter and leaves every other stored id as it is. A drop undoable makes because the graph moved is not written.
+- **impact** — a tab with a stale snapshot can erase another tab's newer choice for a row it sees differently
+- **closes** — derive changes from gestures only; apply keeps to changed ids only
+- **node** — `01M52E01JB6CFKT2M8CAS171EJ`
 
 ### GAP: outline expansion storage keeps choices for deleted rows forever
 
