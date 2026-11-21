@@ -46,7 +46,10 @@ function graph(suggesting = true): WireNode[] {
     wire({
       id: "n.a",
       text: "A mentions [[n.b]]",
-      props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.topic" }] },
+      props: {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.topic" }],
+        "f.status": [{ t: "ref", v: "o.done" }],
+      },
     }),
     wire({ id: "n.b", text: "B" }),
     wire({
@@ -209,7 +212,7 @@ describe("node-palette steps", () => {
 
   it("runs each step: picking a row hands its write the row and the pick", async () => {
     for (const { id, value } of steps()) {
-      const commit = vi.spyOn(value, "commit").mockResolvedValue();
+      const commit = vi.spyOn(value, "commit").mockResolvedValue(undefined);
       await openStep(id);
       const [first] = rows();
       await act(async () => present(first, `${id}'s first row`).click());

@@ -19,8 +19,17 @@ const scratch = await mkdtemp(join(tmpdir(), "kb-source-contract-"));
 const repo = join(scratch, "owner", "repo.git");
 await mkdir(repo, { recursive: true });
 afterAll(() => rm(scratch, { recursive: true, force: true }));
+/**
+ * How long one fixture git command may take. It runs synchronously, at load
+ * and inside tests, where no test timeout can fire, so a git that never
+ * returns would hold the suite until CI cancels the job; killed, it fails
+ * naming the command.
+ */
+const GIT_DEADLINE_MS = 20_000;
 function git(args: string[], input?: Uint8Array, cwd = repo): string {
   const result = Bun.spawnSync(["git", "-c", "core.hooksPath=/dev/null", ...args], {
+    timeout: GIT_DEADLINE_MS,
+    killSignal: "SIGKILL",
     cwd,
     env: childProcessEnv("git", {
       GIT_AUTHOR_NAME: "Fixture",
@@ -32,6 +41,8 @@ function git(args: string[], input?: Uint8Array, cwd = repo): string {
     stdout: "pipe",
     stderr: "pipe",
   });
+  if (result.exitedDueToTimeout === true)
+    throw new Error(`git ${args.join(" ")} took longer than ${GIT_DEADLINE_MS} ms`);
   if (result.exitCode !== 0) throw new Error(result.stderr.toString());
   return result.stdout.toString().trim();
 }

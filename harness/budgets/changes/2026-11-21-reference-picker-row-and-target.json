@@ -1,0 +1,4 @@
+{
+  "reason": "The text host passes the edited row and the node it displays so the reference picker can exclude both as the user types. The production page measures 2,032,842 eager bytes against the previous 2,032,823-byte ceiling.",
+  "raise": { "page-eager": { "bytes": 19 } }
+}

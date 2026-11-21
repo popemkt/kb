@@ -1,0 +1,9 @@
+{
+  "appId": "app.kb.capture",
+  "appName": "kb",
+  "webDir": "public",
+  "server": { "androidScheme": "https", "hostname": "localhost" },
+  "plugins": {
+    "SystemBars": { "insetsHandling": "native", "style": "DARK" }
+  }
+}

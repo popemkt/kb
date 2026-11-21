@@ -92,13 +92,9 @@ export const galleryCaptureDef = {
 } satisfies ActionDefinition;
 
 /**
- * The starter library, added on the server in one call: the outline paste,
- * the setting that names its `Library` as where saves go, and the pictures
- * it starts with. Run where its
- * ids are minted, so the setting names the node the store holds; a page
- * that pasted the outline itself would name the id its own optimistic
- * commit minted, which the server's commit does not keep.
- * GAP [[01M5ZBC8DQWB1DY5Z9AAABGPYR]]
+ * The starter library uses the server's bundled pictures. The action adds
+ * the outline, sets its `Library` as the save location, and files the
+ * pictures there.
  */
 export const galleryStarterDef = {
   id: "starter",

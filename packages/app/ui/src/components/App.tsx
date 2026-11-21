@@ -1,5 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
+import { describeChord } from "@kb/keybindings";
+import { SYSTEM_IDS } from "@kb/model";
 import {
+  canGo,
   cn,
   currentKeymap,
   keyChordEvent,
@@ -7,6 +11,8 @@ import {
   keyCallOf,
   landOnce,
   runKeyCall,
+  subscribePath,
+  subscribeUiKernel,
   useRoute,
   ViewErrorBoundary,
   WorkspaceBoundary,
@@ -28,7 +34,7 @@ import { loadManifest, readManifest } from "@/lib/manifest";
 import { startWorkspace } from "@/stores/workspace.store";
 import { extensionsSettled, startUiPlugins } from "@/ui-plugins";
 import { startOutlineLocation, useGraphStore } from "@/stores/graph.store";
-import { pageCommandTarget } from "@/stores/page-commands";
+import { pageCommandTarget, runKeyCommand } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
 import { useSidebarToggle } from "@/stores/prefs.store";
 import type { WsStatus } from "@/api/ws";
@@ -166,7 +172,42 @@ function SharedChrome() {
   );
 }
 
-/** The workspace header: the sidebar toggle, connection, palette, docks and settings. */
+const HISTORY_BUTTONS = {
+  back: { command: SYSTEM_IDS.cmdGoBack, label: "Back", Icon: CaretLeftIcon },
+  forward: { command: SYSTEM_IDS.cmdGoForward, label: "Forward", Icon: CaretRightIcon },
+} as const;
+
+function HistoryButton({ direction }: { direction: keyof typeof HISTORY_BUTTONS }) {
+  const { command, label, Icon } = HISTORY_BUTTONS[direction];
+  const enabled = useSyncExternalStore(
+    subscribePath,
+    () => canGo()[direction],
+    () => false,
+  );
+  const keys = useSyncExternalStore(
+    subscribeUiKernel,
+    () =>
+      currentKeymap(PAGE_CONTEXT_ID)
+        .held.filter(({ value: { run } }) => "command" in run && run.command === command)
+        .map(({ value: { chord } }) => describeChord(chord))
+        .join(" / "),
+    () => "",
+  );
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={hasText(keys) ? `${label} (${keys})` : label}
+      disabled={!enabled}
+      className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/60 enabled:hover:bg-foreground/5 enabled:hover:text-foreground/80 disabled:opacity-40"
+      onClick={() => void runKeyCommand(command, null)}
+    >
+      <Icon size={15} />
+    </button>
+  );
+}
+
+/** The workspace header shared by every page. */
 function WorkspaceHeader({ status }: { status: "loading" | "ready" | "error" }) {
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
   const sidebar = useSidebarToggle();
@@ -175,7 +216,11 @@ function WorkspaceHeader({ status }: { status: "loading" | "ready" | "error" }) 
 
   return (
     <header className="kb-chrome flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
-      <SidebarToggle {...sidebar} />
+      <div className="flex items-center gap-1">
+        <SidebarToggle {...sidebar} />
+        <HistoryButton direction="back" />
+        <HistoryButton direction="forward" />
+      </div>
       <h1 className="kb-display text-ui font-medium text-muted-foreground">kb</h1>
       {status === "loading" ? (
         <span className="text-label text-faint-foreground">loading…</span>

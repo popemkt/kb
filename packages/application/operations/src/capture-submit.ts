@@ -40,6 +40,7 @@ export const captureSubmitDef = {
   description:
     "File an original share through the store's capture target and return its durable receipt.",
   mode: { kind: "write" },
+  callers: ["person", "program", "capture-device"],
   batchOf: ["node.add", "asset.upload"],
   inputSchema: CaptureSubmitSchema,
   outputSchema: CaptureReceiptSchema,

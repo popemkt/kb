@@ -89,6 +89,28 @@ const OUTLINE = [
 ].join("\n");
 
 describe("node.addTree", () => {
+  test("keeps the supplied ids in tree order and refuses a wrong count before writing", async () => {
+    const { ctx } = await session();
+    const outline = "- Parent\n  - Child\n- Sibling";
+    const ids = ["n.paste-parent", "n.paste-child", "n.paste-sibling"];
+    const head = ctx.log.head;
+    const paste = { id: "node.addTree", input: { outline, parent: null, ids } };
+
+    const refused = await invoke(ctx, {
+      ...paste,
+      input: { ...paste.input, ids: ids.slice(0, 2) },
+    });
+    expect(refused).toMatchObject({ status: "failed", code: "invalid_input" });
+    expect(ctx.log.head).toBe(head);
+
+    expect(await succeed(invoke(ctx, paste))).toEqual({
+      ids,
+      lines: { 1: "n.paste-parent", 2: "n.paste-child", 3: "n.paste-sibling" },
+    });
+    expect(node(ctx, "n.paste-parent").children).toEqual(["n.paste-child"]);
+    expect(ctx.log.head).toBe(head + 1);
+  });
+
   test("lands the whole outline under parent at position, in tree order, with each line's id", async () => {
     const { root, ctx } = await seeded();
     const head = ctx.log.head;

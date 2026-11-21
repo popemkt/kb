@@ -1,0 +1,38 @@
+<!doctype html>
+<!--
+  The shell's own page: the only UI the app ships. A paired store's kb UI is
+  loaded from the store itself; this page lists the stores, shows the
+  capture queue (and stands in for a store whose UI did not load), and takes
+  a quick capture. It talks to the capture core through the KbShell plugin.
+  design-system.css is kb's, copied from packages/app/ui at build time.
+-->
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>kb</title>
+    <link rel="stylesheet" href="design-system.css" />
+    <link rel="stylesheet" href="shell.css" />
+    <script type="module" src="shell.js"></script>
+  </head>
+  <body>
+    <header class="bar">
+      <a class="mark" href="#/stores" aria-label="kb stores">
+        <svg viewBox="0 0 108 108" aria-hidden="true">
+          <path d="M40,62 L54,42 L70,64" stroke-width="5" stroke-linecap="round" class="edge" fill="none" />
+          <circle cx="54" cy="42" r="9" class="sun" />
+          <circle cx="40" cy="62" r="7" class="node" />
+          <circle cx="70" cy="64" r="7" class="node" />
+        </svg>
+        kb
+      </a>
+      <nav class="tabs" aria-label="Views">
+        <a href="#/stores" data-view="stores">Stores</a>
+        <a href="#/queue" data-view="queue">Queue <span class="count" id="queue-count" hidden></span></a>
+        <a href="#/capture" data-view="capture">Capture</a>
+      </nav>
+    </header>
+    <main id="view" aria-live="polite"></main>
+  </body>
+</html>

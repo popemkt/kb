@@ -48,6 +48,7 @@ implementation modules under `packages/app/server/src/` split by concern:
 | ------------------ | ----------------------------------------------------------------------------------------------- |
 | `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown                        |
 | `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback                     |
+| `request-health.ts` | HTTP deadlines, in-flight handler counts and event-loop lag ([Delivery](#delivery))            |
 | `delivery.ts`      | how every answer is sent: `304` revalidation, brotli/gzip ([Delivery](#delivery))               |
 | `invoke.ts`        | how the server runs an invocation it is handed: reload, then the invoke core; logs each refusal |
 | `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)                      |
@@ -67,8 +68,9 @@ implementation modules under `packages/app/server/src/` split by concern:
   to replicate. Port-only actions remain server-owned.
   Cold-boot `loadGraph` may fall back to fixtures; `hydrateFromWire` is
   boot-only — live resync uses `refreshFromWire` so `loadSource` stays `api`.
-  No temp-id dance (nxus's pain): client mints final ULIDs, server accepts
-  explicit ids (already supported by `node.add`).
+  When an action declares `mints`, the page takes the final id or ids from
+  that key in the local receipt and sends them in the same input key. The
+  server therefore commits the identities the page already shows.
 - **Change flow**: server fs-watches `.kb/` (catches CLI/MCP/agent writes
   too) → reloads nodes → rebuilds a DataScript database → broadcasts node-level
   deltas on WS → the client applies deltas → open queries re-run.
@@ -169,11 +171,14 @@ server refuses is said once, as a change that was not saved, and its hold is
 dropped. The server writes every call it refuses to its log, by action,
 code, tab session and node ids, never the refusal's message, which may quote
 what was written or what the graph holds (`server/src/invoke.ts`).
+A successful receipt that names different minted IDs also drops the hold
+and asks the server for missed changes. The settled receipt names the IDs
+the server committed.
 
 **What the table guarantees.**
 
 - Only the server escalates to a snapshot. The browser fetches `/api/graph`
-  only after the server answered `snapshot-required`. A failed push asks
+  only after the server answered `snapshot-required`. Dropping a hold asks
   `since` and nothing more.
 - `awaiting-snapshot` is left only by installing a snapshot. A hello at the
   replica's rev does not clear it, and a failed fetch is retried until one
@@ -260,6 +265,23 @@ query text, each as of a generation of the replica.
 
 ### Delivery
 
+HTTP routes compose the action runtime when they invoke an action. Static
+files and identity reads use the filesystem without building that runtime.
+
+HTTP handlers have 35 seconds to produce a response, allowing a screen command
+to wait its full 30 seconds. On expiry `kb ui` responds with a plain-text 503
+and `Retry-After: 1` so a capture client treats the timeout as a delivery failure
+it can retry. The host requests cancellation of the handler and writes one line
+to stderr with the method and path. Bun's HTTP idle timeout is 45 seconds on
+either listener. WebSocket traffic and streaming response bodies continue under
+their own lifetimes.
+
+`GET /api/health` runs after the normal request guard and reads only process
+metrics. It reports active HTTP handlers (`inFlight`), the age of the oldest
+in milliseconds (`oldestRequestMs`), and the event loop's delay
+(`eventLoopLagMs`), sampled once a second. A sample delayed by at least one
+second is logged to stderr when the loop resumes.
+
 How the page's bytes reach a browser, which is often across a tailnet relay
 with a round trip of 100 ms or more. The server's HTTP boundary
 (`packages/app/server/src/delivery.ts`) is the one place an answer is
@@ -288,20 +310,25 @@ be kept, never how it is sent.
     its digest, so one the current build lacks is served from whichever kept
     build has it, and never from outside that build's own files; one no kept
     build has is `404`, never the page (`server/src/build-archive.ts`). Nothing about this is in the package:
-    whatever installs kb, the server keeps its own builds. The sandbox
-    frame's script is not digest-named, so a tab gets the current one
-    (GAP [[01M6GY0MXXXY2YQ8C3P77M2QNF]]).
+    whatever installs kb, the server keeps its own builds. Tabs get the
+    current sandbox frame script, which is covered by the wire protocol.
   - _A build is not a protocol._ A build changes with every release; the
     wire a page and a server must agree on changes rarely. Every
     connection's `hello` names the server's `WIRE_PROTOCOL` (`@kb/contracts`
     → `protocol.ts`), and a tab of the same protocol keeps working whatever
     build the server serves. The wire's fingerprint — the socket's messages,
-    the action envelope and answer, the snapshot, and the input and output
-    of every action the server offers, as its manifest lists them — is
+    the sandbox page and frame messages, the action envelope and answer, the
+    snapshot, and the input and output of every action the server offers, as
+    its manifest lists them — is
     recorded beside the version
     (`server/tests/wire-protocol.test.ts`), so changing any of it fails until
-    someone decides: still compatible (record the fingerprint), or not (bump
-    the protocol).
+    someone checks compatibility in both directions. Record the fingerprint
+    when both builds can still work together. Bump the protocol when either
+    side would read a message differently.
+    Changing the meaning of an action across builds requires a protocol bump,
+    even when the action's new input is optional. An older server would drop a
+    conditional text edit's precondition
+    ([Conditional text edits](DESIGN.md#conditional-text-edits)).
   - _A reload waits, keeps the page, and says so._ A tab reloads when the
     server speaks another protocol, or as a fallback when a chunk it asks
     for is gone even so (Vite's `vite:preloadError`, or a view's error
@@ -439,11 +466,22 @@ split is what matters here:
 | **A — active edit** (caret inside node text)     | typing                       | `outline.editing`   | `outline-ui/src/editing-keymap.ts` + `outline-ui/src/use-node-keydown.ts`       |
 | **B — selection** (row selected, caret inactive) | after `Escape`, or arrow-nav | `outline.selection` | `outline-ui/src/selection-keymap.ts` + `outline-ui/src/use-selection-keymap.ts` |
 
-Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`),
+Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`), a
+new empty row above (`Cmd+Shift+Enter`, as `Shift+O` makes one),
 vertical caret motion, and autocomplete interception. Mode B owns
 `ArrowLeft/Right` collapse-expand-parent-firstchild, `Cmd+Shift+ArrowLeft/Right`
-a row to the group beside its own (_Groups_), `o` / `Shift+O` create-below/above, `Space` toggle, `Cmd+.` zoom, and printable-character
-re-entry into Mode A. Mode B's keys are the selected row's: a key pressed
+a row to the group beside its own (_Groups_), `o` / `Shift+O` create-below/above, `Space` toggle, and printable-character
+re-entry into Mode A. Both modes hold the structure keys a row is
+navigated by: `Cmd+ArrowUp/Down` close or open one level (Mode B:
+`ArrowLeft/Right`), `Cmd+Alt+ArrowDown` / `Cmd+Alt+ArrowUp` (Ctrl+Alt on
+Windows and Linux) open or close the row's whole subtree, every row
+the outline draws under it as it draws them all open: query results
+and references opened in place among them, and a child its view does
+not draw left as it is (each selected row's, over a range),
+`Cmd+.` zooms into the row, and `Cmd+,` zooms out to the page above the
+one its outline shows (its crumb before the last; at home nothing moves).
+The palette's Expand all and Collapse all are the same subtree step over
+every top row of the page (`expandSubtree`, `expandAllInScope`). Mode B's keys are the selected row's: a key pressed
 while focus is on a control the keyboard stops at (a text entry, or a button
 such as a tag's box or a hidden field's chip) is that control's, so Tab
 moves focus on and Enter or Space presses it (`ownsItsKeys`). Chrome the
@@ -720,8 +758,9 @@ What a gesture over a range acts on is said once, by the selection:
   row goes with it (`selectionRoots`). Tab, Shift-Tab and the moves act on
   the top rows as one block when they are one run of siblings (one parent,
   none skipped): the block goes under the sibling before it, after its
-  parent, or past the sibling beside it. A range that is not one run is told
-  so and left as it is.
+  parent, or past the sibling beside it. A range that stays is told why
+  (`BlockStays`): it is not one run, its first row has no row above it to
+  move under, or its rows are at the top with no parent to move out of.
 
 A gesture over several rows is one write. Every plan of several node writes
 is sent as one `node.batch` call (DESIGN.md →
@@ -912,8 +951,9 @@ operations (split, merge, indent, outdent, delete, move) are the covered case.
 A text has two writes, told apart by who writes it: a keystroke's
 (`PageWrites.updateNodeContent`), which records no step because the row's
 own text undo covers it (below), and a command's, written whole from
-outside the editor (`PageWrites.setNodeText`, Remove reference…), which is
-one undo step as every command's write is.
+outside the editor (`PageWrites.setNodeText`, Remove reference…, a pick
+from the text's triggers), which is one undo step as every command's
+write is.
 
 **Node text is one surface, read or edited.** There is no raw-source edit
 mode. `lib/md-edit.ts` `inlineNodes` is the one description of what inline
@@ -945,9 +985,16 @@ While editing, the DOM is the text: it is rebuilt from `content` on mount and
 when `content` moved on its own (a merge), never from a `content` still behind
 the editor's own writes. Text undo inside the row is the host's
 (`lib/text-history.ts`, `components/ui/use-text-history.ts`), recorded from the
-row's `content` stream so every write path — typing, `[[` completion,
-Shift+Enter — is covered, because native undo cannot follow a rebuilt tree;
-structural undo stays the store's (below).
+row's `content` stream so every typing path — keys, Shift+Enter, a paste —
+is covered, because native undo cannot follow a rebuilt tree; structural
+undo stays the store's (below). The two meet in the row's history: each
+of its steps marks the store's last undo entry when it was taken
+(`PageWrites.history`), a pick from a trigger is held as the store's step
+it made, in its place (Triggers in the text), and ⌘Z in the row takes back
+first whatever the store wrote since the row's last step (a command run on
+the row, a pick in the palette) through the store's undo, then shows the
+text the store holds. So ⌘Z in the row takes back the last thing done
+while it is edited, and what the row shows is what the store holds.
 
 **Refs are atomic in the editor.** `[[id|label]]` renders as a
 `contenteditable=false` link carrying its serialized token, in both states, so
@@ -1125,14 +1172,24 @@ query row, and ends in a ghost row that adds a result, not a child: what it
 adds is a node the query answers, not a child of the query (Frame views →
 _Adding to a frame_). Open or closed is the outline's
 screen state per node (`queryBuilders`), kept for the session and never
-written to the graph. A query that says nothing yet — no EDN, or no
-conditions, as a new one starts — opens its builder; one that says something
+written to the graph. A query that says nothing yet — no EDN or no
+conditions — opens its builder; one that says something
 opens closed. A write from the builder pins it open, so the first condition
 never folds it away under the caret. A query that fails shows its error
 with an "Edit query" button beside it, the way to its editor while it is
 tucked. From the keyboard: Tab reaches the
 button, and the node menu offers "Edit query" / "Hide query", opening a
 closed row to show it (`outline-ui/src/outline-commands.tsx`).
+
+“Turn into query” opens the tag picker at “Find nodes tagged…”. Picking
+a tag writes a condition on the [shown node’s](#contextual-references)
+type field for that exact tag ID.
+Escape closes the picker without a write. In global search, Alt+Enter
+saves the typed text as a case-insensitive text condition and opens the
+query node. It is a child of the focused pane’s subject node, including
+the node zoomed within an ontology. At the workspace root or in a pane
+with no subject node, the [capture destination](./DESIGN.md#provider-roles)
+decides where it goes.
 
 ### Outline layout
 
@@ -1302,11 +1359,14 @@ the `sys.f.ref.target` ref field. The field is the whole declaration — no tag 
 because a node with no target is not a reference (DESIGN.md → [Kinds, roles and
 options](./DESIGN.md#kinds-roles-and-options)). Same anatomy as a query node
 (`sys.f.query`), so collapse state, instance keys, both keymaps, undo and the
-transient rules are the ordinary ones, and `frame-rows.ts` did not change:
-a reference row's frame is simply its target.
+transient rules are the ordinary ones. `frame-layout.ts` reads every view's
+filter, sort, group, calendar day and derived table-column keys off
+`shownNode(row, schema)` while handing back the row itself: a reference is
+filtered, sorted, grouped and dated by its target's fields, tags and text while
+its place in the frame stays the reference's own.
 
-`packages/app/ui/src/lib/contextual-ref.ts` owns the rules that make it read as a
-reference:
+`packages/kit/ui-sdk/src/lib/contextual-ref.ts` owns the rules that make it read
+as a reference:
 
 - **Display is the target's text, verbatim.** `rowText(node, nodes)` returns
   `node.text` for an ordinary row and the _target's_ text for a reference, so the
@@ -1327,11 +1387,14 @@ schema)` is the one answer to "which node does this row show" — the target
   table row, card) and in the keyboard walk: the text (`rowText`, the one text
   channel `NodeContent` renders and writes), the tag chips, the bullet's
   paint, the field rows and table/card cells, the children and query results
-  under the row, its view, what the reveal chords and ←/→ count as its
-  children, where `o` and the create-child strip mint a child, and the page
-  ⌘-click and the zoom chord open. So a reference row reads exactly like its
-  target as an ordinary row, and every write it makes lands on the target, as
-  in Tana. What stays on the reference node is its **place** — the parent
+  under the row, its view, the filter/sort/group/day and derived-column keys in
+  `frame-layout.ts`, what the reveal chords and ←/→ count as its children, where
+  Enter on an expanded row (`planSplit`), `o` and the create-child strip mint a
+  child (focused under the reference's own instance), where board/calendar drags
+  and ⌘⇧←/→ write the group field (`planMoveToGroup`), and the page ⌘-click and
+  the zoom chord open. So a reference row reads exactly like its target as an
+  ordinary row, and every write it makes lands on the target, as in Tana. What
+  stays on the reference node is its **place** — the parent
   edge, sibling order, selection, instance key, collapse, Tab, moves and
   delete — so the one row↔node identity that instance keys, both keymaps,
   optimistic mutations and undo are built on is not forked, and deleting the
@@ -1441,12 +1504,33 @@ reference…_ is withheld from a row that already is one. View filters, sort and
 board grouping read a row's own props, so a reference inside a table or board
 sorts and groups as an empty node. Enter at the end of an expanded reference
 opens a sibling, where an expanded ordinary row opens its first child, because
-`planSplit` reads the row's own children. The References list shows a
-reference by its rendered target text rather than by the ancestor context it
-sits in, so on the original's own page a reference row reads as a copy of the
-original's text; a context breadcrumb is the obvious next step and is not
-built. There is no global ⌘K entry: a contextual reference needs both a host
-row and a target, and the global palette has no two-step for that.
+`planSplit` reads the row's own children. There is no global ⌘K entry: a contextual
+reference needs both a host row and a target, and the global palette has no
+two-step for that.
+
+On a zoomed node, **References** lists the other nodes with a
+`:node/mentions` edge to it. Each referrer has a clickable ancestor path
+above it. Its chevron reveals the shown node’s children visible in the current
+outline as ordinary rows. For a contextual reference, those are its target’s
+children. The referrer stays in place.
+
+**Unlinked mentions** follows References. It finds a case-insensitive
+whole-word or phrase match for the displayed title in plain-text segments.
+The inline parser must read the replacement as a reference at that span.
+Titles must have at least three characters.
+The node, its ancestors and descendants, system and schema nodes, and
+rows with a mention edge are excluded. The section shows up to 50 rows at
+first and reveals another 50 with **Show more**. **Link** replaces the
+first matched span with an inline reference using the matched wording.
+It is one text write and one undo step. The write requires the source text
+the match was read from ([Conditional text edits](DESIGN.md#conditional-text-edits)).
+
+An outline row with incoming mentions has a count at its right edge.
+Clicking the count opens the node in the same pane and scrolls to
+References. A single query groups the mention relation by target for all
+mounted counters in the replica. Each row subscribes to its own count.
+Counts appear by default. The outline family's **hide reference counts**
+checkbox turns them off.
 
 A References row names each field its referrer points here through
 (`NodeIndex.referenceFields`, read by the carriers that made the
@@ -1672,11 +1756,21 @@ text's triggers (`[[`, `@`, `#`, `>`), every node-palette step
 (`PaletteStepPoint`; the outline's add-tag, add-field, reference and move-to
 steps among them),
 the ontology page's include/extends, the canvas's "add existing node" and the
-tag page's add-field. A query matches fuzzily (prefix, substring, id, word
-initials, a compact subsequence) and the matched letters are marked; with
-nothing typed an option set keeps its own order, other fields offer the
-session's recent picks and then the most used. The field picker shows what the
-field holds checked; in a many-valued field Enter toggles and it stays open,
+tag page's add-field. A query ranks exact labels, label prefixes, label
+substrings, id matches, word initials and compact subsequences, in that order.
+Word initials and compact subsequences require at least three characters.
+The list marks matched label letters. An id match takes at least two characters
+and searches the last dot-separated segment of an id other than a ULID. An
+explicit prefix starting with `sys.` searches the full system id.
+With an empty query an option set keeps its declared order. Other fields
+offer the session's recent picks, then the most used. Add tag (`#`) and Add
+field (`>`) do the same, counting nodes using each tag or field and remembering
+picks separately. The remaining tags and fields appear by label match or explicit
+system id search. The rows show a tag hash or the field's type glyph and
+the number of nodes using it. Text reference search (`[[`) excludes the
+edited row and the node whose text it shows through a contextual reference.
+The field picker shows what the field holds checked; in a
+many-valued field Enter toggles and it stays open,
 Backspace on an empty query takes back the last value, and in a one-valued
 field a pick replaces and closes. A value that would close a cycle through a field
 that declares itself acyclic (a tag's `extends`; `closesCycleOf`) is shown,
@@ -1701,8 +1795,16 @@ picker at the caret, without leaving the text. The triggers are one table
 on the text host (`TextTrigger`, `lib/text-triggers.ts`). Each row of it
 says where a trigger opens, what it offers and what a pick does; the host
 runs every row with the one picker engine and the one list. A pick
-replaces what was typed for the trigger, the opener and its query, and may
-then write.
+can replace what was typed for the trigger, the opener and its query, and
+may then write, or consume what was typed (the row, for `>`) in writes of
+its own and own the focus after them. A pick that replaces the
+typed text writes the text it leaves and its own write as one write of the
+page's (`PageWrites.together`: one `node.batch`, one undo step), so one
+undo puts the row back as it was before the pick: the typed trigger back,
+the reference or tag gone. ⌘Z in the row reaches it in its place among
+the row's typing (`lib/text-history.ts`, a `page` step tied to the store's
+undo entry), and ⌘⇧Z makes it again. A refused write leaves the text and
+the caret as they were.
 
 - `[[` opens anywhere and offers every node (`nodeCandidates`). A pick
   inserts a reference, `[[id|label]]`, and Enter with nothing to pick
@@ -1715,19 +1817,52 @@ then write.
   provider other than core's is elected for `ui.date-target` (DESIGN.md →
   [Provider roles](./DESIGN.md#provider-roles)): with days on, the date's
   day. A pick inserts a reference to the node, or to the date's node, made
-  if need be.
+  if need be. As a row's whole text (`@` and the query, the caret at its
+  end), on a row whose text is its own, a pick makes the row a reference
+  row to that node instead, the write Turn into reference… makes
+  (`outline.add-ref`), and the text goes. The row is then selected, not
+  edited, since its text is now the node it references.
 - `#` opens at the start of the text or after a space, its query one word.
   It is the Add tag step (`outline.add-tag`): it offers the tags, and a new
   one by name, and a pick takes `#` and the query out of the text and tags
   the row.
-- `>` opens on a row whose whole text is `>` and a query. It is the Add
-  field step (`outline.add-field`): a pick empties the text, adds the field
-  to the row as Add field does from the menu, and puts the caret in its
-  value.
+- `>` makes an empty line a field of the node it is under, as Tana's
+  does ("stand on an empty line, type `>`, give the field a name or pick
+  one, Tab to its value"). It opens on a row whose whole text is `>` and a
+  query, the caret at its end, when the row is an empty line: it holds
+  nothing but that text (no child, no field, no tag) and is drawn under
+  its own parent, a row or the page. Elsewhere `>` is text: a row with
+  more in it, a row at the top of the forest, a reference, a projected
+  row. It is the Add field step (`outline.add-field`) aimed at that
+  parent: a pick takes the line away and adds the field to the parent, as
+  Add field does from the menu, preserving any values the parent already
+  holds for that field. One undo brings the empty line back and removes
+  the field if the pick added it. The caret lands on the field's value
+  where the parent's fields are drawn: under its row, or in the page head.
+  If the conversion is refused, the typed text and caret stay on the line.
+  The write checks the draft line and any field it initializes against the
+  current graph, so a concurrent edit can refuse the conversion.
+  The field receives focus and the conversion enters undo history after
+  server acceptance.
+  To add a field to a node that has text, use Add field on that node
+  (its menu, or the palette).
+- `/` opens at the start of the text or after a space, its query one word,
+  so `a/b` and an address are text. It offers the row's node menu, the
+  commands and the order the node palette shows (`BrowserHost.nodeCommands`),
+  matched by label. A pick consumes what was typed for it: `/` and the
+  query go from the text as typing takes text away, then the command runs
+  about the row through the page's write path (`PageWrites.together`), so
+  the writes it answers are one undo step, and no undo brings the typed
+  trigger back, whether a command's write joins that step or not (Add
+  chart's view is not a page write). A command that opens a picker step
+  (Add tag, Move to…) opens it in the node palette, on the row. Once the
+  write has landed and nothing else holds the focus, the row is edited
+  where it is drawn then (under its new parent, after Indent), the caret
+  where `/` was.
 
-`[[` is every text host's. `@`, `#` and `>` are the outline's: its rows
-pass them to their text host beside `[[`. A trigger with nothing to offer is
-closed, so its keys stay the text's: `@` or `#` in prose and `> ` starting a
+`[[` is every text host's. `@`, `#`, `>` and `/` are the outline's: its
+rows pass them to their text host beside `[[`. A trigger with nothing to
+offer is closed, so its keys stay the text's: `@` or `#` in prose and `> ` starting a
 quote are typed as text. Escape closes the picker and keeps the text, until
 the query changes. The table is the text host's own, not a plugin point;
 when a second family needs a trigger of its own, it becomes one.
@@ -3140,8 +3275,13 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: …, Copy node ID |
 | `arrange` | where it sits | Indent, Outdent, Move to…, Move and leave reference… |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
-| `view` | how its views show it | View as: …, Make default view: …, Edit query, Add chart, Filter…, Expand reference…, Count words |
+| `view` | how its views show it | View as: …, Make default view: …, Edit query, Add chart, Filter…, Group by…, Sort by…, Expand reference…, Count words |
 | `remove` | removing it | Delete node |
+
+“Group by…” and “Sort by…” open field pickers on frames whose views
+declare those settings. Each pick writes the
+[shown frame’s](#contextual-references) view node. Sorting uses the chosen
+field in ascending order, with “Manual order” to clear it.
 
 So a family's command takes a place among the shell's by naming it, and
 the one menu builder (`listNodeCommands`) reads the place from the
@@ -3908,6 +4048,10 @@ until "Save workspace".
   the focused pane (`startWorkspace`). Moving the focus shows the newly
   focused pane's location without adding a history step (`replacePath`). On
   load, the URL wins over the stored location of the focused pane.
+- **Back and Forward** sit beside the sidebar toggle and run the same
+  commands as ⌘K and the rebindable `Mod-[` and `Mod-]` page shortcuts.
+  The buttons are enabled for known history entries. Immediately after a
+  reload, forward history is unknown.
 - **One pane has no chrome.** A workspace of one pane is drawn as the page
   always was: the header, then the pane. Two or more panes are a movable
   layout grid, and the header stays. The header is the shell's: every page
@@ -5338,7 +5482,7 @@ and a horizontal one above it on a narrow one.
   binding as the person (`sandbox.trust`), asks the host for Google's URL
   (`ext.routines.connect`) and goes there. Google sends the person back to
   `/calendar/connect`, which hands that address to the host once
-  (`ext.routines.finish`), removes the code from the address bar at once,
+  (`ext.routines.finish`), clears the callback parameters in the current history entry,
   and returns to the setup. Every write here is `approval: "required"`, so
   an agent cannot set up, connect or remove a service, and the host offers
   the page a binding to trust (`ext.routines.binding`) only when the
@@ -5422,6 +5566,9 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   page's own key context (`core.page`; [Outline editor →
   Keybindings](#outline-editor-i1)), so the key opens today wherever focus
   is.
+- **"Previous day" and "Next day"** in ⌘K step from the day shown in the
+  focused pane, or from today if that pane shows no day, opening the adjacent
+  date through the date target.
 - **Opening on today.** Where a page that loads at the root opens is the
   page role `ui.landing` (DESIGN.md → [Provider roles](./DESIGN.md#provider-roles)).
   Core owns it and stays home, and days replaces it. Days answers today's

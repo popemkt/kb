@@ -10,15 +10,27 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { bundledPlugin } from "@kb/contracts";
 import { daysExtension } from "@kb/days";
-import { parseDateInput, present, SYSTEM_IDS } from "@kb/model";
+import { fieldTypeValue, isContextualRef, parseDateInput, present, SYSTEM_IDS } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
-import { DateTargetService, outlineInstanceKey, syncUiPlugins } from "@kb/ui-sdk";
+import {
+  browserHost,
+  CommandPoint,
+  DateTargetService,
+  nodeMenu,
+  outlineInstanceKey,
+  projectedRowKey,
+  syncUiPlugins,
+} from "@kb/ui-sdk";
+import { setPostAction, type ActionResponse } from "@/api/action";
 import { mutations } from "@/actions/mutations";
+import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
+import { waitForBrowserPushes } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
 import { rankedFixture } from "@/test-support/ranked-fixture";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { NodeBlock, outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { NodeBlock, NodeCommandPalette, outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { useUiStore } from "@/stores/ui.store";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
 beforeAll(() => syncPagePlugins([outlineUiPlugin]));
@@ -42,6 +54,22 @@ const days = bundledPlugin(
   }),
 );
 
+/** A node command, `label`, that runs `run`. */
+const probe = (label: string, run: () => void | Promise<void>) =>
+  definePlugin({
+    name: "probe",
+    apply: (ctx) =>
+      ctx.contribute(CommandPoint, {
+        id: "probe",
+        value: {
+          id: "probe.run",
+          menu: nodeMenu("make", 100),
+          chrome: () => ({ label, icon: null }),
+          run,
+        },
+      }),
+  });
+
 describe("triggers in the text", () => {
   let dom: Window;
   let container: HTMLDivElement;
@@ -61,21 +89,45 @@ describe("triggers in the text", () => {
 
   beforeEach(() => {
     resetOutlineStore();
-    useGraphStore.getState().hydrateFromWire(rankedFixture(), 1, "fixtures");
+    const nodes = rankedFixture();
+    for (const [id, text] of [
+      ["ex.tag.task", "task"],
+      ["sys.tag.calendar", "calendar"],
+    ] as const) {
+      nodes.push({
+        id,
+        text,
+        props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
+        children: [],
+        createdAt: "2026-11-20T00:00:00.000Z",
+        updatedAt: "2026-11-20T00:00:00.000Z",
+      });
+    }
+    useGraphStore.getState().hydrateFromWire(nodes, 1, "fixtures");
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
     dom.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
   });
 
   afterEach(() => {
+    setPostAction(null);
     act(() => root.unmount());
     container.remove();
   });
 
-  /** Edit row `row` with `text` in it, the caret at its end. */
-  async function typed(text: string, row = ROW): Promise<HTMLElement> {
-    await act(async () => mutations.updateNodeContent(row, text));
-    const key = outlineInstanceKey(row, outlineNodes());
+  /**
+   * Edit the text shown by `row`, the caret at its end: `textNodeId` when the
+   * row shows another node's text, at `instanceKey` when the row is drawn as
+   * one particular instance.
+   */
+  async function typed(
+    text: string,
+    row = ROW,
+    textNodeId = row,
+    instanceKey?: string,
+  ): Promise<HTMLElement> {
+    await act(async () => mutations.updateNodeContent(textNodeId, text));
+    const key = instanceKey ?? outlineInstanceKey(row, outlineNodes());
     act(() => useOutlineStore.getState().activateNode(row, text.length, key));
     await act(async () => {
       root.render(<NodeBlock nodeId={row} instanceKey={key} depth={0} />);
@@ -87,10 +139,8 @@ describe("triggers in the text", () => {
   }
 
   /** The labels the open picker lists. */
-  const listed = () =>
-    [...container.querySelectorAll('[role="listbox"] [role="option"]')].map((o) =>
-      o.textContent.trim(),
-    );
+  const options = () => [...container.querySelectorAll('[role="listbox"] [role="option"]')];
+  const listed = () => options().map((o) => o.textContent.trim());
 
   async function press(el: HTMLElement, key: string): Promise<boolean> {
     let prevented = false;
@@ -105,12 +155,30 @@ describe("triggers in the text", () => {
   describe("#", () => {
     it("offers the tags, and a pick takes the trigger out of the text and tags the row", async () => {
       const el = await typed("Read-only #to");
-      expect(listed()).toContain("todo");
+      expect(listed()).toContain("todo2 nodes");
       expect(await press(el, "Enter")).toBe(true);
       await vi.waitFor(() =>
         expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "tag.todo" }),
       );
       expect(textOf(ROW)).toBe("Read-only ");
+    });
+
+    it("hides unused tags until searched and puts a recent pick before a more used tag", async () => {
+      await typed("#");
+      expect(
+        options().some((option) => option.getAttribute("data-picker-id") === "sys.tag.calendar"),
+      ).toBe(false);
+      expect(listed()).toContain("todo2 nodes");
+      const el = await typed("#ta");
+      expect(listed()[0]).toBe("task0 nodes");
+      expect(options()[0]?.querySelector("svg")).not.toBeNull();
+      expect(listed().some((label) => label.includes("calendar"))).toBe(false);
+      await press(el, "Enter");
+      await vi.waitFor(() =>
+        expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "ex.tag.task" }),
+      );
+      await typed("#");
+      expect(listed()[0]).toBe("task1 node");
     });
 
     it("makes a tag by the name typed", async () => {
@@ -138,19 +206,224 @@ describe("triggers in the text", () => {
   });
 
   describe(">", () => {
-    it("on a row that is only it, offers the fields, and a pick empties the row and adds one", async () => {
-      const el = await typed(">stat");
-      expect(listed()).toContain("status");
+    /** An empty line: n.grandchild, alone under n.child-a2, holds nothing but its text. */
+    const LINE = "n.grandchild";
+    const ABOVE = "n.child-a2";
+
+    /** Edit `LINE` with `text` in it, drawn under its parent's row, as the outline draws it. */
+    async function typedOnLine(text: string): Promise<HTMLElement> {
+      await act(async () => mutations.updateNodeContent(LINE, text));
+      const key = outlineInstanceKey(LINE, outlineNodes());
+      act(() => useOutlineStore.getState().activateNode(LINE, text.length, key));
+      await act(async () => {
+        root.render(
+          <NodeBlock
+            nodeId={ABOVE}
+            instanceKey={outlineInstanceKey(ABOVE, outlineNodes())}
+            depth={0}
+          />,
+        );
+      });
+      return present(
+        container.querySelector<HTMLElement>(`[data-instance-key="${key}"] [contenteditable]`),
+        "editor",
+      );
+    }
+
+    it("on an empty line, a pick makes the line a field of the node it is under", async () => {
+      const el = await typedOnLine(">stat");
+      expect(listed()).toContain("status2 nodes");
+      expect(options()[0]?.querySelector("svg")).not.toBeNull();
       await press(el, "Enter");
-      await vi.waitFor(() => expect(propOf(ROW, "field.status")).toHaveLength(1));
-      expect(textOf(ROW)).toBe("");
+      await vi.waitFor(() => expect(propOf(ABOVE, "field.status")).toHaveLength(1));
+      expect(outlineNodes().get(LINE)).toBeUndefined();
+      expect(outlineNodes().get(ABOVE)?.children).toEqual([]);
+      expect(propOf(LINE, "field.status")).toEqual([]);
+    });
+
+    it("lands in the new field's value, drawn under the node's row", async () => {
+      const el = await typedOnLine(">stat");
+      await press(el, "Enter");
+      await vi.waitFor(() => {
+        const section = container.querySelector(`[data-fields-for="${ABOVE}"]`);
+        const slot = section?.querySelector('[data-field="field.status"] [data-value-slot]');
+        expect(slot).not.toBeNull();
+        expect(slot?.contains(dom.document.activeElement as unknown as Node)).toBe(true);
+      });
+    });
+
+    it("keeps the parent's existing single field value when picked again", async () => {
+      const value = { t: "str", v: "in progress" } as const;
+      const nodes = rankedFixture().map((node) => {
+        if (node.id === ABOVE) return { ...node, props: { "field.status": [value] } };
+        if (node.id !== "field.status") return node;
+        return {
+          ...node,
+          props: {
+            ...node.props,
+            [SYSTEM_IDS.cardinalityField]: [{ t: "ref" as const, v: SYSTEM_IDS.cardinalityOne }],
+          },
+        };
+      });
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "fixtures");
+      const el = await typedOnLine(">stat");
+      expect(listed()).toContain("status3 nodes");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(outlineNodes().has(LINE)).toBe(false));
+      expect(propOf(ABOVE, "field.status")).toEqual([value]);
+    });
+
+    it("focuses the picked field when a different field follows it", async () => {
+      const nodes = rankedFixture().flatMap((node) => {
+        if (node.id === "field.status") {
+          return [node, { ...node, id: "field.second", text: "second" }];
+        }
+        if (node.id !== ABOVE) return [node];
+        return [
+          {
+            ...node,
+            props: {
+              "field.status": [{ t: "str" as const, v: "doing" }],
+              "field.second": [{ t: "str" as const, v: "another value" }],
+            },
+          },
+        ];
+      });
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "fixtures");
+      const el = await typedOnLine(">stat");
+      const section = present(container.querySelector(`[data-fields-for="${ABOVE}"]`), "fields");
+      const slots = ["status", "second"].map((field) =>
+        present(section.querySelector(`[data-field="field.${field}"] [data-value-slot]`), field),
+      );
+      expect([...section.querySelectorAll("[data-value-slot]")]).toEqual(slots);
+      const pickedSlot = present(slots[0], "picked slot");
+      await press(el, "Enter");
+      await vi.waitFor(() =>
+        expect(pickedSlot.contains(dom.document.activeElement as unknown as Node)).toBe(true),
+      );
+    });
+
+    it("is one undo step: the line comes back empty and the field goes", async () => {
+      const el = await typedOnLine(">stat");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(propOf(ABOVE, "field.status")).toHaveLength(1));
+      expect(useGraphStore.getState().undoStack).toHaveLength(1);
+      await act(() => mutations.undo());
+      await vi.waitFor(() => expect(outlineNodes().get(ABOVE)?.children).toEqual([LINE]));
+      expect(propOf(ABOVE, "field.status")).toEqual([]);
+      expect(textOf(LINE)).toBe("");
+      await act(() => mutations.redo());
+      expect(outlineNodes().has(LINE)).toBe(false);
+      expect(propOf(ABOVE, "field.status")).toHaveLength(1);
+    });
+
+    it("undoes and redoes a conversion that defines a new field", async () => {
+      const name = "Review delivery note";
+      const el = await typedOnLine(`>${name}`);
+      expect(listed()).toContain(`Create field "${name}"`);
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(useGraphStore.getState().undoStack).toHaveLength(1));
+      const definition = useGraphStore.getState().wireNodes.find((node) => node.text === name);
+      const field = present(definition, name).id;
+      expect(propOf(field, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: SYSTEM_IDS.field });
+      expect(propOf(ABOVE, field)).toEqual([{ t: "str", v: "" }]);
+      expect(outlineNodes().has(LINE)).toBe(false);
+
+      await act(async () => {
+        expect(await mutations.undo()).toBe(true);
+      });
+      expect(outlineNodes().has(field)).toBe(false);
+      expect(propOf(ABOVE, field)).toEqual([]);
+      expect(outlineNodes().get(ABOVE)?.children).toEqual([LINE]);
+      expect(textOf(LINE)).toBe("");
+
+      await act(async () => {
+        expect(await mutations.redo()).toBe(true);
+      });
+      expect(textOf(field)).toBe(name);
+      expect(propOf(ABOVE, field)).toEqual([{ t: "str", v: "" }]);
+      expect(outlineNodes().has(LINE)).toBe(false);
+    });
+
+    it("keeps the typed text and focus when the conversion is refused", async () => {
+      const nodes = rankedFixture().map((node) =>
+        node.id === "field.status"
+          ? {
+              ...node,
+              props: { ...node.props, [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")] },
+            }
+          : node,
+      );
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "fixtures");
+      useUiStore.setState({ toasts: [] });
+      const el = await typedOnLine(">stat");
+      expect(listed()).toContain("status2 nodes");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(useUiStore.getState().toasts).toHaveLength(1));
+      expect(textOf(LINE)).toBe(">stat");
+      expect(el.textContent).toBe(">stat");
+      expect(dom.document.activeElement).toBe(el);
+      expect(propOf(ABOVE, "field.status")).toEqual([]);
+      expect(useGraphStore.getState().undoStack).toHaveLength(0);
+    });
+
+    it("restores the caret without adding undo history when only the server refuses", async () => {
+      const nodes = rankedFixture().map((node) =>
+        node.id === LINE ? { ...node, text: ">stat" } : node,
+      );
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "api");
+      const reply = Promise.withResolvers<ActionResponse>();
+      setPostAction(async ({ id }) =>
+        id === "node.batch" ? reply.promise : { status: "succeeded", id, rev: 1, output: {} },
+      );
+      const el = await typedOnLine(">stat");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(outlineNodes().has(LINE)).toBe(false));
+      expect(useGraphStore.getState().undoStack).toHaveLength(0);
+      expect(dom.document.activeElement.closest("[data-value-slot]")).toBeNull();
+      await act(async () => {
+        reply.resolve({
+          status: "failed",
+          id: "node.batch",
+          code: "conflict",
+          message: "The draft changed on the server",
+        });
+        await waitForBrowserPushes();
+      });
+      await vi.waitFor(() => {
+        const active = dom.document.activeElement;
+        expect(active.getAttribute("contenteditable")).toBe("true");
+        expect(active.textContent).toBe(">stat");
+        expect(dom.document.getSelection().focusOffset).toBe(5);
+      });
+      expect(textOf(LINE)).toBe(">stat");
+      expect(propOf(ABOVE, "field.status")).toEqual([]);
+      expect(useGraphStore.getState().undoStack).toHaveLength(0);
+    });
+
+    it("stays text on a row that holds more than its text, or sits under no node", async () => {
+      // Children.
+      await typed(">stat", ABOVE);
+      expect(container.querySelector('[role="listbox"]')).toBeNull();
+      // A tag and a field, at the top.
+      await typed(">stat", "n.root-b");
+      expect(container.querySelector('[role="listbox"]')).toBeNull();
+      // Nothing but its text, at the top: no node to be a field of.
+      await typed(">stat");
+      expect(container.querySelector('[role="listbox"]')).toBeNull();
     });
 
     it("stays text after other text, and as a quote", async () => {
-      await typed("a >stat");
+      await typedOnLine("a >stat");
       expect(container.querySelector('[role="listbox"]')).toBeNull();
-      await typed("> quoted");
+      await typedOnLine("> quoted");
       expect(container.querySelector('[role="listbox"]')).toBeNull();
+    });
+
+    it("stays text on a projected row whose source is also its parent", async () => {
+      await typed(">stat", LINE, LINE, projectedRowKey(ABOVE, LINE));
+      expect(listed()).toEqual([]);
+      expect(textOf(LINE)).toBe(">stat");
     });
   });
 
@@ -221,12 +494,322 @@ describe("triggers in the text", () => {
   });
 
   describe("[[", () => {
+    it("excludes the edited row from matching candidates", async () => {
+      await typed("Search jumps [[Search jumps");
+      expect(options().map((option) => option.getAttribute("data-picker-id"))).toEqual([
+        "n.root-b",
+      ]);
+    });
+
+    it("excludes the reference row and its target when editing through it", async () => {
+      const graph = useGraphStore.getState();
+      graph.hydrateFromWire(
+        [...graph.wireNodes, ...REF_SEED_WIRES, ctxRefWire("n.ctx", ROW)],
+        1,
+        "fixtures",
+      );
+      await typed("Search jumps [[Search jumps", "n.ctx", ROW);
+      expect(options().map((option) => option.getAttribute("data-picker-id"))).toEqual([
+        "n.root-b",
+      ]);
+      await typed("Search jumps [[n.ctx", "n.ctx", ROW);
+      expect(options()).toHaveLength(0);
+    });
+
     it("offers the nodes matching what follows, and a pick inserts a reference to one", async () => {
       const el = await typed("See [[Search jumps");
       expect(listed()[0]).toContain("Search jumps to matching nodes");
       expect(await press(el, "Enter")).toBe(true);
       expect(textOf(ROW)).toBe("See [[n.root-b|Search jumps to matching nodes]]");
       expect(container.querySelector('[role="listbox"]')).toBeNull();
+    });
+  });
+
+  /** Press ⌘Z (⌘⇧Z with `shift`) in `el`, the chord the text host answers. */
+  async function chord(el: HTMLElement, shift = false): Promise<void> {
+    await act(async () => {
+      const key = shift ? "Z" : "z";
+      const ev = new dom.KeyboardEvent("keydown", {
+        key,
+        metaKey: true,
+        shiftKey: shift,
+        bubbles: true,
+        cancelable: true,
+      });
+      el.dispatchEvent(ev as unknown as Event);
+    });
+  }
+
+  /** The editor of row `row` as it is drawn now. */
+  const editorOf = (row = ROW) =>
+    present(
+      container.querySelector<HTMLElement>(
+        `[data-instance-key="${outlineInstanceKey(row, outlineNodes())}"] [contenteditable]`,
+      ),
+      "editor",
+    );
+
+  describe("a pick is one write", () => {
+    it("# : one undo step, one node.batch with the text and the tag; ⌘Z in the row takes it back", async () => {
+      const el = await typed("x #to");
+      const undoBefore = useGraphStore.getState().undoStack.length;
+      await press(el, "Enter");
+      await vi.waitFor(() =>
+        expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "tag.todo" }),
+      );
+      expect(textOf(ROW)).toBe("x ");
+      const { undoStack } = useGraphStore.getState();
+      expect(undoStack).toHaveLength(undoBefore + 1);
+      // The step is both writes, sent as one call (`oneWrite`).
+      expect(undoStack.at(-1)?.redo.map((a) => a.id)).toEqual(["node.update", "node.update"]);
+
+      await chord(el);
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x #to"));
+      expect(propOf(ROW, SYSTEM_IDS.typeField)).not.toContainEqual({ t: "ref", v: "tag.todo" });
+      expect(el.textContent).toBe("x #to");
+
+      await chord(el, true);
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x "));
+      expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "tag.todo" });
+    });
+
+    it("[[ : the reference and the text it replaced are one undo step", async () => {
+      const el = await typed("See [[Search jumps");
+      await press(el, "Enter");
+      expect(textOf(ROW)).toBe("See [[n.root-b|Search jumps to matching nodes]]");
+      await chord(el);
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("See [[Search jumps"));
+    });
+
+    it("a refused pick leaves the typed text and the caret, and no undo step", async () => {
+      // The page refuses the write (`PageWrites.together` answers null).
+      const refuse = vi.spyOn(browserHost().writes, "together").mockResolvedValue(null);
+      const el = await typed("x #to");
+      const undoBefore = useGraphStore.getState().undoStack.length;
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(refuse).toHaveBeenCalled());
+      await vi.waitFor(() => expect(el.textContent).toBe("x #to"));
+      refuse.mockRestore();
+      expect(textOf(ROW)).toBe("x #to");
+      expect(dom.document.getSelection().focusOffset).toBe(5);
+      expect(useGraphStore.getState().undoStack).toHaveLength(undoBefore);
+      // The row's history forgot it: ⌘Z in the row takes back no write of the page's.
+      const undo = vi.spyOn(browserHost().writes, "undo");
+      await chord(el);
+      expect(undo).not.toHaveBeenCalled();
+      undo.mockRestore();
+    });
+
+    it("⌘Z in the row takes back a write the page made since the pick first, then the pick", async () => {
+      const el = await typed("x #to");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x "));
+      const other = textOf("n.root-a");
+      await act(() => mutations.setNodeText("n.root-a", "rewritten"));
+      await chord(el);
+      await vi.waitFor(() => expect(textOf("n.root-a")).toBe(other));
+      expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "tag.todo" });
+      expect(el.textContent).toBe("x ");
+      await chord(el);
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x #to"));
+      expect(el.textContent).toBe("x #to");
+      expect(propOf(ROW, SYSTEM_IDS.typeField)).not.toContainEqual({ t: "ref", v: "tag.todo" });
+      // ⌘⇧Z makes them again, in their order.
+      await chord(el, true);
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x "));
+      await chord(el, true);
+      await vi.waitFor(() => expect(textOf("n.root-a")).toBe("rewritten"));
+      expect(el.textContent).toBe("x ");
+    });
+
+    it("typing after a pick undoes first, then the pick", async () => {
+      const el = await typed("x #to");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x "));
+      await act(async () => mutations.updateNodeContent(ROW, "x y"));
+      await chord(el);
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x "));
+      expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "tag.todo" });
+      await chord(el);
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x #to"));
+      expect(propOf(ROW, SYSTEM_IDS.typeField)).not.toContainEqual({ t: "ref", v: "tag.todo" });
+    });
+  });
+
+  describe("/", () => {
+    /** The labels listed when `text` is typed in the row, or null when no picker opens. */
+    async function offered(text: string): Promise<string[] | null> {
+      await typed(text);
+      return container.querySelector('[role="listbox"]') === null ? null : listed();
+    }
+
+    it("opens at the start and after a space, never inside a word, an address or [[", async () => {
+      expect(await offered("/")).toContain("Indent");
+      expect(await offered("then /ind")).toContain("Indent");
+      expect(await offered("a/b")).toBeNull();
+      expect(await offered("see https://x")).toBeNull();
+      // Inside `[[` the reference picker has the query, so no command is offered.
+      expect((await offered("[[/")) ?? []).not.toContain("Indent");
+      // Its query is one word: a space after it closes the picker.
+      expect(await offered("/ind more")).toBeNull();
+    });
+
+    it("lists the node menu's commands for the row, in its order", async () => {
+      const all = await offered("/");
+      const menu = browserHost().nodeCommands(
+        { nodeId: ROW, frameId: ROW, nodeIds: [ROW] },
+        { close: () => {}, openStep: () => {} },
+      );
+      expect(all).toEqual(menu.map((command) => command.label));
+    });
+
+    it("runs a command about the row: /ind indents it in one undo step, and the text goes as typing does", async () => {
+      const el = await typed("/ind");
+      const parentBefore = outlineNodes().get(ROW)?.parentId ?? null;
+      const undoBefore = useGraphStore.getState().undoStack.length;
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(outlineNodes().get(ROW)?.parentId).toBe("n.root-b"));
+      expect(textOf(ROW)).toBe("");
+      expect(useGraphStore.getState().undoStack).toHaveLength(undoBefore + 1);
+      await act(() => mutations.undo());
+      await vi.waitFor(() => expect(outlineNodes().get(ROW)?.parentId ?? null).toBe(parentBefore));
+      expect(textOf(ROW)).toBe("");
+    });
+
+    describe("a command's writes", () => {
+      afterEach(() => syncPagePlugins([outlineUiPlugin]));
+
+      it("are one undo step when it answers them, made after a wait", async () => {
+        syncPagePlugins([
+          outlineUiPlugin,
+          probe("Rename both", async () => {
+            await Promise.resolve();
+            await mutations.setNodeText("n.root-a", "one");
+            await mutations.setNodeText("n.root-b", "two");
+          }),
+        ]);
+        const el = await typed("/rename");
+        const undoBefore = useGraphStore.getState().undoStack.length;
+        await press(el, "Enter");
+        await vi.waitFor(() => expect(textOf("n.root-b")).toBe("two"));
+        expect(useGraphStore.getState().undoStack).toHaveLength(undoBefore + 1);
+        await act(() => mutations.undo());
+        expect(textOf("n.root-a")).not.toBe("one");
+        expect(textOf("n.root-b")).not.toBe("two");
+        expect(textOf(ROW)).toBe("");
+      });
+
+      it("that cannot join its undo step leave the typed trigger out of every undo", async () => {
+        // Made later, and with no undo step of its own (as Add chart's view.propose is).
+        syncPagePlugins([
+          outlineUiPlugin,
+          probe("Rename later", () => {
+            setTimeout(() => void mutations.updateNodeContent("n.root-a", "later"), 0);
+          }),
+        ]);
+        const el = await typed("/later");
+        const undoBefore = useGraphStore.getState().undoStack.length;
+        await press(el, "Enter");
+        await vi.waitFor(() => expect(textOf("n.root-a")).toBe("later"));
+        expect(textOf(ROW)).toBe("");
+        expect(useGraphStore.getState().undoStack).toHaveLength(undoBefore);
+        await act(() => mutations.undo());
+        expect(textOf(ROW)).toBe("");
+        expect(el.textContent).toBe("");
+      });
+    });
+
+    it("a command that is a picker step opens it in the node palette, where a pick writes", async () => {
+      const key = outlineInstanceKey(ROW, outlineNodes());
+      await act(async () => mutations.updateNodeContent(ROW, "/tag"));
+      act(() => useOutlineStore.getState().activateNode(ROW, 4, key));
+      function Page() {
+        const open = useUiStore((s) => s.nodePaletteOpen);
+        return (
+          <>
+            <NodeBlock nodeId={ROW} instanceKey={key} depth={0} />
+            <NodeCommandPalette
+              open={open}
+              onClose={() => useUiStore.getState().setNodePaletteOpen(false)}
+            />
+          </>
+        );
+      }
+      await act(async () => root.render(<Page />));
+      expect(listed()[0]).toBe("Add tag");
+      await press(editorOf(), "Enter");
+      await vi.waitFor(() => expect(useUiStore.getState().nodePaletteOpen).toBe(true));
+      expect(useUiStore.getState().nodePaletteStep).toBe("outline.add-tag");
+      expect(textOf(ROW)).toBe("");
+      const todo = present(
+        dom.document.querySelector('[data-palette-list="true"] [data-picker-id="tag.todo"]'),
+        "the todo row",
+      ) as unknown as HTMLElement;
+      await act(async () => todo.click());
+      await vi.waitFor(() =>
+        expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "tag.todo" }),
+      );
+      act(() => useUiStore.getState().setNodePaletteOpen(false));
+      // ⌘Z in the row takes back the tag first, the latest write, and shows the text it leaves.
+      await chord(editorOf());
+      await vi.waitFor(() =>
+        expect(propOf(ROW, SYSTEM_IDS.typeField)).not.toContainEqual({ t: "ref", v: "tag.todo" }),
+      );
+      expect(textOf(ROW)).toBe("");
+      expect(editorOf().textContent).toBe("");
+      // Then what was typed for the trigger.
+      await chord(editorOf());
+      await vi.waitFor(() => expect(editorOf().textContent).toBe("/tag"));
+      expect(textOf(ROW)).toBe("/tag");
+    });
+  });
+
+  describe("@ as the whole text", () => {
+    // The field a reference row's target is (the seed's), beside the fixture.
+    beforeEach(() =>
+      useGraphStore
+        .getState()
+        .hydrateFromWire([...rankedFixture(), ...REF_SEED_WIRES], 1, "fixtures"),
+    );
+
+    it("makes the row a reference to the node picked, its text not repeated, in one undo step", async () => {
+      const el = await typed("@Ship");
+      expect(listed()[0]).toContain("Ship kb ui shell");
+      const undoBefore = useGraphStore.getState().undoStack.length;
+      await press(el, "Enter");
+      await vi.waitFor(() =>
+        expect(propOf(ROW, SYSTEM_IDS.refTargetField)).toEqual([{ t: "ref", v: "n.root-a" }]),
+      );
+      expect(textOf(ROW)).toBe("");
+      expect(isContextualRef(present(outlineNodes().get(ROW), "row"))).toBe(true);
+      expect(useGraphStore.getState().undoStack).toHaveLength(undoBefore + 1);
+      await act(() => mutations.undo());
+      await vi.waitFor(() => expect(propOf(ROW, SYSTEM_IDS.refTargetField)).toEqual([]));
+      expect(textOf(ROW)).toBe("@Ship");
+    });
+
+    it("⌘Z in the reference row then shows its target's text, as the page leaves it", async () => {
+      await press(await typed("@Ship"), "Enter");
+      await vi.waitFor(() =>
+        expect(isContextualRef(present(outlineNodes().get(ROW), "row"))).toBe(true),
+      );
+      const key = outlineInstanceKey(ROW, outlineNodes());
+      act(() => useOutlineStore.getState().activateNode(ROW, "Ship kb ui shell".length, key));
+      await act(async () => root.render(<NodeBlock nodeId={ROW} instanceKey={key} depth={0} />));
+      const el = editorOf();
+      expect(el.textContent).toBe("Ship kb ui shell");
+      const other = textOf("n.root-b");
+      await act(() => mutations.setNodeText("n.root-b", "elsewhere"));
+      await chord(el);
+      await vi.waitFor(() => expect(textOf("n.root-b")).toBe(other));
+      expect(el.textContent).toBe("Ship kb ui shell");
+    });
+
+    it("after other text, stays a reference in the text", async () => {
+      const el = await typed("see @Ship");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("see [[n.root-a|Ship kb ui shell]]"));
+      expect(propOf(ROW, SYSTEM_IDS.refTargetField)).toEqual([]);
     });
   });
 });

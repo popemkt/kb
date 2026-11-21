@@ -7,7 +7,8 @@
         "harness/e2e/*.ts",
         "harness/lint/*/index.ts",
         "harness/lint/*/effect/index.ts",
-        "harness/lint/**/*.rule-cases.ts"
+        "harness/lint/**/*.rule-cases.ts",
+        "apps/android/app/src/main/assets/public/shell.js"
       ]
     },
     "packages/contract/ext-sdk": {

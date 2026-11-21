@@ -1,0 +1,4 @@
+{
+  "reason": "Session retries and both store adapters share one absolute write-lock deadline.",
+  "raise": { "cli-closure": { "bytes": 1013, "modules": 1 }, "surface": { "@kb/contracts": 1 } }
+}

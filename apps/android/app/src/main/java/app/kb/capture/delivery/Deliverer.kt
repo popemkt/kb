@@ -40,6 +40,8 @@ private sealed interface ContractCheck {
  * - the credential is refused: the pairing is paused and its captures wait
  *   for the person to pair again.
  *
+ * A refusal and a pause are also told to [notices], once each.
+ *
  * The host is idempotent on `captureId`, so a capture whose answer was lost
  * is simply sent again.
  */
@@ -47,6 +49,7 @@ class Deliverer(
     private val queue: CaptureQueue,
     private val pairings: Pairings,
     private val host: CaptureHost,
+    private val notices: Notices = Notices.None,
 ) {
     /**
      * Delivers what it can; true when something is left that a later run may
@@ -108,7 +111,9 @@ class Deliverer(
                     wait(id, "${pairing.name} has no $CAPTURE_SUBMIT action yet.")
                     false
                 } else {
-                    queue.update(id) { it.copy(status = Status.Failed, attempts = it.attempts + 1, reason = "${answer.code}: ${answer.message}") }
+                    val reason = "${answer.code}: ${answer.message}"
+                    queue.update(id) { it.copy(status = Status.Failed, attempts = it.attempts + 1, reason = reason) }
+                    notices.refused(entry, pairing, reason)
                     true
                 }
             is Answer.Unauthorized -> {
@@ -139,7 +144,12 @@ class Deliverer(
             is Answer.Unreachable -> ContractCheck.Waiting("Waiting for ${pairing.name}: ${answer.message}")
         }
 
-    private fun pause(pairing: Pairing, why: String) = pairings.update(pairing.key) { it.copy(paused = why) }
+    /** Pauses a store; the person is told once, when it stops accepting this phone, not on every run after. */
+    private fun pause(pairing: Pairing, why: String) {
+        val newly = pairings.byKey(pairing.key)?.paused == null
+        pairings.update(pairing.key) { it.copy(paused = why) }
+        if (newly) notices.paused(pairing, why)
+    }
 
     private fun wait(id: String, reason: String) {
         queue.update(id) { it.copy(reason = reason) }

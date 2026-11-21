@@ -13,6 +13,7 @@ import type { FieldType, Writable } from "@kb/model";
 import type { FrameViewKey, ViewConfig, ViewFilter } from "@kb/views";
 import type { OutlineFormatId } from "@kb/outline-paste";
 import type { RefCreation } from "./refs";
+import type { PageHistory } from "./text-history";
 import type { PropValue } from "./types";
 
 /** Where moved rows land: under `parent` (null: the top level), after the sibling `after` (null: first; absent: at the end). */
@@ -40,9 +41,10 @@ export interface PageWrites {
   /**
    * A command's text, written whole outside the editor (Remove reference…):
    * one write and one undo step, as every other command's write is. Answers
-   * whether it was written.
+   * whether it was written. Pass the source text for edits made from a
+   * particular reading of the node.
    */
-  readonly setNodeText: (id: string, text: string) => Promise<boolean>;
+  readonly setNodeText: (id: string, text: string, expectedText?: string) => Promise<boolean>;
   readonly createNodeAfter: (afterId: string) => Promise<void>;
   /**
    * Add a node made with no chosen place (⌘K "Add node" with nothing
@@ -80,13 +82,24 @@ export interface PageWrites {
   readonly addFieldTargetTag: (fieldId: string, tagId: string) => Promise<void>;
   readonly removeFieldTargetTag: (fieldId: string, tagId: string) => Promise<void>;
   readonly setFieldTargetQuery: (fieldId: string, edn: string | null) => Promise<void>;
-  readonly splitNode: (id: string, cursor: number | "end") => Promise<void>;
+  /**
+   * Split the row's text at `cursor` into it and a new row (`"end"`: only
+   * the new row), and edit the new row. `instanceKey` is the row instance
+   * the caret was in: the new row is edited where it is drawn beside or
+   * under that one, which a row under a query result or a reference names
+   * and its node alone does not.
+   */
+  readonly splitNode: (id: string, cursor: number | "end", instanceKey?: string) => Promise<void>;
   /**
    * Delete the node and its subtree. Answers whether it landed: false when
    * the commit refused it, so a caller that moves the selection or the caret
-   * past the row moves it only when the row went.
+   * past the row moves it only when the row went. A gesture that consumes
+   * an empty draft supplies its parent and typed text as commit preconditions.
    */
-  readonly deleteNode: (id: string) => Promise<boolean>;
+  readonly deleteNode: (
+    id: string,
+    draft?: { readonly parent: string; readonly text: string },
+  ) => Promise<boolean>;
   /**
    * Merge the next row into this one (Delete at the end of a row).
    */
@@ -130,11 +143,17 @@ export interface PageWrites {
    * made, against the graph as the gesture found it, and they are sent
    * together as one `node.batch` call when it ends, recorded as one undo
    * step. A write inside answers that it was taken (`true`, or the id it
-   * will make) before it lands; the batch says why if it is refused. Only
-   * the writes the gesture waits for are part of it, and a `together`
+   * will make) before it lands. The batch says why and answers null if it
+   * is refused. Only the writes the gesture waits for are part of it. A `together`
    * inside another is part of the outer one.
    */
-  readonly together: <T>(gesture: () => Promise<T>) => Promise<T>;
+  readonly together: <T>(gesture: () => Promise<T>) => Promise<T | null>;
+  /**
+   * The page's undo and redo stacks now, newest last, each entry an identity
+   * that stays the same as it moves between them: what a row's own history
+   * ties its steps to (`lib/text-history.ts`).
+   */
+  readonly history: () => PageHistory;
   /** D19: undo through inverse invocations of the same shared actions. */
   readonly undo: () => Promise<boolean>;
   /** D19: redo the last undone mutation. */
@@ -146,6 +165,7 @@ export interface PageWrites {
     oldValue?: PropValue,
   ) => Promise<void>;
   readonly removeProp: (nodeId: string, fieldId: string, value?: PropValue) => Promise<void>;
+  readonly initializeProp: (nodeId: string, fieldId: string, value: PropValue) => Promise<void>;
   /**
    * Mint a node a ref field may point at, named `name`, where the field's
    * declaration says a new target goes (`refCreationOf`): a child of the
@@ -248,10 +268,11 @@ export interface PageWrites {
   readonly addViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
   readonly removeViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
   /**
-   * Move a row to a group of a grouped view (DESIGN-UI.md → Groups): its
-   * values of `fieldId` become `value`, or none for "No <field>", in one
-   * write; a row already in that group is left as it is. The one way a
-   * drag or a key moves a row between groups.
+   * Move a row to a group of a grouped view (DESIGN-UI.md → Groups): the
+   * values of `fieldId` on the node it shows (`shownNode`: a reference's
+   * target, which its group is read from) become `value`, or none for
+   * "No <field>", in one write; a row already in that group is left as it
+   * is. The one way a drag or a key moves a row between groups.
    */
   readonly moveToGroup: (nodeId: string, fieldId: string, value: PropValue | null) => Promise<void>;
 }

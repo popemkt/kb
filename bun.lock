@@ -12,6 +12,7 @@
         "@tailwindcss/node": "catalog:",
         "@tailwindcss/oxide": "catalog:",
         "@types/bun": "catalog:",
+        "ajv": "catalog:",
         "bun2nix": "catalog:",
         "knip": "catalog:",
         "mutation-testing-elements": "catalog:",
@@ -125,6 +126,8 @@
       "dependencies": {
         "@effect/platform-bun": "catalog:",
         "@kb/child-process": "workspace:*",
+        "@kb/contracts": "workspace:*",
+        "@kb/keychain": "workspace:*",
         "@kb/workspace-fs": "workspace:*",
         "effect": "catalog:",
         "electrobun": "catalog:",
@@ -173,6 +176,7 @@
         "@kb/gallery-net": "workspace:*",
         "@kb/governance": "workspace:*",
         "@kb/graph": "workspace:*",
+        "@kb/keychain": "workspace:*",
         "@kb/lab": "workspace:*",
         "@kb/locations": "workspace:*",
         "@kb/locations-fs": "workspace:*",
@@ -569,6 +573,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
@@ -931,6 +936,7 @@
         "@kb/query": "workspace:*",
         "@kb/views": "workspace:*",
         "effect": "catalog:",
+        "unbash": "catalog:",
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -1430,7 +1436,20 @@
       "name": "@kb/file-write",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@kb/test-kit": "workspace:*",
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/infrastructure/keychain": {
+      "name": "@kb/keychain",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/child-process": "workspace:*",
         "effect": "catalog:",
       },
       "devDependencies": {
@@ -1528,6 +1547,7 @@
       },
       "devDependencies": {
         "@effect/platform-bun": "catalog:",
+        "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
@@ -1706,6 +1726,7 @@
     "@types/react-dom": "^19.2.0",
     "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "ajv": "8.20.0",
     "bun2nix": "2.1.2",
     "clsx": "^2.1.1",
     "commander": "^13.1.0",
@@ -1744,6 +1765,7 @@
     "three": "^0.186.1",
     "typescript": "~7.0.2",
     "ulid": "^3.0.2",
+    "unbash": "6.0.4",
     "vega": "^6.4.0",
     "vega-interpreter": "^2.3.2",
     "vega-lite": "^6.4.3",
@@ -2097,6 +2119,8 @@
     "@kb/graph-ui": ["@kb/graph-ui@workspace:packages/extension/graph-ui"],
 
     "@kb/keybindings": ["@kb/keybindings@workspace:packages/domain/keybindings"],
+
+    "@kb/keychain": ["@kb/keychain@workspace:packages/infrastructure/keychain"],
 
     "@kb/lab": ["@kb/lab@workspace:packages/extension/lab"],
 
@@ -3458,7 +3482,7 @@
 
     "ulid": ["ulid@3.0.2", "", { "bin": { "ulid": "dist/cli.js" } }, "sha512-yu26mwteFYzBAot7KVMqFGCVpsF6g8wXfJzQUHvu1no3+rRRSFcSV2nKeYvNPLD2J4b08jYBDhHUjeH0ygIl9w=="],
 
-    "unbash": ["unbash@4.0.10", "", {}, "sha512-b7zoBQvpWp0vuN5q2vK2RRBR2SvuruQAs50DApdDveBSn3eSYd84IaHodFqQIMlvY9K2VnyBUEXgwOBuGU9GBg=="],
+    "unbash": ["unbash@6.0.4", "", {}, "sha512-t3OptUArewg9OpYGDskTSlxhyLDahfmZ4d36hE44Efb1y3HRLLpzsVqwH+AwBVymP4t7pP71xN+nnduudn2awA=="],
 
     "underscore": ["underscore@1.13.8", "", {}, "sha512-DXtD3ZtEQzc7M8m4cXotyHR+FAS18C64asBYY5vqZexfYryNNnDc02W4hKg3rdQuqOYas1jkseX0+nZXjTXnvQ=="],
 
@@ -3713,6 +3737,8 @@
     "http-proxy-agent/agent-base": ["agent-base@7.1.4", "", {}, "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ=="],
 
     "knip/oxc-parser": ["oxc-parser@0.143.0", "", { "dependencies": { "@oxc-project/types": "^0.143.0" }, "optionalDependencies": { "@oxc-parser/binding-android-arm-eabi": "0.143.0", "@oxc-parser/binding-android-arm64": "0.143.0", "@oxc-parser/binding-darwin-arm64": "0.143.0", "@oxc-parser/binding-darwin-x64": "0.143.0", "@oxc-parser/binding-freebsd-x64": "0.143.0", "@oxc-parser/binding-linux-arm-gnueabihf": "0.143.0", "@oxc-parser/binding-linux-arm-musleabihf": "0.143.0", "@oxc-parser/binding-linux-arm64-gnu": "0.143.0", "@oxc-parser/binding-linux-arm64-musl": "0.143.0", "@oxc-parser/binding-linux-ppc64-gnu": "0.143.0", "@oxc-parser/binding-linux-riscv64-gnu": "0.143.0", "@oxc-parser/binding-linux-riscv64-musl": "0.143.0", "@oxc-parser/binding-linux-s390x-gnu": "0.143.0", "@oxc-parser/binding-linux-x64-gnu": "0.143.0", "@oxc-parser/binding-linux-x64-musl": "0.143.0", "@oxc-parser/binding-openharmony-arm64": "0.143.0", "@oxc-parser/binding-win32-arm64-msvc": "0.143.0", "@oxc-parser/binding-win32-ia32-msvc": "0.143.0", "@oxc-parser/binding-win32-x64-msvc": "0.143.0" } }, "sha512-ov0NzaDCOInknS7mP1cwKdJERt3utPW8ldjtdUXQ8Ty0GEFD08wk422vCUN0d7pST6kqtV7dxoI9w1Zi0l/9TA=="],
+
+    "knip/unbash": ["unbash@4.0.10", "", {}, "sha512-b7zoBQvpWp0vuN5q2vK2RRBR2SvuruQAs50DApdDveBSn3eSYd84IaHodFqQIMlvY9K2VnyBUEXgwOBuGU9GBg=="],
 
     "log-symbols/chalk": ["chalk@4.1.2", "", { "dependencies": { "ansi-styles": "^4.1.0", "supports-color": "^7.1.0" } }, "sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA=="],
 

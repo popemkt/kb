@@ -14,7 +14,8 @@ import {
   type TxTail,
 } from "@kb/contracts";
 import type { KbNode, KbTx, StoreTx } from "@kb/model";
-import { checkAuditEffect, type Finding } from "../src/index.ts";
+import { checkAuditEffect } from "../src/audit.ts";
+import type { Finding } from "../src/index.ts";
 import { buildCheckModel } from "../src/model.ts";
 import { checkGapsEffect } from "../src/gaps.ts";
 import { enforcementSyncs } from "../src/sync.ts";
@@ -263,7 +264,7 @@ function fixture(): Fixture {
     files: new Map([
       ["AGENTS.md", "# One rule\n"],
       ["harness/tests/check.test.ts", "test"],
-      ["package.json", '"verify": "bun run harness"'],
+      ["package.json", '{"scripts":{"verify":"bun run lint && bun run harness"}}'],
     ]),
     queries: [],
   };
@@ -273,6 +274,20 @@ function updateNode(nodes: KbNode[], id: string, update: (node: KbNode) => KbNod
   const index = nodes.findIndex((entry) => entry.id === id);
   const current = nodes[index];
   if (current !== undefined) nodes[index] = update(current);
+}
+
+function invocationFixture(path: string, source: string, invocation: string): Fixture {
+  const input = fixture();
+  input.files.set(path, source);
+  updateNode(input.nodes, "v.harness", (level) => ({
+    ...level,
+    props: { "f.files": [{ t: "str", v: path }] },
+  }));
+  updateNode(input.nodes, "check.harness", (check) => ({
+    ...check,
+    props: { ...check.props, "f.invocation": [{ t: "str", v: invocation }] },
+  }));
+  return input;
 }
 
 function audit(input: Fixture): Promise<readonly Finding[]> {
@@ -308,18 +323,77 @@ describe("ext.check.audit", () => {
     });
   });
 
-  test("reports invocation-unwired", () => {
-    const input = fixture();
-    input.files.set("package.json", '"verify": "bun run lint"');
+  test.each([
+    ["package.json", '{"scripts":{"verify":"bun run lint && bun run test:ui"}}', "bun run test"],
+    [
+      "package.json",
+      '{"description":"bun run harness","scripts":{"verify":"bun run lint"}}',
+      "bun run harness",
+    ],
+    [".githooks/pre-commit", "# bun run harness\necho bun run harness\n", "bun run harness"],
+    [".githooks/pre-commit", "cat <<-'EOF'\n\tbun run test\n\tEOF\n", "bun run test"],
+    [".githooks/pre-commit", "[[ x < bun && run == test ]]\n", "bun"],
+    [
+      ".githooks/pre-commit",
+      "'$repo_root/intent/gate.sh' record git-commit",
+      '"$repo_root/intent/gate.sh" record git-commit',
+    ],
+    [
+      ".github/workflows/validate.yml",
+      "jobs:\n  verify:\n    steps:\n      - name: bun run test\n        run: bun run test:ui # bun run test\n",
+      "bun run test",
+    ],
+    [".oxlintrc.json", '{"rules":{"typescript/no-explicit-any":"error"}}', "no-explicit-any"],
+    [
+      ".oxlintrc.json",
+      '{"rules":{"typescript/no-explicit-any":"off"}}',
+      "typescript/no-explicit-any",
+    ],
+  ])("reports a lookalike invocation in %s as unwired", (path, source, invocation) => {
+    const input = invocationFixture(path, source, invocation);
     return audit(input).then((findings) => {
-      expect(findings.map((finding) => finding.kind)).toContain("invocation-unwired");
+      expect(findings.map((finding) => finding.kind)).toEqual(["invocation-unwired"]);
       return undefined;
     });
   });
 
+  test.each([
+    [
+      ".githooks/pre-commit",
+      '(cd "$snapshot" && in_snapshot bin/kb docs check)',
+      "in_snapshot bin/kb docs check",
+    ],
+    [
+      ".githooks/pre-commit",
+      '"$repo_root/intent/gate.sh" record git-commit',
+      '"$repo_root/intent/gate.sh" record git-commit',
+    ],
+    [
+      ".github/workflows/validate.yml",
+      'jobs:\n  core:\n    steps:\n      - run: |\n          bun run test --shard="$SHARD"\n',
+      "bun run test",
+    ],
+    [
+      ".oxlintrc.json",
+      '{"rules":{"typescript/no-explicit-any":"error"}}',
+      "typescript/no-explicit-any",
+    ],
+    [
+      "package.json",
+      JSON.stringify({ scripts: { verify: '"bun" run harness' } }),
+      "bun run harness",
+    ],
+    [".githooks/pre-commit", '"bu"n "run" test', "bun run test"],
+  ])("recognizes an invocation in %s", (path, source, invocation) =>
+    audit(invocationFixture(path, source, invocation)).then((findings) => {
+      expect(findings).toEqual([]);
+      return undefined;
+    }),
+  );
+
   test("a surface reads the files its option node declares, and only those", () => {
     const input = fixture();
-    input.files.set("package.json", '"verify": "bun run lint"');
+    input.files.set("package.json", '{"scripts":{"verify":"bun run lint"}}');
     input.files.set(".githooks/pre-commit", "bun run harness");
     updateNode(input.nodes, "v.harness", (level) => ({
       ...level,

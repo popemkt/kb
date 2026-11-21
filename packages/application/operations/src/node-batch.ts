@@ -1,5 +1,5 @@
 /**
- * `node.batch`: several `node.add` / `node.update` / `node.delete` calls as
+ * `node.batch`: several node writes and field definitions as
  * one transaction (DESIGN.md → Batches of writes). Each call is planned by
  * its action's own planner over one working copy of the nodes, the copy
  * taking each call's writes before the next is planned, and the whole is
@@ -20,6 +20,8 @@ import {
   type NodeId,
 } from "@kb/model";
 import {
+  fieldDefineDef,
+  fieldDefinitionInput,
   forcedBy,
   nodeAddDef,
   nodeDeleteDef,
@@ -50,6 +52,12 @@ const BatchCallSchema = z.discriminatedUnion("action", [
     action: z.literal("node.delete"),
     input: nodeDeleteDef.inputSchema.omit({ force: true }),
   }),
+  z.object({
+    action: z.literal("field.define"),
+    input: fieldDefineDef.inputSchema.extend({
+      id: z.string().min(1).describe("the field id later calls can reference"),
+    }),
+  }),
 ]);
 
 type BatchCall = z.infer<typeof BatchCallSchema>;
@@ -58,14 +66,14 @@ export const nodeBatchDef = {
   id: "node.batch",
   title: "Batch node writes",
   description:
-    "Run several node.add / node.update / node.delete calls as one transaction: each call " +
+    "Run node.add, node.update, node.delete and field.define calls as one transaction: each call " +
     "is {action, input} with that action's own input (less force); each is planned over " +
     "what the calls before it wrote, so a later call sees an earlier one. A node.add names " +
     "its parent (null for the top level). All or nothing; returns each call's node id in order.",
   mode: { kind: "write" } as const,
   // Every call is a batch of these: a guard on any of them governs it too,
   // by that part's own mode.
-  batchOf: [nodeAddDef.id, nodeUpdateDef.id, nodeDeleteDef.id],
+  batchOf: [nodeAddDef.id, nodeUpdateDef.id, nodeDeleteDef.id, fieldDefineDef.id],
   inputSchema: z.object({
     calls: z.array(BatchCallSchema).min(1),
     /** Bypass sys.* write-guard (browse yes / break no), for the whole commit. */
@@ -107,22 +115,25 @@ const planCall = Effect.fn("node.batch.call")(function* (
   call: BatchCall,
   at: string,
 ): Effect.fn.Return<{ id: NodeId; write: PlannedNodeWrite }, DomainError> {
-  if (call.action === "node.add") {
-    const id = call.input.id ?? (yield* freshId);
+  if (call.action === "node.add" || call.action === "field.define") {
+    const input =
+      call.action === "field.define" ? yield* fieldDefinitionInput(nodes, call.input) : call.input;
+    // GAP [[01M7X43QWW4ZHWA2WFWJ6WP5ZY]] an optimistic batch re-mints missing ids on the server.
+    const id = input.id ?? (yield* freshId);
     const graph = IndexedNodes.of(nodes);
     const { written } = yield* syncDomain(() =>
-      planNodeAdd(graph, { ...call.input, parent: call.input.parent ?? undefined }, id, at),
+      planNodeAdd(graph, { ...input, parent: input.parent ?? undefined }, id, at),
     );
     const upserts = written.flatMap((w) => graph.get(w) ?? []);
     return { id, write: { upserts, deletes: [] } };
   }
   if (call.action === "node.update") {
     const byId = new Map(nodes.map((node) => [node.id, node]));
-    const { write } = yield* planNodeUpdate(nodes, call.input, at, (id) => byId.get(id));
+    const write = yield* planNodeUpdate(nodes, call.input, at, (id) => byId.get(id));
     return { id: call.input.id, write };
   }
   // A node already gone is deleted already: nothing to write, as `node.delete`.
-  return { id: call.input.id, write: planNodeDelete(nodes, call.input, at) };
+  return { id: call.input.id, write: yield* planNodeDelete(nodes, call.input, at) };
 });
 
 /**

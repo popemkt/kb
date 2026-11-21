@@ -19,11 +19,8 @@ export interface ControlActions {
   readonly listStores: Effect.Effect<unknown, Refusal>;
   readonly openStore: (key: string) => Effect.Effect<void, Refusal>;
   readonly addLocal: (path: string, name: string) => Effect.Effect<void, Refusal>;
-  readonly addRemote: (
-    name: string,
-    origin: string,
-    token: string | undefined,
-  ) => Effect.Effect<void, Refusal>;
+  /** Pair with the host at `origin` with its one-use `code`, and add its store. */
+  readonly addRemote: (name: string, origin: string, code: string) => Effect.Effect<void, Refusal>;
   readonly removeStore: (key: string) => Effect.Effect<void, Refusal>;
   readonly setCaptureStore: (key: string) => Effect.Effect<void>;
   readonly captureTarget: Effect.Effect<{ name: string }, Refusal>;
@@ -48,7 +45,7 @@ const ControlBodySchema = Schema.Struct({
   path: Schema.optionalKey(Schema.String),
   name: Schema.optionalKey(Schema.String),
   origin: Schema.optionalKey(Schema.String),
-  token: Schema.optionalKey(Schema.String),
+  code: Schema.optionalKey(Schema.String),
   text: Schema.optionalKey(Schema.String),
 });
 type ControlBody = typeof ControlBodySchema.Type;
@@ -72,7 +69,7 @@ export function startControlServer(
     "/api/stores/open": (b) => actions.openStore(trimmed(b.key)),
     "/api/stores/add-local": (b) => actions.addLocal(trimmed(b.path), trimmed(b.name)),
     "/api/stores/add-remote": (b) =>
-      actions.addRemote(trimmed(b.name), trimmed(b.origin), trimmed(b.token) || undefined),
+      actions.addRemote(trimmed(b.name), trimmed(b.origin), trimmed(b.code)),
     "/api/stores/remove": (b) => actions.removeStore(trimmed(b.key)),
     "/api/settings/capture-store": (b) => actions.setCaptureStore(trimmed(b.key)),
     "/api/capture/target": () => actions.captureTarget,

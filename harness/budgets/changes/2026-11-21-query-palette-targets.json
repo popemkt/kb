@@ -1,0 +1,6 @@
+{
+  "reason": "The page's palettes resolve the shown reference target for query and view commands and use the focused pane's subject when saving a search.",
+  "raise": {
+    "page-eager": { "bytes": 269 }
+  }
+}

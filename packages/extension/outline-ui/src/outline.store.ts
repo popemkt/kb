@@ -18,6 +18,7 @@ import { create } from "zustand";
 import {
   browserHost,
   type CaretIntent,
+  childInstanceKey,
   type Expansion,
   type ExpansionChanges,
   type FamilyView,
@@ -29,8 +30,10 @@ import {
   logWarn,
   MAIN_OUTLINE_HOST,
   type NodeMap,
+  nodeOfInstance,
   outlineInstanceKey,
   type OutlineNode,
+  parentInstanceKey,
   type PageGraphState,
   type PageProjection,
   providedFrameViews,
@@ -41,7 +44,9 @@ import {
   type SchemaIndex,
   schemaOf,
   type ScopeSource,
+  shownNodeId,
   shownNodesOf,
+  showsAncestor,
   toast,
   withExpansion,
   WORKSPACE_ROOT_ID,
@@ -50,6 +55,7 @@ import { isQueryNode, SYSTEM_IDS } from "@kb/model";
 import {
   collectVisibleInstances,
   neighborVisibleInstance,
+  subtreeOf,
   type VisibleInstance,
 } from "./visible-instances.ts";
 import type { FrameViewKey } from "@kb/views";
@@ -135,6 +141,14 @@ interface OutlineState {
   toggleCollapse: (id: string) => void;
   /** Open the reference to `targetId` in the text of `sourceId` under its row, or close it. */
   toggleReference: (sourceId: string, targetId: string) => void;
+  /**
+   * Open the row at `instanceKey` and every row drawn under it (`subtreeOf`),
+   * as the outline of host `host`, the one the key was pressed in, draws them.
+   */
+  expandSubtree: (instanceKey: string, host: string) => void;
+  /** Close the row at `instanceKey` and every row drawn under it, as `expandSubtree` finds them. */
+  collapseSubtree: (instanceKey: string, host: string) => void;
+  /** Open every row the scope's outline draws, as it draws them all open. */
   expandAllInScope: () => void;
   collapseAllInScope: () => void;
   expandAncestors: (id: string) => void;
@@ -302,33 +316,6 @@ function withChoices(
   return next ?? expansion;
 }
 
-function collectSubtreeIds(nodeId: string, nodes: NodeMap, result: string[]): void {
-  const node = nodes.get(nodeId);
-  if (!node) return;
-  result.push(nodeId);
-  for (const childId of node.children) {
-    collectSubtreeIds(childId, nodes, result);
-  }
-}
-
-function scopeNodeIds(nodes: NodeMap, rootNodeId: string): string[] {
-  const result: string[] = [];
-  if (rootNodeId !== WORKSPACE_ROOT_ID) {
-    const root = nodes.get(rootNodeId);
-    if (!root) return result;
-    for (const childId of root.children) {
-      collectSubtreeIds(childId, nodes, result);
-    }
-    return result;
-  }
-  const workspace = nodes.get(WORKSPACE_ROOT_ID);
-  if (!workspace) return result;
-  for (const childId of workspace.children) {
-    collectSubtreeIds(childId, nodes, result);
-  }
-  return result;
-}
-
 /** `schema` is the map field definitions are read from (`lib/schema.ts`). */
 function isExpandableOutlineNode(node: OutlineNode, schema: SchemaIndex): boolean {
   if (node.children.length > 0) return true;
@@ -434,16 +421,39 @@ const NO_FOCUS = {
 } as const;
 
 /**
- * The instance to activate `id` at: the one named, else its row in the
- * outline being worked in (the host of `working`, the current selection).
+ * The instance to activate `id` at: the one named, else under `working` (or its
+ * parent row) when `id` is a child of the node shown there — so Enter or `o`
+ * under an expanded contextual reference focuses the new row under that
+ * reference, wherever it is drawn (under a query result too), instead of
+ * jumping to the target's canonical path — else its row in the outline being
+ * worked in (the host of `working`, the current selection).
  */
 function resolveActivateKey(
   id: string,
   instanceKey: string | undefined,
   nodes: NodeMap,
   working: string | null,
+  schema: SchemaIndex,
 ): string {
-  return instanceKey ?? outlineInstanceKey(id, nodes, walkHostOf(working));
+  if (instanceKey !== undefined) return instanceKey;
+  const parentId = nodes.get(id)?.parentId ?? null;
+  if (parentId !== null && working !== null) {
+    const workingNode = nodes.get(nodeOfInstance(working));
+    if (
+      workingNode !== undefined &&
+      !workingNode.collapsed &&
+      shownNodeId(workingNode) === parentId &&
+      !showsAncestor(working, workingNode, schema)
+    ) {
+      return childInstanceKey(working, id);
+    }
+    const parentKey = parentInstanceKey(working);
+    const parentNode = parentKey === null ? undefined : nodes.get(nodeOfInstance(parentKey));
+    if (parentKey !== null && parentNode !== undefined && shownNodeId(parentNode) === parentId) {
+      return childInstanceKey(parentKey, id);
+    }
+  }
+  return outlineInstanceKey(id, nodes, walkHostOf(working));
 }
 
 /**
@@ -497,6 +507,20 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
     set({ expansion: keptExpansion(current, next, schemaNow()) });
   }
 
+  /** Open (true) or close (false) each of `rows` that can expand and is not so already. */
+  function openRows(rows: Iterable<string>, open: boolean): void {
+    const nodes = outlineNodes();
+    const schema = schemaNow();
+    const choices: Array<readonly [string, boolean]> = [];
+    for (const id of rows) {
+      const node = nodes.get(id);
+      if (node?.collapsed === open && isExpandableOutlineNode(node, schema)) {
+        choices.push([id, open]);
+      }
+    }
+    choose(choices);
+  }
+
   return {
     ...initialOutlineState,
 
@@ -513,6 +537,7 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
           instanceKey,
           outlineNodes(),
           get().selectedInstanceKey,
+          schemaNow(),
         );
         pruneOutgoingTransient(id);
         set({
@@ -526,7 +551,13 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       // indent, and palette navigation therefore cannot focus a hidden row.
       get().expandAncestors(id);
       const revealed = get();
-      const key = resolveActivateKey(id, instanceKey, outlineNodes(), revealed.selectedInstanceKey);
+      const key = resolveActivateKey(
+        id,
+        instanceKey,
+        outlineNodes(),
+        revealed.selectedInstanceKey,
+        schemaNow(),
+      );
       // Projected instances (query rows, canvas cards) are drawn by the component
       // that mounts them, so their exact
       // visibility is only knowable once it mounts. The mounted-host
@@ -597,7 +628,7 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       const { selectedInstanceKey } = get();
       if (!nodes.has(id)) return;
       // The outline being worked in is the one the focus is leaving.
-      const key = resolveActivateKey(id, instanceKey, nodes, selectedInstanceKey);
+      const key = resolveActivateKey(id, instanceKey, nodes, selectedInstanceKey, schemaNow());
       pruneOutgoingTransient(id);
       set({
         ...selectionOf(id, key),
@@ -636,8 +667,8 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       const nodes = outlineNodes();
       const working = get().selectedInstanceKey;
       if (!nodes.has(anchorId) || !nodes.has(headId)) return;
-      const headKey = resolveActivateKey(headId, undefined, nodes, working);
-      const anchorKey = resolveActivateKey(anchorId, undefined, nodes, working);
+      const headKey = resolveActivateKey(headId, undefined, nodes, working, schemaNow());
+      const anchorKey = resolveActivateKey(anchorId, undefined, nodes, working, schemaNow());
       set({
         ...selectionOf(headId, headKey, anchorKey, () =>
           get().getVisibleInstances(walkHostOf(headKey)),
@@ -667,30 +698,13 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       choose([[key, get().expansion.get(key) !== true]]);
     },
 
-    expandAllInScope: () => {
-      const nodes = outlineNodes();
-      const schema = schemaNow();
-      const open: Array<readonly [string, boolean]> = [];
-      for (const id of scopeNodeIds(nodes, graphNow().rootNodeId)) {
-        const node = nodes.get(id);
-        if (node?.collapsed === true && isExpandableOutlineNode(node, schema))
-          open.push([id, true]);
-      }
-      choose(open);
-    },
+    expandSubtree: (instanceKey, host) => openRows(subtreeDrawnOpen(instanceKey, host), true),
 
-    collapseAllInScope: () => {
-      const nodes = outlineNodes();
-      const schema = schemaNow();
-      const closed: Array<readonly [string, boolean]> = [];
-      for (const id of scopeNodeIds(nodes, graphNow().rootNodeId)) {
-        const node = nodes.get(id);
-        if (node?.collapsed === false && isExpandableOutlineNode(node, schema)) {
-          closed.push([id, false]);
-        }
-      }
-      choose(closed);
-    },
+    collapseSubtree: (instanceKey, host) => openRows(subtreeDrawnOpen(instanceKey, host), false),
+
+    expandAllInScope: () => openRows(scopeDrawnOpen(), true),
+
+    collapseAllInScope: () => openRows(scopeDrawnOpen(), false),
 
     expandAncestors: (id) => choose(ancestorsToOpen(outlineNodes(), id)),
 
@@ -927,13 +941,27 @@ function visibleInstancesOf(
   graph: PageGraphState,
   expansion: Expansion,
 ): VisibleInstance[] {
+  return instancesOver(host, graph, rowsOf(graph, expansion), expansion);
+}
+
+/**
+ * The rows outline host `host` draws of `nodes`, the rows of `graph` opened
+ * by `expansion`: the walk itself, over rows a caller may open as it tries
+ * them (`rowsDrawnOpen`) without moving the outline's own (`rowsOf`).
+ */
+function instancesOver(
+  host: string,
+  graph: PageGraphState,
+  nodes: NodeMap,
+  expansion: Expansion,
+): VisibleInstance[] {
   const outline = outlineHostOf(host);
   if (outline === undefined) return [];
   const views = providedFrameViews().map((view) => view.key);
   return collectVisibleInstances(
     outline.root ?? graph.rootNodeId,
     {
-      nodes: rowsOf(graph, expansion),
+      nodes,
       schema: schemaOf(graph),
       run: graph.queries?.runner() ?? null,
       views,
@@ -946,6 +974,52 @@ function visibleInstancesOf(
     },
     host,
   );
+}
+
+/**
+ * The rows outline host `host` would draw over `graph` with every row that
+ * `within` picks from its walk open: the walk, as the outline draws it
+ * (`collectVisibleInstances`: query results, references opened in place, a
+ * frame's view), tried again with each picked row that is closed opened,
+ * until none is. A query's results are its answer, so results not yet
+ * answered are not among them.
+ */
+// GAP [[01M7XSM8DNSX1HCZW2217PX5M1]] results of a query not yet answered stay closed
+function rowsDrawnOpen(
+  host: string,
+  graph: PageGraphState,
+  within: (rows: readonly VisibleInstance[], nodes: NodeMap) => readonly VisibleInstance[],
+): string[] {
+  const schema = schemaOf(graph);
+  let expansion = useOutlineStore.getState().expansion;
+  for (;;) {
+    const nodes = withExpansion(shownNodesOf(graph), expansion);
+    const rows = within(instancesOver(host, graph, nodes, expansion), nodes);
+    const closed = rows.flatMap(({ nodeId }): Array<readonly [string, boolean]> => {
+      const node = nodes.get(nodeId);
+      return node?.collapsed === true && isExpandableOutlineNode(node, schema)
+        ? [[nodeId, true]]
+        : [];
+    });
+    const next = withChoices(expansion, closed);
+    if (next === expansion) return rows.map((row) => row.nodeId);
+    expansion = next;
+  }
+}
+
+/**
+ * The rows of the subtree at row `instanceKey`, as the outline of host `host`
+ * draws it all open (`subtreeOf`): their nodes, whose choice is every row's
+ * of that node.
+ */
+// GAP [[01M7XP1SNNVNYZKH5GCSW3RH6C]] a node drawn at several places shares one choice
+function subtreeDrawnOpen(instanceKey: string, host: string): string[] {
+  return rowsDrawnOpen(host, graphNow(), (rows, nodes) => subtreeOf(rows, instanceKey, nodes));
+}
+
+/** Every row of the scope's outline, as it draws them all open. */
+function scopeDrawnOpen(): string[] {
+  return rowsDrawnOpen(MAIN_OUTLINE_HOST, graphNow(), (rows) => rows);
 }
 
 /**

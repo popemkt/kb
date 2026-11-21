@@ -10,6 +10,7 @@ import {
   frameViewOf,
   type NodeMap,
   type OutlineNode,
+  resolveTableColumns,
   type SchemaIndex,
   schemaOfGraph,
   ViewPoint,
@@ -294,5 +295,116 @@ describe("frameRows in the list view", () => {
 
   it("is empty for an unknown frame", () => {
     expect(rowsOf(new Map(), "missing").rendered).toEqual([]);
+  });
+});
+
+describe("contextual references act as their targets in views", () => {
+  const ctxRef = (id: string, targetId: string): OutlineNode =>
+    node(id, "", { [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: targetId }] });
+
+  function refGraph(view: FrameViewName, settings: OutlineNode["props"]): NodeMap {
+    const map = new Map<string, OutlineNode>();
+    map.set("f_stage", node("f_stage", "stage", {}, ["o_todo", "o_done"]));
+    map.set("o_todo", node("o_todo", "todo"));
+    map.set("o_done", node("o_done", "done"));
+    map.set("f_prio", node("f_prio", "priority"));
+    map.set("f_due", node("f_due", "due"));
+    map.set(
+      "t_task",
+      node("t_task", "task", {
+        [SYSTEM_IDS.fieldsField]: [
+          { t: "ref", v: "f_stage" },
+          { t: "ref", v: "f_prio" },
+        ],
+      }),
+    );
+
+    // Targets live outside the frame; the frame holds only contextual references to them.
+    const tA: OutlineNode = {
+      ...node("t_a", "Zebra", {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t_task" }],
+        f_stage: [{ t: "ref", v: "o_done" }],
+        f_prio: [{ t: "num", v: 2 }],
+        f_due: [{ t: "str", v: "2026-11-20" }],
+      }),
+      tags: [{ id: "t_task", name: "task", color: "" }],
+    };
+    const tB: OutlineNode = {
+      ...node("t_b", "Alpha", {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t_task" }],
+        f_stage: [{ t: "ref", v: "o_todo" }],
+        f_prio: [{ t: "num", v: 1 }],
+        f_due: [{ t: "str", v: "2026-11-21" }],
+      }),
+      tags: [{ id: "t_task", name: "task", color: "" }],
+    };
+    map.set(tA.id, tA);
+    map.set(tB.id, tB);
+    map.set("ref_a", ctxRef("ref_a", "t_a"));
+    map.set("ref_b", ctxRef("ref_b", "t_b"));
+
+    const [frame, viewNode] = framedAs(
+      node("frame", "Frame", {}, ["ref_a", "ref_b"]),
+      view,
+      settings,
+    );
+    map.set(frame.id, frame);
+    map.set(viewNode.id, node(viewNode.id, "", viewNode.props));
+    return map;
+  }
+
+  it("filters references by their target's fields and returns reference row ids", () => {
+    const nodes = refGraph("table", {
+      [SYSTEM_IDS.viewFilterField]: [{ t: "str", v: `{:field f_stage :eq o_done}` }],
+    });
+    expect(rowsOf(nodes).rendered.map((n) => n.id)).toEqual(["ref_a"]);
+  });
+
+  it("sorts references by their target's fields and text while returning reference row ids", () => {
+    const byPrio = refGraph("table", {
+      [SYSTEM_IDS.viewSortField]: [{ t: "ref", v: "f_prio" }],
+      [SYSTEM_IDS.viewSortDirField]: [{ t: "str", v: "asc" }],
+    });
+    expect(rowsOf(byPrio).rendered.map((n) => n.id)).toEqual(["ref_b", "ref_a"]);
+
+    const byName = refGraph("table", {
+      [SYSTEM_IDS.viewSortField]: [{ t: "ref", v: SYSTEM_IDS.nodeTextField }],
+      [SYSTEM_IDS.viewSortDirField]: [{ t: "str", v: "asc" }],
+    });
+    expect(rowsOf(byName).rendered.map((n) => n.id)).toEqual(["ref_b", "ref_a"]);
+  });
+
+  it("derives table columns from a reference target's tags", () => {
+    const nodes = refGraph("table", {});
+    const schema = schemaFor(nodes);
+    const cols = resolveTableColumns({ display: [] }, rowsOf(nodes).ordered, schema);
+    expect(cols.map((c) => c.fieldId)).toEqual(["f_stage", "f_prio"]);
+  });
+
+  it("groups references in a board by their target's field while keeping reference row ids", () => {
+    const nodes = refGraph("board", {
+      [SYSTEM_IDS.viewGroupField]: [{ t: "ref", v: "f_stage" }],
+    });
+    const rows = frameRows(input(nodes));
+    expect(rows.columns.map((c) => [c.key, c.nodes.map((n) => n.id)])).toEqual([
+      ["ref:o_todo", ["ref_b"]],
+      ["ref:o_done", ["ref_a"]],
+      ["__empty__", []],
+    ]);
+  });
+
+  it("groups references in a calendar by their target's date field while keeping reference row ids", () => {
+    const nodes = refGraph("calendar", {
+      [SYSTEM_IDS.viewDateField]: [{ t: "ref", v: "f_due" }],
+      [SYSTEM_IDS.viewSpanField]: [{ t: "str", v: "week" }],
+    });
+    const rows = frameRows({ ...input(nodes), day: "2026-11-20" });
+    const held = rows.columns
+      .filter((c) => c.nodes.length > 0)
+      .map((c) => [c.key, c.nodes.map((n) => n.id)]);
+    expect(held).toEqual([
+      ["str:2026-11-20", ["ref_a"]],
+      ["str:2026-11-21", ["ref_b"]],
+    ]);
   });
 });

@@ -27,30 +27,67 @@ export function getPath(): string {
   return hasLocation() ? window.location.pathname || "/" : "/";
 }
 
-export function navigate(to: string): void {
-  if (!hasLocation() || to === getPath()) return;
-  window.history.pushState({}, "", to);
+/** Each in-app entry carries its position, even across a page reload. */
+function pathIndex(): number {
+  const state: unknown = hasLocation() ? window.history.state : null;
+  if (typeof state !== "object" || state === null || !("kbPathIndex" in state)) return 0;
+  const index = state.kbPathIndex;
+  return typeof index === "number" && Number.isSafeInteger(index) && index >= 0 ? index : 0;
+}
+
+// The last entry known to this page starts at the entry it loaded.
+let lastIndex = pathIndex();
+
+export function canGo(): { back: boolean; forward: boolean } {
+  const index = pathIndex();
+  return { back: index > 0, forward: index < lastIndex };
+}
+
+/** Traverse only known in-app entries. The browser reports the move via popstate. */
+export function go(delta: number): void {
+  if (!hasLocation() || !Number.isSafeInteger(delta) || delta === 0) return;
+  const target = pathIndex() + delta;
+  if (target >= 0 && target <= lastIndex) window.history.go(delta);
+}
+
+function writePath(method: "pushState" | "replaceState", to: string): void {
+  if (!hasLocation()) return;
+  const { search, hash } = window.location;
+  if (to === `${getPath()}${search}${hash}`) return;
+  const index = pathIndex();
+  const push = method === "pushState";
+  const next = push ? index + 1 : index;
+  window.history[method]({ ...(push ? {} : window.history.state), kbPathIndex: next }, "", to);
+  if (push) lastIndex = next;
   notify();
+}
+
+export function navigate(to: string): void {
+  writePath("pushState", to);
 }
 
 /**
  * Show `to` in the address bar without a history entry: the URL names the
- * focused pane, and moving the focus to another pane is not a step back can
- * undo.
+ * focused pane. Moving focus or clearing a callback's URL parameters keeps
+ * the current entry and its state.
  */
 export function replacePath(to: string): void {
-  if (!hasLocation() || to === getPath()) return;
-  window.history.replaceState({}, "", to);
+  writePath("replaceState", to);
+}
+
+function onPopState(): void {
+  lastIndex = Math.max(lastIndex, pathIndex());
   notify();
 }
 
 /** Call `listener` whenever the path changes, by `navigate` or by history; returns the unsubscribe. */
 export function subscribePath(listener: Listener): () => void {
+  if (!hasLocation()) return () => {};
+  if (listeners.size === 0) window.addEventListener("popstate", onPopState);
   listeners.add(listener);
-  window.addEventListener("popstate", listener);
   return () => {
     listeners.delete(listener);
-    window.removeEventListener("popstate", listener);
+    if (listeners.size === 0) window.removeEventListener("popstate", onPopState);
   };
 }
 

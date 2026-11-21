@@ -22,7 +22,7 @@
  * it reaches listens on.
  */
 import { extensionModule, writeTrustedExtensionEffect } from "./extension-files.ts";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, onTestFinished, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -37,11 +37,12 @@ import {
   type ActionRequest,
   type ActionMode,
   type ActionReceipt,
+  type EffectStore,
   type HostedFamilies,
   type SurfaceWire,
   type UiListener,
 } from "@kb/contracts";
-import { SYSTEM_IDS, extensionNodeId } from "@kb/model";
+import { SYSTEM_IDS, extensionNodeId, type DomainError } from "@kb/model";
 import {
   bunFileSystemLayer,
   deployGovernance,
@@ -118,10 +119,16 @@ export type ServeUi = (root: string, kind: UiListenerKind) => Promise<LiveUi>;
  * Open the surface over a root that already exists, has been opened once, and
  * that `ui` serves.
  */
-export type SurfaceFactory = (root: string, ui: LiveUi) => Promise<ActionSurface>;
+export type SurfaceFactory = (
+  root: string,
+  ui: LiveUi,
+  signal: AbortSignal,
+) => Promise<ActionSurface>;
 
 /** The fixture's write that declares approval. */
 const APPROVAL_ACTION = "ext.gated.stamp";
+const PERSON_ACTION = "ext.gated.person";
+const PROGRAM_ACTION = "ext.gated.program";
 
 /** An extension's node every store holds (core's), and a field the root declares a setting of it. */
 const EXTENSION_NODE = extensionNodeId("core");
@@ -171,6 +178,16 @@ const GATED_EXTENSION = extensionModule("gated", {
     outputSchema: passthrough,
     handler: async () => ({ stamped: true }),
   },
+  ...["person", "program"].map((caller) => ({
+    id: caller,
+    title: caller,
+    description: "A server read for this caller kind",
+    mode: { kind: "read" },
+    callers: [caller],
+    inputSchema: passthrough,
+    outputSchema: passthrough,
+    handler: async () => ({ caller }),
+  })),
 ]`,
 });
 
@@ -182,6 +199,7 @@ const GATED_EXTENSION = extensionModule("gated", {
  */
 const CALLS: readonly ActionRequest[] = [
   { id: "kb.manifest", input: {} },
+  { id: PROGRAM_ACTION, input: {} },
   { id: "node.get", input: { id: "sys.tag", depth: 0 } },
   { id: "node.get", input: { id: "n.surface-contract-missing" } },
   { id: "node.get", input: {} },
@@ -263,20 +281,23 @@ const scratchRoot = Effect.acquireRelease(
  * scope closes. Every surface reaches that one tab: HTTP and WebMCP through
  * the server, the CLI, MCP and the invoke core through `.kb/ui.json`.
  */
-function serveRoot(serve: ServeUi, root: string, kind: UiListenerKind) {
-  return Effect.acquireRelease(
-    Effect.gen(function* () {
-      const ui = yield* Effect.promise(() => serve(root, kind));
-      return { ui, tab: yield* FakeTab.open(ui.at, CONTRACT_TAB) };
-    }),
-    ({ ui, tab }) => tab.close.pipe(Effect.andThen(Effect.promise(() => ui.stop()))),
+export const serveRoot = Effect.fn("kb.serveSurfaceRoot")(function* (
+  serve: ServeUi,
+  root: string,
+  kind: UiListenerKind,
+) {
+  const ui = yield* Effect.acquireRelease(
+    Effect.promise(() => serve(root, kind)),
+    (handle) => Effect.promise(() => handle.stop()),
   );
-}
+  yield* FakeTab.scoped(ui.at, CONTRACT_TAB);
+  return ui;
+});
 
 /** One surface over the root, closed when the scope closes. */
-function openSurface(open: SurfaceFactory, root: string, ui: LiveUi) {
+function openSurface(open: SurfaceFactory, root: string, ui: LiveUi, signal: AbortSignal) {
   return Effect.acquireRelease(
-    Effect.promise(() => open(root, ui)),
+    Effect.promise(() => open(root, ui, signal)),
     (surface) => Effect.promise(() => surface.close()),
   );
 }
@@ -286,6 +307,7 @@ interface SurfaceCase {
   readonly name: string;
   readonly surface: ActionSurface;
   readonly root: string;
+  readonly store: EffectStore;
   /** The root's `kb ui`. */
   readonly ui: LiveUi;
   /**
@@ -311,6 +333,7 @@ export interface SurfaceSet {
 /** The set as one run of the suite takes it: with the way its `kb ui` listens. */
 interface OnListener extends SurfaceSet {
   readonly listener: UiListenerKind;
+  readonly signal: AbortSignal;
 }
 
 /**
@@ -322,38 +345,36 @@ interface OnListener extends SurfaceSet {
  * (stdout, a port).
  */
 function overSurfaces(
-  { serve, surfaces, listener }: OnListener,
+  { serve, surfaces, listener, signal }: OnListener,
   check: (c: SurfaceCase) => Effect.Effect<void>,
-): Promise<void> {
-  return Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const root = yield* scratchRoot;
-        const ctx = yield* Effect.promise(() => openKb(root));
-        const written = yield* Effect.promise(() => invoke(ctx, SETTING_INVOCATION));
-        expect(written.status).toBe("succeeded");
-        const { ui } = yield* serveRoot(serve, root, listener);
-        yield* Effect.forEach(
-          Object.entries(surfaces),
-          ([name, open]) =>
-            Effect.scoped(
-              Effect.gen(function* () {
-                const surface = yield* openSurface(open, root, ui);
-                // The composition the surface reaches: the registry, and on a kb ui what it hosts.
-                const hosted = surface.host === "ui" ? ui.hosted : undefined;
-                const core = (invocation: ActionRequest) =>
-                  invokeReceiptEffect(ctx, onWire(surface.wire, invocation)).pipe(
-                    Effect.provide(kbRuntimeLayer(ctx, undefined, hosted)),
-                  );
-                const via = (invocation: ActionRequest) =>
-                  Effect.promise(() => surface.invoke(invocation));
-                yield* check({ name, surface, root, ui, core, via });
-              }),
-            ),
-          { discard: true },
-        );
-      }),
-    ),
+): Effect.Effect<void, DomainError> {
+  return Effect.scoped(
+    Effect.gen(function* () {
+      const root = yield* scratchRoot;
+      const ctx = yield* Effect.promise(() => openKb(root));
+      const written = yield* Effect.promise(() => invoke(ctx, SETTING_INVOCATION));
+      expect(written.status).toBe("succeeded");
+      const ui = yield* serveRoot(serve, root, listener);
+      yield* Effect.forEach(
+        Object.entries(surfaces),
+        ([name, open]) =>
+          Effect.scoped(
+            Effect.gen(function* () {
+              const surface = yield* openSurface(open, root, ui, signal);
+              // The composition the surface reaches: the registry, and on a kb ui what it hosts.
+              const hosted = surface.host === "ui" ? ui.hosted : undefined;
+              const core = (invocation: ActionRequest) =>
+                invokeReceiptEffect(ctx, onWire(surface.wire, invocation)).pipe(
+                  Effect.provide(kbRuntimeLayer(ctx, undefined, hosted)),
+                );
+              const via = (invocation: ActionRequest) =>
+                Effect.promise(() => surface.invoke(invocation));
+              yield* check({ name, surface, root, store: ctx.store, ui, core, via });
+            }),
+          ),
+        { discard: true },
+      );
+    }),
   );
 }
 
@@ -368,7 +389,9 @@ function asMadeOn(surface: ActionSurface, call: ActionRequest): ActionRequest {
   return made;
 }
 
-const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<void>]> = [
+const PROPERTIES: ReadonlyArray<
+  readonly [string, (set: OnListener) => Effect.Effect<void, DomainError>]
+> = [
   [
     "approval required needs a person",
     (set) =>
@@ -404,9 +427,9 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
   [
     "every surface lists the action ids of what it reaches (the registry's, and on a kb ui " +
       "what it hosts) with their declared modes, " +
-      "leaving out only what is denied to its actor or asks where its wire cannot approve",
+      "using caller admission and the wire's approval rules",
     (set) =>
-      overSurfaces(set, ({ name, surface, root, ui, core }) =>
+      overSurfaces(set, ({ name, surface, root, ui, core, via }) =>
         Effect.gen(function* () {
           const registry = yield* manifest(root).pipe(Effect.provide(bunFileSystemLayer));
           expect(registry.some((entry) => entry.id === APPROVAL_ACTION)).toBe(true);
@@ -423,6 +446,21 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
           expect(actions.map(({ id }) => id)).toEqual([...registry.map(({ id }) => id), ...hosted]);
           const callable = actions.filter((entry) => listedOn(surface.wire, entry));
           const listed = yield* Effect.promise(() => surface.list());
+          expect(listed.some(({ id }) => id === PERSON_ACTION)).toBe(name === "page");
+          expect(listed.some(({ id }) => id === PROGRAM_ACTION)).toBe(
+            name !== "page" && name !== "webmcp",
+          );
+          if (name === "page") {
+            const person = { id: PERSON_ACTION, input: {} };
+            expect(yield* via(person)).toMatchObject({
+              status: "succeeded",
+              output: { caller: "person" },
+            });
+            expect(yield* via({ ...person, caller: "program" })).toMatchObject({
+              status: "failed",
+              code: "forbidden",
+            });
+          }
           // Wires without approval omit that detail from their hints.
           const stated = (entries: readonly ListedAction[]) =>
             surface.wire.carriesApproval ? entries : entries.map(withoutApproval);
@@ -478,7 +516,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
         Effect.scoped(
           Effect.gen(function* () {
             if (surface.session !== "stated") return;
-            yield* Effect.acquireRelease(FakeTab.open(ui.at, LATER_TAB), (later) => later.close);
+            yield* FakeTab.scoped(ui.at, LATER_TAB);
             const navigate = { id: "ui.navigate", input: { route: "/graph" } };
             expect({ name, receipt: yield* via({ ...navigate, session: CONTRACT_TAB }) }).toEqual({
               name,
@@ -516,7 +554,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
               panes: FAKE_TAB_SCREEN.panes.map((pane) => ({ ...pane, focused: id })),
             };
             const tab = `${FOCUS_TAB}.${name}`;
-            yield* Effect.acquireRelease(FakeTab.open(ui.at, tab, focusedOn), (open) => open.close);
+            yield* FakeTab.scoped(ui.at, tab, focusedOn);
             const rename = { id: "node.update", input: { text: "renamed here" } };
             const receipt = yield* via({ ...rename, session: tab });
             expect({ name, receipt }).toMatchObject({
@@ -620,6 +658,52 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
       ),
   ],
   [
+    "an outline paste keeps the supplied ids in tree order on every surface",
+    (set) =>
+      overSurfaces(set, ({ name, store, via }) =>
+        Effect.gen(function* () {
+          const [parent, child, sibling] = ["parent", "child", "sibling"].map(
+            (part) => `n.paste-${name}-${part}`,
+          );
+          const outline = "- First\n  - Nested\n- Last";
+          const paste = { id: "node.addTree", input: { outline, parent: null } };
+          expect(yield* via({ ...paste, input: { ...paste.input, ids: [parent] } })).toMatchObject({
+            status: "failed",
+            code: "invalid_input",
+          });
+          expect(
+            yield* via({ ...paste, input: { ...paste.input, ids: [parent, parent, sibling] } }),
+          ).toMatchObject({ status: "failed", code: "ambiguous" });
+
+          const ids = [parent, child, sibling];
+          expect(yield* via({ ...paste, input: { ...paste.input, ids } })).toMatchObject({
+            status: "succeeded",
+            output: { ids, lines: { 1: parent, 2: child, 3: sibling } },
+          });
+          expect(yield* via({ id: "node.get", input: { id: parent, depth: 1 } })).toMatchObject({
+            status: "succeeded",
+            output: { node: { id: parent, children: [{ id: child, text: "Nested" }] } },
+          });
+
+          const before = yield* store.fingerprint;
+          expect(before).not.toBeNull();
+          const collision = [
+            `n.paste-${name}-fresh-parent`,
+            child,
+            `n.paste-${name}-fresh-sibling`,
+          ];
+          expect(yield* via({ ...paste, input: { ...paste.input, ids: collision } })).toMatchObject(
+            {
+              status: "failed",
+              code: "ambiguous",
+              details: { id: child, line: 2 },
+            },
+          );
+          expect(yield* store.fingerprint).toBe(before);
+        }),
+      ),
+  ],
+  [
     "no call says who makes it: the wire does, and an actor a call states is dropped, never refused",
     (set) =>
       overSurfaces(set, ({ name, surface }) =>
@@ -636,7 +720,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
           if (!("request" in stated)) throw new Error(stated.invalid);
           expect({ name, request: stated.request }).toEqual({
             name,
-            request: { id: claims.id, input: claims.input, approved: true, script: claims.script },
+            request: { id: claims.id, input: claims.input, script: claims.script },
           });
           const made = onWire(wire, stated.request);
           expect({ name, actor: made.actor, script: made.script }).toEqual({
@@ -645,10 +729,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
             actor: wire.relays === true ? "script" : wire.actor,
             script: wire.relays === true ? claims.script : undefined,
           });
-          expect({ name, approved: made.approved }).toEqual({
-            name,
-            approved: wire.carriesApproval ? true : undefined,
-          });
+          expect(made.approved).toBeUndefined();
           expect({ name, actor: onWire(wire, { id: "node.get", input: {} }).actor }).toEqual({
             name,
             actor: wire.actor,
@@ -703,19 +784,27 @@ export const SURFACE_CONTRACT_CELLS: Readonly<
 export function surfaceContract(set: SurfaceSet, cell: SurfaceContractCell): void {
   const names = Object.keys(set.surfaces).join(", ");
   const { governance, listener } = cell;
-  const run: OnListener = { ...set, listener };
   describe(`action surfaces (${names}) on ${listener}, governance ${governance}`, () => {
     for (const [title, property] of PROPERTIES)
       test(
         title,
-        () =>
-          Effect.runPromise(
+        () => {
+          const controller = new AbortController();
+          const finished = Effect.runPromise(
             Effect.acquireUseRelease(
               Effect.sync(() => deployGovernance(governance)),
-              () => Effect.promise(() => property(run)),
+              () => property({ ...set, listener, signal: controller.signal }),
               () => Effect.sync(() => deployGovernance("required")),
             ),
-          ),
+            { signal: controller.signal },
+          );
+          onTestFinished(() => {
+            controller.abort();
+            // The test body owns reporting its result. The hook waits for scope cleanup.
+            return finished.catch(() => undefined);
+          });
+          return finished;
+        },
         // Every property drives all transports, including many detached CLI processes.
         120_000,
       );

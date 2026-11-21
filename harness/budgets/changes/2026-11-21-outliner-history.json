@@ -1,0 +1,14 @@
+{
+  "reason": "The page shell reads and traverses the router's history through canGo and go. The history controls and day commands take the eager production bundle from 2031680 to 2035113 bytes. The baseline already exceeds the previous ceiling of 2031650 bytes on this checkout. The seeded navigation commands and history shortcuts take the CLI's eager bundle from 2886438 to 2887008 bytes.",
+  "raise": {
+    "surface": {
+      "@kb/ui-sdk": 2
+    },
+    "page-eager": {
+      "bytes": 3463
+    },
+    "cli-closure": {
+      "bytes": 570
+    }
+  }
+}

@@ -245,12 +245,15 @@ export {
   canvasInstanceKey,
   childInstanceKey,
   hostOfInstance,
+  instanceAncestorIds,
   isProjectedInstance,
   isProjectedRow,
   MAIN_OUTLINE_HOST,
+  nodeOfInstance,
   outlineHostOfPane,
   outlineInstanceKey,
   pageTitleInstanceKey,
+  parentInstanceKey,
   projectedRowKey,
   projectedRowOf,
 } from "./lib/instance-key";
@@ -258,6 +261,7 @@ export { isPinned, listPinnedNavItems, pinnedRefIds, pinnedRefIdsFor } from "./l
 export { rowsAbout } from "./lib/selection";
 export {
   closesCycleOf,
+  formatRefToken,
   nodeCandidates,
   type RefCreation,
   refCreationOf,
@@ -308,7 +312,12 @@ export {
   datesLead,
   leadsNowhere,
 } from "./lib/date-target";
-export { refTrigger, type TextTrigger } from "./lib/text-triggers";
+export {
+  type OpenTrigger,
+  refTrigger,
+  type TextTrigger,
+  type TriggerPick,
+} from "./lib/text-triggers";
 export {
   type FieldEditorProps,
   type FieldRowProps,
@@ -367,6 +376,8 @@ export {
 export { resultNodeIds } from "./lib/use-query-node-rows";
 export {
   answerOf,
+  BACKLINK_COUNTS_QUERY,
+  conditionsEdn,
   derivedWith,
   type EdnRunner,
   type EnginePort,
@@ -494,7 +505,9 @@ export {
 } from "./lib/pointer-slop";
 
 export {
+  canGo,
   getPath,
+  go,
   navigate,
   ontologyPath,
   outlineLocationOf,

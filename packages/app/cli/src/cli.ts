@@ -99,7 +99,12 @@ import {
   UsageError,
   type PlannedAction,
 } from "./map.ts";
-import { persistEffect, storeBackupDef, storeBackupsDef, storeRestoreDef } from "@kb/operations";
+import {
+  persistPlannedEffect,
+  storeBackupDef,
+  storeBackupsDef,
+  storeRestoreDef,
+} from "@kb/operations";
 
 /** `--store` / `--to`: one of {@link STORE_BACKENDS}, or a usage failure. */
 function parseStoreBackend(value: string, flag: string): StoreBackend {
@@ -436,12 +441,14 @@ function buildProgram(): Command {
            * only fills a store nobody has put anything into yet.
            */
           let examples = 0;
-          if (opts.bare !== true && isPristine(ctx.nodes, bundledSeed())) {
-            const nodes = exampleSeedNodes(yield* currentIso);
-            yield* persistEffect(ctx, { upserts: nodes, deletes: [] }).pipe(
-              Effect.provide(kbRuntimeLayer(ctx)),
-            );
-            examples = nodes.length;
+          if (opts.bare !== true) {
+            const seed = bundledSeed();
+            const written = yield* persistPlannedEffect(ctx, (nodes) =>
+              isPristine(nodes, seed)
+                ? Effect.map(currentIso, (at) => ({ upserts: exampleSeedNodes(at), deletes: [] }))
+                : Effect.succeed(null),
+            ).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+            examples = written?.upserts.length ?? 0;
           }
           // The root a person makes is one of their locations; not being listed costs the picker only.
           const unlisted = yield* registerOpenedRoot(ctx, ACTION_INVOKE_WIRE).pipe(

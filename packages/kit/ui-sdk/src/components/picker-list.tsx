@@ -89,7 +89,7 @@ export function PickerList({
             row={row}
             active={i === activeIndex}
             checks={checks}
-            lead={leadOf?.(row)}
+            lead={(row.kind === "item" ? row.glyph : undefined) ?? leadOf?.(row)}
             createLabel={createLabel}
             onHover={() => onHover?.(i)}
             onPick={(alternate) => onPick(row, alternate)}
@@ -163,7 +163,7 @@ function PickerRowButton({
         {row.kind === "item" ? <RowLabel row={row} /> : createLabel(row.name)}
       </span>
       {row.kind === "item" && row.note !== undefined && row.note !== "" && (
-        <span className="shrink-0 text-caption text-foreground/25">{row.note}</span>
+        <span className="shrink-0 text-caption">{row.note}</span>
       )}
     </button>
   );

@@ -1,0 +1,7 @@
+{
+  "reason": "The 2026-11-21 integration of seventeen branches, measured on the merged tree from a short checkout. Page eager: main measures 2,031,650 bytes and the merged tree 2,062,466, a rise of 30,816, where the branches' change files sum to 29,966; the other 850 bytes are what the merged branches' code adds together, beyond what each measured alone. CLI closure: main measures 2,886,438 bytes in 772 modules and the merged tree 2,891,869 in 773, where the change files sum to 13,670 bytes and 3 modules. Measured at each branch's head, gate-honesty takes 7,921 bytes and 2 modules out of the CLI graph without lowering its limit, the desktop keychain branch keeps 3 bytes of slack, and 315 bytes are code two branches each counted; the limits come down to what the merged tree measures.",
+  "raise": {
+    "page-eager": { "bytes": 850 },
+    "cli-closure": { "bytes": -8239, "modules": -2 }
+  }
+}

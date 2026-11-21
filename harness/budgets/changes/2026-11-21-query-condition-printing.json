@@ -1,0 +1,6 @@
+{
+  "reason": "The browser query seam exports conditionsEdn so the outline builder and global search can write the same canonical query text without importing DataScript or an extension entry into the app.",
+  "raise": {
+    "surface": { "@kb/ui-sdk": 1 }
+  }
+}

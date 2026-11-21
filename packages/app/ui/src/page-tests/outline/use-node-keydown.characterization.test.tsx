@@ -21,7 +21,9 @@ import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import {
+  childInstanceKey,
   outlineInstanceKey,
+  PaneContext,
   projectedRowKey,
   renderInlineMarkdown,
   rowTextOf,
@@ -31,6 +33,7 @@ import {
   type RefLook,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
+import { rankedFixture } from "@/test-support/ranked-fixture";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -38,6 +41,7 @@ import { syncPagePlugins } from "@/test-support/page-plugins";
 import {
   outlineNodes,
   outlineSource,
+  setOutlineHost,
   useNodeKeyDown,
   useOutlineNode,
   useOutlineStore,
@@ -88,6 +92,11 @@ async function settle(rounds = 4, delayMs = 0): Promise<void> {
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     });
   }
+}
+
+/** The forest's top rows, in order. */
+function roots(): string[] {
+  return node(WORKSPACE_ROOT_ID)?.children ?? [];
 }
 
 function endOf(id: string): number {
@@ -241,6 +250,33 @@ describe("outline editing keymap (characterization)", () => {
       expect(await press(mount("n.child-a1", endOf("n.child-a1")), "Delete")).toBe(true);
       expect(node("n.ref")).toBeDefined();
       expect(node("n.child-a1")?.text).toBe("Load graph into client DataScript");
+    });
+
+    it("Enter on an expanded reference under a query result edits the new row under it there", async () => {
+      // n.root-b, a result of query n.q, holds a reference to n.root-a, opened.
+      const wires = structuredClone(fixtureGraph.nodes).map((w) =>
+        w.id === "n.root-b" ? { ...w, children: ["n.ref-a"] } : w,
+      );
+      resetOutlineStore();
+      useGraphStore
+        .getState()
+        .hydrateFromWire(
+          [...wires, ...REF_SEED_WIRES, ctxRefWire("n.ref-a", "n.root-a")],
+          fixtureGraph.rev,
+          "fixtures",
+        );
+      act(() => useOutlineStore.getState().toggleCollapse("n.ref-a"));
+      const instanceKey = childInstanceKey(projectedRowKey("n.q", "n.root-b"), "n.ref-a");
+      act(() => useOutlineStore.getState().activateNode("n.ref-a", 0, instanceKey));
+      act(() => root.render(<Host nodeId="n.ref-a" instanceKey={instanceKey} />));
+      const el = present(container.querySelector<HTMLElement>('[data-editor="true"]'), "editor");
+
+      expect(await press(el, "Enter")).toBe(true);
+      const first = present(node("n.root-a")?.children[0], "new first child");
+      expect(first).not.toBe("n.child-a1");
+      const s = useOutlineStore.getState();
+      expect(s.activeNodeId).toBe(first);
+      expect(s.activeInstanceKey).toBe(childInstanceKey(instanceKey, first));
     });
 
     it("Meta+Backspace deletes the reference, never the original", async () => {
@@ -467,6 +503,76 @@ describe("outline editing keymap (characterization)", () => {
       act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
       expect(await press(mount("n.child-a1", 0, false), "ArrowUp", { metaKey: true })).toBe(true);
       expect(useGraphStore.getState().rootNodeId).toBe("n.root-a");
+    });
+
+    it("Meta+Alt+ArrowDown opens the whole subtree, Ctrl+Alt+ArrowUp closes it, the caret staying", async () => {
+      const el = mount("n.root-a", 2, false);
+      expect(await press(el, "ArrowDown", { metaKey: true, altKey: true })).toBe(true);
+      expect([node("n.root-a")?.collapsed, node("n.child-a2")?.collapsed]).toEqual([false, false]);
+      expect(await press(el, "ArrowUp", { ctrlKey: true, altKey: true })).toBe(true);
+      expect([node("n.root-a")?.collapsed, node("n.child-a2")?.collapsed]).toEqual([true, true]);
+      expect(useOutlineStore.getState().activeNodeId).toBe("n.root-a");
+    });
+
+    it("Meta+Shift+Enter makes an empty row before this one, edited, and splits nothing", async () => {
+      // The top level's order is its rows' ranks.
+      useGraphStore.getState().hydrateFromWire(rankedFixture(), fixtureGraph.rev, "fixtures");
+      const text = node("n.root-c")?.text;
+      const before = roots();
+      expect(
+        await press(mount("n.root-c", 4, false), "Enter", { metaKey: true, shiftKey: true }),
+      ).toBe(true);
+      const after = roots();
+      expect(after).toHaveLength(before.length + 1);
+      const made = present(after[after.indexOf("n.root-c") - 1], "row before");
+      expect(before).not.toContain(made);
+      expect(node(made)?.text).toBe("");
+      expect(node("n.root-c")?.text).toBe(text);
+      expect(useOutlineStore.getState().activeNodeId).toBe(made);
+    });
+
+    it("Meta+. zooms into the row being edited, and Ctrl+, zooms out to the page above", async () => {
+      act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+      const text = node("n.child-a2")?.text;
+      expect(await press(mount("n.child-a2", 3, false), ".", { metaKey: true })).toBe(true);
+      expect(useGraphStore.getState().rootNodeId).toBe("n.child-a2");
+      expect(node("n.child-a2")?.text).toBe(text);
+      // Now inside n.child-a2: its child's row zooms out to n.child-a2's parent.
+      expect(await press(mount("n.grandchild", 0, false), ",", { ctrlKey: true })).toBe(true);
+      expect(useGraphStore.getState().rootNodeId).toBe("n.root-a");
+      expect(node("n.grandchild")?.text).toBe("Persist collapsed ids in localStorage");
+      expect(await press(mount("n.child-a1", 0, false), ",", { metaKey: true })).toBe(true);
+      expect(useGraphStore.getState().rootNodeId).toBe(WORKSPACE_ROOT_ID);
+    });
+
+    it("Meta+, and Meta+. on a query result in another pane move that pane, not the main outline", async () => {
+      // The pane's outline is rooted at n.child-a2; the row's key names its query, not the pane.
+      const opened: string[] = [];
+      setOutlineHost("pane:p2", { root: "n.child-a2", chain: [], open: (id) => opened.push(id) });
+      try {
+        const instanceKey = projectedRowKey("n.q", "n.root-b");
+        act(() => useOutlineStore.getState().activateNode("n.root-b", 0, instanceKey));
+        act(() =>
+          root.render(
+            <PaneContext.Provider value="p2">
+              <Host nodeId="n.root-b" instanceKey={instanceKey} />
+            </PaneContext.Provider>,
+          ),
+        );
+        const el = present(container.querySelector<HTMLElement>('[data-editor="true"]'), "editor");
+        expect(await press(el, ",", { metaKey: true })).toBe(true);
+        expect(await press(el, ".", { metaKey: true })).toBe(true);
+        expect(opened).toEqual(["n.root-a", "n.root-b"]);
+        expect(useGraphStore.getState().rootNodeId).toBe(WORKSPACE_ROOT_ID);
+      } finally {
+        setOutlineHost("pane:p2", null);
+      }
+    });
+
+    it("Meta+, at home has no page above: claimed, and nothing moves", async () => {
+      expect(await press(mount("n.root-b", 0, false), ",", { metaKey: true })).toBe(true);
+      expect(useGraphStore.getState().rootNodeId).toBe(WORKSPACE_ROOT_ID);
+      expect(useOutlineStore.getState().activeNodeId).toBe("n.root-b");
     });
 
     it("Meta+ArrowDown expands a collapsed parent", async () => {

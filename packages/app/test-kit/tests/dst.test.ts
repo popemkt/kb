@@ -1,4 +1,7 @@
-import { describe, expect, test, afterEach } from "bun:test";
+import { describe, expect, test, afterEach, onTestFinished } from "bun:test";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Effect } from "effect";
 import { canonicalJsonl } from "@kb/model";
 import {
@@ -18,7 +21,10 @@ afterEach(async () => {
   done.length = 0;
 });
 
-async function run(seed: string, opts?: { ops?: number }): Promise<ScenarioResult> {
+async function run(
+  seed: string,
+  opts?: Parameters<typeof runScenario>[1],
+): Promise<ScenarioResult> {
   const r = await Effect.runPromise(runScenario(seed, opts));
   done.push(r);
   return r;
@@ -39,11 +45,6 @@ async function run(seed: string, opts?: { ops?: number }): Promise<ScenarioResul
  * test runs more than two scenarios: each committed seed is its own test. A
  * test that looped over every seed ran eight scenarios under this one budget,
  * took 17 to 30 s on CI, and once overran it.
- *
- * An overrun is not only a red test. Bun goes on to the next test while the
- * overrun body keeps running, and the next test's preload moves `KB_DATA`
- * under it, where commits keep their backups: the body then diverges from its
- * replay for a reason outside the store (GAP [[01M740E2KPGXWP4WKTE2XZ6N56]]).
  */
 const SCENARIO_TIMEOUT_MS = 32_000;
 
@@ -63,6 +64,7 @@ describe("DST — seeded histories over the real plan/apply path", () => {
         const r = await run(seed);
         expect(r.violations, `${seed}: ${r.violations.join("; ")}`).toEqual([]);
         expect(r.ops).toBe(60);
+        expect(r.succeeded, `${seed}: no op landed`).toBeGreaterThan(0);
         expect(r.nodes.length).toBeGreaterThan(0);
       },
     );
@@ -76,6 +78,31 @@ describe("DST — seeded histories over the real plan/apply path", () => {
       expect(a.nodes.length).toBe(b.nodes.length);
     });
   }
+
+  scenarioTest("moving KB_DATA during replay leaves the store byte-identical", async () => {
+    // Simulate the next test repointing the preload's scratch data.
+    const env = process.env;
+    const previous = env.KB_DATA;
+    const redirected = await mkdtemp(join(tmpdir(), "kb-dst-redirected-"));
+    let active = true;
+    onTestFinished(async () => {
+      active = false;
+      if (env.KB_DATA === redirected) env.KB_DATA = previous;
+      await rm(redirected, { recursive: true, force: true });
+    });
+
+    const seed = "dst-3";
+    const original = await run(seed);
+    const replay = await run(seed, {
+      onOperation(index) {
+        if (active && index === 30) env.KB_DATA = redirected;
+      },
+    });
+    expect(replay.violations).toEqual([]);
+    expect(replay.ops).toBe(60);
+    expect(replay.json).toBe(original.json);
+    expect(await readdir(redirected)).toEqual([]);
+  });
 
   scenarioTest("the on-disk store round-trips to identical canonical bytes", async () => {
     const a = await run("dst-0");

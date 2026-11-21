@@ -1,0 +1,7 @@
+{
+  "reason": "The data directory service lets a seeded simulation pin its own backup path for the whole replay.",
+  "raise": {
+    "cli-closure": { "bytes": 105 },
+    "surface": { "@kb/workspace-fs": 1 }
+  }
+}

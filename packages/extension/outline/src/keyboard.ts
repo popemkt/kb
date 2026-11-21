@@ -20,6 +20,20 @@ import {
 /** The context's id, as bindings name it: the outline's namespace, then its own. */
 export const EDITING_CONTEXT_ID = "outline.editing";
 
+/**
+ * The chords both modes share: ⌘⌥↓ and ⌘⌥↑ (Ctrl+Alt on Windows and Linux)
+ * open and close a row's whole subtree, ⌘. zooms into the row and ⌘, zooms
+ * out to the page above the one shown.
+ */
+const SUBTREE_CHORDS = {
+  expand: { key: "ArrowDown", mod: true, alt: true, shift: false },
+  collapse: { key: "ArrowUp", mod: true, alt: true, shift: false },
+} as const satisfies Record<string, Chord>;
+const ZOOM_CHORDS = {
+  in: { key: ".", mod: true },
+  out: { key: ",", mod: true },
+} as const satisfies Record<string, Chord>;
+
 function editingBinding(id: string, chord: Chord, intent: string): ContributionEntry<Keybinding> {
   return { id: `editing.${id}`, value: { context: EDITING_CONTEXT_ID, chord, run: { intent } } };
 }
@@ -27,14 +41,17 @@ function editingBinding(id: string, chord: Chord, intent: string): ContributionE
 /**
  * The outline's editing keys, as its contributions to `ui.keybindings`.
  * No two chords overlap, so each says exactly which keys it claims. The
- * arrows are where that matters: ⌘⇧ reorders, any other command-modified
- * arrow reveals (two chords: ⌘ without ⇧, and ⌃ without ⌘), and the bare
- * arrow navigates.
+ * arrows are where that matters: ⌘⇧ reorders, ⌘⌥ (Ctrl+Alt) opens or
+ * closes the whole subtree, any other command-modified arrow reveals one
+ * level (two chords: ⌘ without ⇧ or ⌥, and ⌃ without ⌘ or ⌥), and the bare
+ * arrow navigates. Enter is the same: ⇧ alone breaks the line, ⌘⇧ makes a
+ * row before this one.
  */
 export const EDITING_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
-  editingBinding("soft-break", { key: "Enter", shift: true }, "soft-break"),
+  editingBinding("soft-break", { key: "Enter", shift: true, mod: false }, "soft-break"),
   editingBinding("split", { key: "Enter", shift: false, mod: false }, "split"),
   editingBinding("toggle-check", { key: "Enter", shift: false, mod: true }, "toggle-check"),
+  editingBinding("create-before", { key: "Enter", shift: true, mod: true }, "create-before"),
   editingBinding("outdent", { key: "Tab", shift: true }, "outdent"),
   editingBinding("indent", { key: "Tab", shift: false }, "indent"),
   editingBinding(
@@ -49,18 +66,26 @@ export const EDITING_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
   editingBinding("move-down", { key: "ArrowDown", meta: true, shift: true }, "move-down"),
   editingBinding(
     "collapse-or-leave",
-    { key: "ArrowUp", meta: true, shift: false },
+    { key: "ArrowUp", meta: true, shift: false, alt: false },
     "collapse-or-leave",
   ),
   editingBinding(
     "collapse-or-leave-ctrl",
-    { key: "ArrowUp", meta: false, ctrl: true },
+    { key: "ArrowUp", meta: false, ctrl: true, alt: false },
     "collapse-or-leave",
   ),
-  editingBinding("expand", { key: "ArrowDown", meta: true, shift: false }, "expand"),
-  editingBinding("expand-ctrl", { key: "ArrowDown", meta: false, ctrl: true }, "expand"),
+  editingBinding("expand", { key: "ArrowDown", meta: true, shift: false, alt: false }, "expand"),
+  editingBinding(
+    "expand-ctrl",
+    { key: "ArrowDown", meta: false, ctrl: true, alt: false },
+    "expand",
+  ),
+  editingBinding("collapse-subtree", SUBTREE_CHORDS.collapse, "collapse-subtree"),
+  editingBinding("expand-subtree", SUBTREE_CHORDS.expand, "expand-subtree"),
   editingBinding("line-up", { key: "ArrowUp", mod: false }, "line-up"),
   editingBinding("line-down", { key: "ArrowDown", mod: false }, "line-down"),
+  editingBinding("zoom", ZOOM_CHORDS.in, "zoom"),
+  editingBinding("zoom-out", ZOOM_CHORDS.out, "zoom-out"),
   editingBinding("select", { key: "Escape" }, "select"),
 ];
 
@@ -109,7 +134,10 @@ const SELECTION_KEYS: readonly ContributionEntry<Keybinding>[] = [
   selectionBinding("move-down", { key: "ArrowDown", mod: true, shift: true }),
   selectionBinding("move-to-group-before", { key: "ArrowLeft", mod: true, shift: true }),
   selectionBinding("move-to-group-after", { key: "ArrowRight", mod: true, shift: true }),
-  selectionBinding("zoom", { key: ".", mod: true }),
+  selectionBinding("zoom", ZOOM_CHORDS.in),
+  selectionBinding("zoom-out", ZOOM_CHORDS.out),
+  selectionBinding("expand-subtree", SUBTREE_CHORDS.expand),
+  selectionBinding("collapse-subtree", SUBTREE_CHORDS.collapse),
   selectionBinding("up", { key: "ArrowUp", mod: false, shift: false }),
   selectionBinding("down", { key: "ArrowDown", mod: false, shift: false }),
   // Shift moves the selection's head and keeps its anchor: a range of rows.
@@ -133,7 +161,7 @@ const SELECTION_KEYS: readonly ContributionEntry<Keybinding>[] = [
 /**
  * The outline's selection keys, as its contributions to `ui.keybindings`
  * (DESIGN-REFINE §2 W1; r1 §3.2 Mode B). No two chords overlap. Every
- * binding but ⌘⇧↑/↓, ⌘⇧←/→ and ⌘. says `mod: false`, so any other command chord
+ * binding but ⌘⇧↑/↓, ⌘⇧←/→, ⌘⌥↑/↓, ⌘. and ⌘, says `mod: false`, so any other command chord
  * resolves to nothing and stays the browser's or the shell's. Typing over a
  * selected row edits it with the character appended: any printable key but
  * those the bindings above claim, with Alt excluded so Alt-composed glyphs

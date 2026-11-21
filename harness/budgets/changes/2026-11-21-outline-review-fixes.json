@@ -1,0 +1,6 @@
+{
+  "reason": "The structure keys' review fixes: the subtree keys take their rows from the outline's own walk (subtreeOf, rowsDrawnOpen), and an editing zoom key opens in the pane it was pressed in. Measured from a short checkout against the branch before them.",
+  "raise": {
+    "page-eager": { "bytes": 399 }
+  }
+}

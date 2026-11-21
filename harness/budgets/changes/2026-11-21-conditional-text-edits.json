@@ -1,0 +1,7 @@
+{
+  "reason": "The shared node update schema and retrying planner enforce an optional source-text precondition. The page sends the precondition for Link from Unlinked mentions.",
+  "raise": {
+    "cli-closure": { "bytes": 366 },
+    "page-eager": { "bytes": 296 }
+  }
+}

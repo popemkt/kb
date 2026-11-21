@@ -13,13 +13,9 @@
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-
-/**
- * The same ceiling `@kb/store-jsonl`'s advisory lock spends waiting, so a
- * contended commit behaves the same on both adapters instead of failing fast
- * on one and spinning on the other.
- */
-const BUSY_TIMEOUT_MS = 15_000;
+import { Effect, Option, Predicate } from "effect";
+import { takeWriteLock } from "@kb/contracts";
+import { domainError, isDomainError, type DomainError } from "@kb/model";
 
 /** Bumped when the table shape changes; stored in `meta` so a file can say. */
 const SCHEMA_VERSION = "6";
@@ -39,26 +35,41 @@ const REV_TRIGGERS = ["INSERT", "UPDATE", "DELETE"].map(
      END`,
 );
 
+/** Check for a table without upgrading a database that does not have it yet. */
+export function hasTable(db: Database, name: string): boolean {
+  return (
+    db
+      .query<unknown, [string]>("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?")
+      .get(name) !== null
+  );
+}
+
 /** The store's commit mark: `meta.rev`, or null when the database has none. */
 export function commitMark(db: Database): string | null {
+  if (!hasTable(db, "meta")) return null;
   return (
     db.query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'rev'").get()?.value ?? null
   );
 }
 
 export interface SqliteConnection {
-  /** Open the database, creating the file and schema when absent. */
-  open: () => Database;
   /** The open handle, or one for an existing file — never creates the file. */
   peek: () => Database | null;
+  /** Wait for the write lock, then run and finish a transaction in one synchronous turn. */
+  write: <A>(run: (db: Database) => A) => Effect.Effect<A, DomainError>;
   /** Drop the handle. Tests own store lifetimes; production has one session. */
   close: () => void;
 }
 
-function initialize(db: Database): void {
-  db.run("PRAGMA journal_mode = WAL");
-  db.run("PRAGMA synchronous = NORMAL");
-  db.run(`PRAGMA busy_timeout = ${String(BUSY_TIMEOUT_MS)}`);
+function hasCurrentSchema(db: Database): boolean {
+  if (!hasTable(db, "meta")) return false;
+  return (
+    db.query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'schema_version'").get()
+      ?.value === SCHEMA_VERSION
+  );
+}
+
+function migrate(db: Database): void {
   db.run("CREATE TABLE IF NOT EXISTS nodes (id TEXT PRIMARY KEY, body TEXT NOT NULL)");
   db.run("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)");
   // The store's durable transaction tail; see `tx-tail.ts` for what each
@@ -77,21 +88,12 @@ function initialize(db: Database): void {
        mark TEXT NOT NULL
      )`,
   );
-  // The migration from schema 3: a tail made before `actor` was recorded
-  // gains the column, empty on every row it already holds.
-  const txColumns = db.query<{ name: string }, []>("PRAGMA table_info(tx)").all();
-  if (!txColumns.some((column) => column.name === "actor")) {
-    db.run("ALTER TABLE tx ADD COLUMN actor TEXT");
-  }
-  // The migration from schema 4: a tail made before `session` was recorded
-  // gains the column, empty on every row it already holds.
-  if (!txColumns.some((column) => column.name === "session")) {
-    db.run("ALTER TABLE tx ADD COLUMN session TEXT");
-  }
-  // The migration from schema 5: a tail made before `via` was recorded gains
-  // the column, empty on every row it already holds.
-  if (!txColumns.some((column) => column.name === "via")) {
-    db.run("ALTER TABLE tx ADD COLUMN via TEXT");
+  // Schemas 4–6 each added one optional metadata column to the tail.
+  const columns = db.query<{ name: string }, []>("PRAGMA table_info(tx)").all();
+  for (const name of ["actor", "session", "via"]) {
+    if (!columns.some((column) => column.name === name)) {
+      db.run(`ALTER TABLE tx ADD COLUMN ${name} TEXT`);
+    }
   }
   db.run(
     `INSERT INTO meta (key, value) VALUES ('schema_version', '${SCHEMA_VERSION}'), ('rev', '0')
@@ -103,28 +105,85 @@ function initialize(db: Database): void {
   db.run(`UPDATE meta SET value = '${SCHEMA_VERSION}' WHERE key = 'schema_version'`);
 }
 
-export function sqliteConnection(path: string): SqliteConnection {
-  let handle: Database | null = null;
+function sqliteLockCode(error: unknown): "SQLITE_BUSY" | "SQLITE_LOCKED" | null {
+  if (!Predicate.hasProperty(error, "code")) return null;
+  const { code } = error;
+  return code === "SQLITE_BUSY" || code === "SQLITE_LOCKED" ? code : null;
+}
 
-  const open = (): Database => {
-    if (handle !== null) return handle;
-    mkdirSync(dirname(path), { recursive: true });
-    const opened = new Database(path, { create: true });
+function beginWrite(db: Database): void {
+  const journal = db.query<{ journal_mode: string }, []>("PRAGMA journal_mode").get();
+  if (journal?.journal_mode !== "wal") db.run("PRAGMA journal_mode = WAL");
+  db.run("BEGIN IMMEDIATE");
+}
+
+export function sqliteConnection(path: string): SqliteConnection {
+  let handle: { db: Database; mode: "read" | "write" } | null = null;
+
+  const connect = (db: Database, mode: "read" | "write"): Database => {
     try {
-      initialize(opened);
+      db.run("PRAGMA busy_timeout = 0");
+      if (mode === "write") db.run("PRAGMA synchronous = NORMAL");
     } catch (error) {
-      opened.close(false);
+      db.close(false);
       throw error;
     }
-    handle = opened;
-    return opened;
+    handle?.db.close(false);
+    handle = { db, mode };
+    return db;
+  };
+
+  const writer = (): Database => {
+    if (handle?.mode === "write") return handle.db;
+    mkdirSync(dirname(path), { recursive: true });
+    return connect(new Database(path, { create: true }), "write");
   };
 
   return {
-    open,
-    peek: () => (handle !== null ? handle : existsSync(path) ? open() : null),
+    peek: () => {
+      const db =
+        handle?.db ??
+        (existsSync(path) ? connect(new Database(path, { readonly: true }), "read") : null);
+      // An empty file can be visible before another process creates its tables.
+      return db !== null && hasTable(db, "nodes") ? db : null;
+    },
+    write: (run) =>
+      takeWriteLock(
+        () =>
+          Effect.try({
+            try: () => {
+              let db: Database;
+              try {
+                db = writer();
+                beginWrite(db);
+              } catch (error) {
+                if (sqliteLockCode(error) !== null) return Option.none();
+                throw error;
+              }
+              try {
+                // Upgrade under the lock this write already acquired.
+                if (!hasCurrentSchema(db)) migrate(db);
+                const value = run(db);
+                db.run("COMMIT");
+                return Option.some(value);
+              } catch (error) {
+                if (db.inTransaction) db.run("ROLLBACK");
+                throw error;
+              }
+            },
+            catch: (error) => {
+              if (isDomainError(error)) return error;
+              const message = error instanceof Error ? error.message : String(error);
+              const code = sqliteLockCode(error);
+              return code === null
+                ? domainError("internal", `write ${path}: ${message}`, { path })
+                : domainError("conflict", `store busy: ${message}`, { path, code });
+            },
+          }),
+        Effect.fail(domainError("conflict", `store busy: timed out waiting for ${path}`, { path })),
+      ),
     close: () => {
-      handle?.close(false);
+      handle?.db.close(false);
       handle = null;
     },
   };

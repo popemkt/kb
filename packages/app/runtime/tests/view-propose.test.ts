@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Result } from "effect";
+import { Effect, Result } from "effect";
 import { SYSTEM_IDS, hostViewIds, type KbNode } from "@kb/model";
 import { paramsFromProps } from "@kb/views";
 import type { KbContext } from "@kb/contracts";
@@ -86,6 +86,37 @@ describe("view.propose", () => {
       default: true,
     });
     expect(hostViewIds(node(FRAME))).toEqual(["v.b", "v.a"]);
+  });
+
+  test("refuses an id another writer claims between planning and commit", async () => {
+    const id = "v.claimed";
+    const winner = await openKb(root);
+    const before = node(SYSTEM_IDS.viewsList).children;
+    const original = ctx.store.commitEffect.bind(ctx.store);
+    let claimed = false;
+    const commit: typeof original = Effect.fn("test.view.claimId")(function* (...args) {
+      if (!claimed && args[0].upserts.some((candidate) => candidate.id === id)) {
+        claimed = true;
+        const added = yield* Effect.promise(() =>
+          invoke(winner, { id: "node.add", input: { id, text: "Other writer", parent: null } }),
+        );
+        expect(added.status).toBe("succeeded");
+      }
+      return yield* original(...args);
+    });
+    Object.defineProperty(ctx.store, "commitEffect", { value: commit, configurable: true });
+
+    const proposed = await invoke(ctx, {
+      id: "view.propose",
+      input: { view: "outline.board", params: BOARD, host: FRAME, id },
+    });
+
+    expect(claimed).toBe(true);
+    expect(proposed).toMatchObject({ status: "failed", code: "ambiguous", details: { id } });
+    const reopened = await openKb(root);
+    expect(reopened.index.getNode(id)?.text).toBe("Other writer");
+    expect(reopened.index.getNode(SYSTEM_IDS.viewsList)?.children).toEqual(before);
+    expect(reopened.index.getNode(FRAME)?.props[SYSTEM_IDS.viewsField]).toBeUndefined();
   });
 
   test("an unknown view, bad settings or a missing host fail and write nothing", async () => {

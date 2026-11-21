@@ -1,0 +1,8 @@
+{
+  "reason": "The measured bundle increase from this WP-3 review fix covers fix: preserve history when clearing calendar callbacks.",
+  "raise": {
+    "page-eager": {
+      "bytes": 59
+    }
+  }
+}

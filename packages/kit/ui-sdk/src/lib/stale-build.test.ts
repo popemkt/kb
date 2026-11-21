@@ -55,19 +55,22 @@ describe("the protocol the server says it speaks", () => {
     t.stop();
   });
 
-  it("is reloaded into when it is another, once the page is idle, carrying what it comes back to", async () => {
-    const t = tab("/static/index-h2.js");
-    followServerProtocol(WIRE_PROTOCOL + 1, t.env);
-    expect(t.announced).toEqual(["waiting"]);
-    await settle();
-    expect(t.did).toEqual([]);
+  it.each([WIRE_PROTOCOL - 1, WIRE_PROTOCOL + 1])(
+    "reloads into protocol %i when idle, carrying the page state",
+    async (served) => {
+      const t = tab("/static/index-h2.js");
+      followServerProtocol(served, t.env);
+      expect(t.announced).toEqual(["waiting"]);
+      await settle();
+      expect(t.did).toEqual([]);
 
-    t.becomeIdle();
-    await settle();
-    expect(t.did).toEqual(["carry", "reload"]);
-    expect(t.announced).toEqual(["waiting", "reloading"]);
-    t.stop();
-  });
+      t.becomeIdle();
+      await settle();
+      expect(t.did).toEqual(["carry", "reload"]);
+      expect(t.announced).toEqual(["waiting", "reloading"]);
+      t.stop();
+    },
+  );
 
   it("asks the person instead when a reload landed on this same build", async () => {
     const old = tab("/static/index-h3.js");

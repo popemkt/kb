@@ -1,0 +1,4 @@
+{
+  "reason": "Core writes derived from graph state reuse one planner on each commit attempt.",
+  "raise": { "cli-closure": { "bytes": 485 } }
+}

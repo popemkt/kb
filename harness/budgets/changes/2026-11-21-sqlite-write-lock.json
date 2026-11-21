@@ -1,0 +1,7 @@
+{
+  "reason": "SQLite uses the shared asynchronous writer wait for node and tail writes. Both stores read the caller's deadline from one exported reference.",
+  "raise": {
+    "cli-closure": { "bytes": 429, "modules": 1 },
+    "surface": { "@kb/contracts": 1 }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "reason": "`>` makes an empty line a field of the node it is under (DESIGN-UI.md → Triggers in the text). The outline reads which node a row is drawn under from its instance key, through instanceAncestorIds, the key's one reader, which the ui-sdk barrel now exports.",
+  "raise": {
+    "surface": { "@kb/ui-sdk": 1 }
+  }
+}

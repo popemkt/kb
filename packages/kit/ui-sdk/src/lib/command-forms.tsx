@@ -78,9 +78,9 @@ export function provideCommand(id: string, form: CommandForm): ContributionEntry
     run: (ctx) => {
       if ("step" in run) {
         ctx.palette.openStep(run.step);
-        return;
+        return undefined;
       }
-      nodeAction(
+      return nodeAction(
         ctx,
         (nodeId) => void invokeAction({ ...run, input: callInput(run, { id: nodeId }) }),
       );

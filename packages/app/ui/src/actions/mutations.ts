@@ -16,6 +16,7 @@ import {
   planDefineTag,
   planDelete,
   planIndent,
+  planInitializeProp,
   planInsertSibling,
   planMergeInto,
   planMergeWithPrevious,
@@ -24,13 +25,13 @@ import {
   planNewQueryNode,
   planOutdent,
   planPinNode,
-  planPrependChild,
   planRemoveTag,
   planSetProp,
   planSplit,
   planToggleChecks,
   planUnsetProp,
   planUpdateText,
+  type BlockStays,
   type FrameViewEdit,
   type PlannedMutation,
 } from "@/actions/plan";
@@ -57,7 +58,6 @@ const AddedSchema = z.object({ unmet: z.number().optional() });
 /** A size in whole megabytes, as a toast says it. */
 const mb = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
 
-import { findParentWire } from "@/lib/tx";
 import { restoreInvocations } from "@/actions/restore";
 import type { ActionRequest, WireNode } from "@kb/contracts";
 import { typeRefsOf, SYSTEM_IDS } from "@kb/model";
@@ -69,13 +69,20 @@ import { invoke, invokeCoalesced, invokeLocal } from "@/session/runtime";
 /** The page's editor's state now: where a write lands the caret. */
 const editor = () => pageEditor().getState();
 
+/** What a person is told when a block of rows stays where it is, by why (`BlockStays`). */
+const BLOCK_STAYS: Readonly<Record<BlockStays["stays"], string>> = {
+  "not-a-run": "Only rows next to each other under one parent move together",
+  "no-row-above": "The first row has no row above it to move under",
+  "no-parent": "Top-level rows have no parent to move out of",
+};
+
 /**
- * Say why a block of several rows was not moved: only one run of siblings
- * moves as one. A row on its own that cannot move (the first row, a root)
- * is left without a word, as it always was.
+ * Say why a block of several rows was not moved. A row on its own that
+ * cannot move (the first row, a root) is left without a word, as it always
+ * was.
  */
-function toldNotARun(ids: readonly string[]): void {
-  if (ids.length > 1) toast("Only rows next to each other under one parent move together");
+function toldWhyItStays(ids: readonly string[], why: BlockStays): void {
+  if (ids.length > 1) toast(BLOCK_STAYS[why.stays]);
 }
 
 function wire(): WireNode[] {
@@ -103,18 +110,31 @@ function indexed(id: string): KbNode | undefined {
   return useGraphStore.getState().index?.getNode(id);
 }
 
-function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
-  useGraphStore.getState().recordUndo({
-    undo: restoreInvocations(wire(), preWire),
-    redo: plan.actions,
-  });
+function historyOf(preWire: WireNode[], plan: PlannedMutation) {
+  const undoText = plan.undoText;
+  const before =
+    undoText === undefined || undoText.size === 0
+      ? preWire
+      : preWire.map((node) => {
+          const text = undoText.get(node.id);
+          return text === undefined ? node : { ...node, text };
+        });
+  return {
+    undo: restoreInvocations(wire(), before),
+    redo: plan.redoActions ?? plan.actions,
+  };
 }
 
 /**
  * The gesture being made (`together`): the actions its writes planned, in
  * order, sent as one write when it ends. Null while no gesture is open.
  */
-let gesture: { actions: ActionRequest[] } | null = null;
+let gesture: {
+  actions: ActionRequest[];
+  redoActions: ActionRequest[];
+  undoText: Map<string, string>;
+  completion?: PlannedMutation["completion"];
+} | null = null;
 
 async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promise<boolean> {
   const localOnly = useGraphStore.getState().loadSource !== "api";
@@ -137,11 +157,23 @@ async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promis
 async function runPlan(plan: PlannedMutation): Promise<RunOptimisticResult> {
   if (gesture !== null) {
     gesture.actions.push(...plan.actions);
+    gesture.redoActions.push(...(plan.redoActions ?? plan.actions));
+    for (const [id, text] of plan.undoText ?? []) gesture.undoText.set(id, text);
+    if (plan.completion !== undefined) gesture.completion = plan.completion;
     return { ok: true };
   }
   const preWire = useGraphStore.getState().wireNodes;
   const result = await runOptimistic(plan);
-  if (result.ok) recordHistory(preWire, plan);
+  if (!result.ok) return result;
+  const history = historyOf(preWire, plan);
+  if (result.confirmed !== undefined && !(await result.confirmed)) return { ok: false };
+  if (result.focusId !== undefined) {
+    // Its row where the page is being edited: at the instance the write
+    // names, else the one the editor resolves.
+    editor().activateNode(result.focusId, result.focusCursor ?? 0, result.focusInstanceKey);
+  }
+  // GAP [[01M7XRPAHQ1ZB2CHNAXEN4B0KM]] a server refusal can leave this optimistic undo step behind.
+  useGraphStore.getState().recordUndo(history);
   return result;
 }
 
@@ -185,7 +217,7 @@ export const mutations: PageWrites = {
     const store = useGraphStore.getState();
     if (!store.wireNodes.some((node) => node.id === id)) return;
 
-    const plan = planUpdateText(store.wireNodes, id, content);
+    const plan = planUpdateText(id, content);
     const action = plan.actions[0];
     if (action === undefined) return;
     // Each keystroke commits here; the lane pushes the last of a pause, in
@@ -197,11 +229,11 @@ export const mutations: PageWrites = {
     if (receipt.status === "failed") toast(failureText(receipt));
   },
 
-  setNodeText(id: string, text: string): Promise<boolean> {
+  setNodeText(id: string, text: string, expectedText?: string): Promise<boolean> {
     if (!useGraphStore.getState().wireNodes.some((node) => node.id === id)) {
       return Promise.resolve(false);
     }
-    return applyPlan(planUpdateText(wire(), id, text));
+    return applyPlan(planUpdateText(id, text, expectedText));
   },
 
   async createNodeAfter(afterId: string): Promise<void> {
@@ -249,23 +281,9 @@ export const mutations: PageWrites = {
   },
 
   async createEmptyNodeBefore(beforeId: string): Promise<string | null> {
-    const parent = findParentWire(wire(), beforeId);
-    if (!parent) {
-      return mutations.createEmptyNode(WORKSPACE_ROOT_ID, beforeId);
-    }
-    const siblings = parent.children;
-    const idx = siblings.indexOf(beforeId);
-    const prevSibling = idx > 0 ? (siblings[idx - 1] ?? null) : null;
+    // Directly above it in its group, a top-level row's included.
     const newId = ulid();
-    let plan: PlannedMutation | null;
-    if (prevSibling !== null) {
-      plan = planInsertSibling(wire(), prevSibling, "after", newId);
-    } else {
-      plan = planPrependChild(wire(), parent.id, newId);
-    }
-    const ok = await applyPlan(plan);
-    if (!ok) return null;
-    return newId;
+    return (await applyPlan(planInsertSibling(wire(), beforeId, "before", newId))) ? newId : null;
   },
   async addTagField(tagId: string, fieldId: string): Promise<void> {
     const { planAddTagField } = await import("@/actions/plan");
@@ -302,17 +320,17 @@ export const mutations: PageWrites = {
     await applyPlan(planSetFieldTargetQuery(wire(), fieldId, edn));
   },
 
-  async splitNode(id: string, cursor: number | "end"): Promise<void> {
+  async splitNode(id: string, cursor: number | "end", instanceKey?: string): Promise<void> {
     // Expanded set from the page's rows drives Tana first-child splits.
     const expandedIds = new Set<string>();
     for (const n of pageRows().values()) {
       if (!n.collapsed) expandedIds.add(n.id);
     }
-    await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds }));
+    await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds, instanceKey }));
   },
 
-  async deleteNode(id: string): Promise<boolean> {
-    return applyPlan(planDelete(wire(), id));
+  async deleteNode(id, draft): Promise<boolean> {
+    return applyPlan(planDelete(wire(), id, draft));
   },
 
   async mergeNextIntoThis(thisId: string, nextId: string): Promise<void> {
@@ -330,8 +348,8 @@ export const mutations: PageWrites = {
 
   async indentNodes(ids: readonly string[], cursor?: number): Promise<void> {
     const plan = planIndent(wire(), ids);
-    if (!plan) {
-      toldNotARun(ids);
+    if ("stays" in plan) {
+      toldWhyItStays(ids, plan);
       return;
     }
     if (!(await applyPlan(plan)) || gesture !== null) return;
@@ -347,8 +365,8 @@ export const mutations: PageWrites = {
 
   async outdentNodes(ids: readonly string[], cursor?: number): Promise<void> {
     const plan = planOutdent(wire(), ids);
-    if (!plan) {
-      toldNotARun(ids);
+    if ("stays" in plan) {
+      toldWhyItStays(ids, plan);
       return;
     }
     if (!(await applyPlan(plan)) || gesture !== null) return;
@@ -371,10 +389,14 @@ export const mutations: PageWrites = {
     return { references };
   },
 
-  async together<T>(made: () => Promise<T>): Promise<T> {
+  async together<T>(made: () => Promise<T>): Promise<T | null> {
     // A gesture inside another is part of it.
     if (gesture !== null) return made();
-    const open = { actions: [] as ActionRequest[] };
+    const open = {
+      actions: [] as ActionRequest[],
+      redoActions: [] as ActionRequest[],
+      undoText: new Map<string, string>(),
+    };
     gesture = open;
     let result: T;
     try {
@@ -382,8 +404,13 @@ export const mutations: PageWrites = {
     } finally {
       gesture = null;
     }
-    if (open.actions.length > 0) await applyPlan({ actions: open.actions });
+    if (open.actions.length > 0 && !(await applyPlan(open))) return null;
     return result;
+  },
+
+  history: () => {
+    const { undoStack, redoStack } = useGraphStore.getState();
+    return { undo: undoStack, redo: redoStack };
   },
 
   async undo(): Promise<boolean> {
@@ -409,6 +436,10 @@ export const mutations: PageWrites = {
 
   async removeProp(nodeId: string, fieldId: string, value?: PropValue): Promise<void> {
     await applyPlan(planUnsetProp(wire(), nodeId, fieldId, value));
+  },
+
+  async initializeProp(nodeId, fieldId, value): Promise<void> {
+    await applyPlan(planInitializeProp(nodeId, fieldId, value));
   },
 
   async createRefTarget(creation: RefCreation, name: string): Promise<string | null> {

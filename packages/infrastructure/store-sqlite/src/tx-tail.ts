@@ -25,13 +25,11 @@
  * transactions the store did not commit (the saved-query virtual set) and
  * wraps itself in one.
  */
-import { Effect } from "effect";
+import type { Effect } from "effect";
 import type { Database } from "bun:sqlite";
 import {
   canonicalJson,
   decodeStoredTx,
-  domainError,
-  ensureDomainError,
   type DomainError,
   recordedTx,
   type KbTx,
@@ -46,29 +44,34 @@ import {
   type TxRecord,
   type TxTail,
 } from "@kb/contracts";
-import { commitMark, type SqliteConnection } from "./connection.ts";
+import { commitMark, hasTable, type SqliteConnection } from "./connection.ts";
 
 interface TxRow {
   rev: number;
   at: string;
   origin: string | null;
-  actor: string | null;
-  session: string | null;
-  via: string | null;
+  actor?: string | null;
+  session?: string | null;
+  via?: string | null;
   ops: string;
 }
 
+/** Older stores may have no durable tail yet. */
+function tailOf(db: Database | null): Database | null {
+  return db !== null && hasTable(db, "tx") ? db : null;
+}
+
 function toKbTx(row: TxRow): KbTx {
+  // Older tails omit columns that a later write will add.
+  const { actor = null, session = null, via = null } = row;
   return decodeStoredTx({
     rev: row.rev,
     at: row.at,
     ops: JSON.parse(row.ops),
     ...(row.origin === null ? {} : { origin: row.origin }),
-    ...(row.actor === null
-      ? {}
-      : { actor: row.actor.startsWith("{") ? JSON.parse(row.actor) : row.actor }),
-    ...(row.session === null ? {} : { session: row.session }),
-    ...(row.via === null ? {} : { via: row.via }),
+    ...(actor === null ? {} : { actor: actor.startsWith("{") ? JSON.parse(actor) : actor }),
+    ...(session === null ? {} : { session }),
+    ...(via === null ? {} : { via }),
   });
 }
 
@@ -79,15 +82,13 @@ function sqlActor(actor: Actor | undefined): string | null {
 
 export class SqliteTxTail implements TxTail {
   private readonly connection: SqliteConnection;
-  private readonly path: string;
 
-  constructor(connection: SqliteConnection, path: string) {
+  constructor(connection: SqliteConnection) {
     this.connection = connection;
-    this.path = path;
   }
 
   head(): number {
-    const db = this.connection.peek();
+    const db = tailOf(this.connection.peek());
     if (db === null) return 0;
     return db.query<{ rev: number | null }, []>("SELECT MAX(rev) AS rev FROM tx").get()?.rev ?? 0;
   }
@@ -96,9 +97,10 @@ export class SqliteTxTail implements TxTail {
     const db = this.connection.peek();
     // No database is no store and no tail: a consistent empty pair.
     if (db === null) return true;
-    const last = db
-      .query<{ mark: string }, []>("SELECT mark FROM tx ORDER BY rev DESC LIMIT 1")
-      .get();
+    const last =
+      tailOf(db)
+        ?.query<{ mark: string }, []>("SELECT mark FROM tx ORDER BY rev DESC LIMIT 1")
+        .get() ?? null;
     // An empty tail is current only while the store is empty too. `meta.rev`
     // counts row changes, so "0" is the store nothing has written a row to.
     if (last === null) return commitMark(db) === "0";
@@ -106,12 +108,9 @@ export class SqliteTxTail implements TxTail {
   }
 
   entries(): KbTx[] {
-    const db = this.connection.peek();
+    const db = tailOf(this.connection.peek());
     if (db === null) return [];
-    return db
-      .query<TxRow, []>("SELECT rev, at, origin, actor, session, via, ops FROM tx ORDER BY rev")
-      .all()
-      .map(toKbTx);
+    return db.query<TxRow, []>("SELECT * FROM tx ORDER BY rev").all().map(toKbTx);
   }
 
   /**
@@ -120,9 +119,9 @@ export class SqliteTxTail implements TxTail {
    * ops of a row the page does not take are never read.
    */
   since(rev: number, page?: TxPage): KbTx[] {
-    const db = this.connection.peek();
+    const db = tailOf(this.connection.peek());
     if (db === null) return [];
-    const columns = "SELECT rev, at, origin, actor, session, via, ops FROM tx";
+    const columns = "SELECT * FROM tx";
     if (page === undefined) {
       return db
         .query<TxRow, [number]>(`${columns} WHERE rev > ? ORDER BY rev`)
@@ -149,28 +148,12 @@ export class SqliteTxTail implements TxTail {
   }
 
   append(ops: StoreTx, record: TxRecord): Effect.Effect<KbTx, DomainError> {
-    return Effect.try({
-      try: () => {
-        const db = this.connection.open();
-        return db.transaction(() => this.appendWithin(db, ops, record)).immediate();
-      },
-      catch: (err) =>
-        domainError(
-          "internal",
-          `append tx tail ${this.path}: ${err instanceof Error ? err.message : String(err)}`,
-          { path: this.path },
-        ),
-    });
+    return this.connection.write((db) => this.appendWithin(db, ops, record));
   }
 
   adopt(txs: readonly KbTx[]): Effect.Effect<void, DomainError> {
-    return Effect.try({ try: () => this.replace(txs), catch: ensureDomainError });
-  }
-
-  private replace(txs: readonly KbTx[]): void {
-    const db = this.connection.open();
     const kept = txs.slice(-TX_TAIL_KEEP_ENTRIES);
-    db.transaction(() => {
+    return this.connection.write((db) => {
       db.run("DELETE FROM tx");
       const mark = commitMark(db) ?? "";
       const insert = db.prepare<
@@ -191,7 +174,7 @@ export class SqliteTxTail implements TxTail {
           mark,
         );
       }
-    }).immediate();
+    });
   }
 
   /**

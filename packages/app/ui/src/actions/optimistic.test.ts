@@ -68,4 +68,14 @@ describe("local action plans", () => {
     expect(useGraphStore.getState().index?.getNode("n.root-a")?.text).toBe("offline");
     expect(post).not.toHaveBeenCalled();
   });
+
+  it("includes a new field's definition in the batch that uses it", () => {
+    const definition = { id: "field.define", input: { id: "field.new", name: "New field" } };
+    expect(oneWrite([definition, update("a")])).toEqual([
+      {
+        id: "node.batch",
+        input: { calls: [definition, update("a")].map(({ id, input }) => ({ action: id, input })) },
+      },
+    ]);
+  });
 });

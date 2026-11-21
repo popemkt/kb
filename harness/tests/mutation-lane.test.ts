@@ -1,5 +1,6 @@
-import { describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { describe, expect, spyOn, test } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { MutationTestResult } from "mutation-testing-report-schema";
 import {
@@ -8,9 +9,12 @@ import {
   mutationScore,
   packageShards,
   readBaseConfig,
+  readShardReports,
   runnerConcurrency,
+  runShard,
   scopeFiles,
   shardConfig,
+  type MutationShard,
   type PackageCost,
 } from "../src/mutation.ts";
 import { WORKSPACE_ROOT, gitWorkspaceFiles } from "../src/workspace.ts";
@@ -123,9 +127,100 @@ describe("mutation-lane", () => {
     expect(config.mutate).toEqual(shard.mutate);
     expect(config.incremental).toBe(true);
     expect(config.force).toBe(false);
-    expect(config.incrementalFile).toBe("reports/mutation/shards/query.json");
+    expect(config.incrementalFile).toBe("reports/mutation/incremental/query.json");
+    expect(config.reporters).toContain("json");
+    expect(config.jsonReporter.fileName).toBe("reports/mutation/shards/query.json");
     expect(shardConfig(base, shard, { full: true, concurrency: 3 }).force).toBe(true);
     expect("$schema" in config).toBe(false);
+  });
+
+  test("a failed shard cannot publish its input or prevent other reports merging", () => {
+    const root = mkdtempSync(join(tmpdir(), "kb-mutation-shards-"));
+    const path = process.env.PATH;
+    const input = result({
+      "incremental.ts": {
+        language: "typescript",
+        source: "true",
+        mutants: [mutant("old", "Killed")],
+      },
+    });
+    const fresh = result({
+      "good.ts": { language: "typescript", source: "true", mutants: [mutant("new", "Survived")] },
+    });
+    try {
+      expect(readShardReports(root)).toEqual([]);
+      mkdirSync(join(root, "bin"));
+      mkdirSync(join(root, "reports/mutation"), { recursive: true });
+      writeFileSync(join(root, "reports/mutation/baseline.json"), JSON.stringify(input));
+      writeFileSync(
+        join(root, "bin/stryker"),
+        `#!${process.execPath}
+const config = await Bun.file(process.argv[3]).json();
+if (config.mutate[0] !== "good.ts") process.exit(1);
+await Bun.write(config.jsonReporter.fileName, ${JSON.stringify(JSON.stringify(fresh))});
+`,
+        { mode: 0o700 },
+      );
+      process.env.PATH = `${join(root, "bin")}:${path ?? ""}`;
+      const run = (name: string, full: boolean) => {
+        const shard: MutationShard = { name, mutate: [`${name}.ts`], tests: "tests" };
+        runShard(shard, full, root);
+      };
+
+      expect(() => run("incremental", false)).toThrow();
+      expect(
+        JSON.parse(
+          readFileSync(join(root, "reports/mutation/incremental/incremental.json"), "utf8"),
+        ),
+      ).toEqual(input);
+      expect(() => run("full", true)).toThrow();
+      expect(readShardReports(root)).toEqual([]);
+      run("good", false);
+      expect(mergeReports(readShardReports(root)).files).toEqual(fresh.files);
+    } finally {
+      if (path === undefined) delete process.env.PATH;
+      else process.env.PATH = path;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("the merge skips truncated and invalid reports and warns about each shard", () => {
+    const root = mkdtempSync(join(tmpdir(), "kb-mutation-reports-"));
+    const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+    const good = result({
+      "good.ts": { language: "typescript", source: "true", mutants: [mutant("1", "Killed")] },
+    });
+    const base = readBaseConfig();
+    try {
+      mkdirSync(join(root, "reports/mutation/shards"), { recursive: true });
+      for (const [name, contents] of Object.entries({
+        good: JSON.stringify(good),
+        truncated: '{"files":',
+        invalid:
+          '{"files":{"invalid.ts":{}},"schemaVersion":"2","thresholds":{"high":80,"low":60}}',
+      })) {
+        const config = shardConfig(
+          base,
+          { name, mutate: [`${name}.ts`], tests: "tests" },
+          {
+            full: false,
+            concurrency: 1,
+          },
+        );
+        writeFileSync(
+          join(root, "reports/mutation/shards", `${name}.config.json`),
+          JSON.stringify(config),
+        );
+        writeFileSync(join(root, config.jsonReporter.fileName), contents);
+      }
+      expect(mergeReports(readShardReports(root)).files).toEqual(good.files);
+      expect(warning).toHaveBeenCalledTimes(2);
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining("truncated.json"));
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining("invalid.json"));
+    } finally {
+      warning.mockRestore();
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   test("the merged report takes each file from the shard that ran it, and scores them all", () => {

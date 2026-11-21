@@ -10,6 +10,7 @@ import { extensionRow } from "@kb/contracts";
 import { createLiveClient } from "./live";
 import { FakeWsSocket } from "@/test-support/ws";
 import { outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { watchForNewBuild } from "@kb/ui-sdk";
 
 function resetStore(): void {
   resetOutlineStore();
@@ -75,6 +76,38 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
     globalThis.fetch = origFetch;
     setFetchGraphSnapshot(null);
     setPostAction(null);
+  });
+
+  it("reloads the page when a server that predates conditional text edits says hello", async () => {
+    const idle = Promise.withResolvers<void>();
+    const storage = new Map<string, string>();
+    const announced: string[] = [];
+    const reloaded = Promise.withResolvers<void>();
+    const stopWatching = watchForNewBuild(new EventTarget(), {
+      build: "/static/index-conditional-text.js",
+      storage: {
+        getItem: (key) => storage.get(key) ?? null,
+        setItem: (key, value) => void storage.set(key, value),
+      },
+      announce: (state) => announced.push(state),
+      idle: () => idle.promise,
+      carry: () => {},
+      reload: () => reloaded.resolve(),
+    });
+    const socket = new FakeWsSocket();
+    const client = createLiveClient({ url: "ws://test/ws", makeSocket: () => socket });
+    try {
+      client.connect();
+      socket.accept();
+      socket.deliver({ op: "hello", rev: 1, protocol: 11 });
+      expect(announced).toEqual(["waiting"]);
+      idle.resolve();
+      await reloaded.promise;
+      expect(announced).toEqual(["waiting", "reloading"]);
+    } finally {
+      client.disconnect();
+      stopWatching();
+    }
   });
 
   it("catches up from the tx frames the server holds — no refetch", async () => {

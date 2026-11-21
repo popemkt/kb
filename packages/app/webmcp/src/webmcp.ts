@@ -15,6 +15,7 @@ import { Effect, Predicate } from "effect";
 import { z } from "zod";
 import {
   DecidedEntrySchema,
+  PAGE_WIRE,
   toolInputSchema,
   failed,
   succeeded,
@@ -68,6 +69,8 @@ export const WEBMCP_WIRE: SurfaceWire = {
   // GAP [[01M3S5DDJ7MP2VZ4WJB007RRR5]]
   carriesApproval: false,
   actor: "agent",
+  caller: "program",
+  callerCeiling: { actor: PAGE_WIRE.actor, caller: PAGE_WIRE.caller },
 };
 
 /** How the host runs an invocation: its receipt, never a throw it can help. */

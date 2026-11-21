@@ -12,15 +12,88 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { SYSTEM_IDS } from "@kb/model";
-import type { ServerMessage } from "@kb/contracts";
-import { FAKE_TAB_SCREEN } from "@kb/test-kit";
+import { CAPTURE_PAIR, CAPTURE_PAIR_CODE, type ServerMessage } from "@kb/contracts";
+import { invoke, openKb } from "@kb/runtime";
+import {
+  FAKE_TAB_SCREEN,
+  extensionModule,
+  trustExtension,
+  writeTrustedExtension,
+} from "@kb/test-kit";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 let root = "";
 let handle: UiServerHandle;
 
+const RELAY_FIXTURE = extensionModule("relay-fixture", {
+  prelude: "const passthrough = { parse: (value) => value };",
+  actions: `[
+    {
+      id: "read",
+      title: "Program read",
+      description: "A read available to native programs.",
+      mode: { kind: "read" },
+      callers: ["program"],
+      inputSchema: passthrough,
+      outputSchema: passthrough,
+      handler: async () => ({ ran: true }),
+    },
+    {
+      id: "write",
+      title: "Approved write",
+      description: "A write that requires approval.",
+      mode: { kind: "write", approval: "required" },
+      inputSchema: passthrough,
+      outputSchema: passthrough,
+      handler: async () => ({ ran: true }),
+    },
+    {
+      id: "project",
+      title: "Projected read",
+      description: "Returns different fields to people and programs.",
+      mode: { kind: "read" },
+      inputSchema: passthrough,
+      outputSchema: passthrough,
+      callerOutput: {
+        person: { parse: ({ visible, personOnly, rows }) => ({
+          visible, personOnly, version: "person", rows: rows.map(({ id, personOnly }) => ({ id, personOnly })),
+        }) },
+        program: { parse: ({ visible, programOnly, rows, broken }) => {
+          if (broken) throw new Error(programOnly);
+          return {
+            visible, programOnly, version: "program", rows: rows.map(({ id, programOnly }) => ({ id, programOnly })),
+          };
+        } },
+      },
+      handler: async (_ctx, { broken }) => ({
+        visible: true, personOnly: "person detail", programOnly: "program detail", broken,
+        rows: [{ id: "row", personOnly: "person row detail", programOnly: "program row detail" }],
+      }),
+    },
+  ]`,
+});
+
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), "kb-http-wire-"));
+  await writeTrustedExtension(root, "relay-fixture.ts", RELAY_FIXTURE);
+  await writeTrustedExtension(
+    root,
+    "pairing-policy.ts",
+    `
+import { Effect, defineExtension, definePlugin, guardAction } from "kb-ext-sdk";
+export const declaration = defineExtension({ name: "pairing-policy", label: "Pairing policy" });
+export default definePlugin({
+  name: declaration.name,
+  apply: (plugin) => guardAction(plugin, ${JSON.stringify(CAPTURE_PAIR)}, {
+    before: ({ invocation }) => Effect.succeed(
+      invocation.session === undefined && invocation.via === undefined
+        ? { decision: "ask", rule: "pairing-approval", message: "approve pairing" }
+        : { decision: "deny", rule: "pairing-metadata", message: "pairing received request metadata" },
+    ),
+  }, "pairing"),
+});
+`,
+  );
   handle = await Effect.runPromise(startUi({ root, port: 0, openBrowser: false }));
 });
 afterAll(async () => {
@@ -92,6 +165,79 @@ const SCREEN = { op: "screen", tab: "tab.wire", state: FAKE_TAB_SCREEN };
 const CHANNEL = { op: "channel", channel: "no.such.channel", data: {} };
 
 describe("a page that holds no token", () => {
+  test("a program relay stays within page admission and cannot assert approval", async () => {
+    await trustExtension(root, "relay-fixture.ts");
+    const read = { id: "ext.relay-fixture.read", input: {} };
+    expect((await post(read, "program")).body).toMatchObject({ status: "succeeded" });
+    expect((await post(read, "page")).body).toMatchObject({ status: "failed", code: "forbidden" });
+    expect((await post({ ...read, caller: "program" }, "page")).body).toMatchObject({
+      status: "failed",
+      code: "forbidden",
+    });
+
+    const write = { id: "ext.relay-fixture.write", input: {} };
+    expect((await post(write, "page")).body).toMatchObject({ status: "succeeded" });
+    expect(
+      (await post({ ...write, caller: "program", approved: true }, "page")).body,
+    ).toMatchObject({
+      status: "failed",
+      code: "approval_required",
+    });
+  });
+
+  test("pairing on the page wire uses the action's input-only envelope", async () => {
+    await trustExtension(root, "pairing-policy.ts");
+    const ctx = await openKb(root);
+    const issued = await invoke(ctx, { id: CAPTURE_PAIR_CODE, input: {} });
+    if (issued.status !== "succeeded") throw new Error(JSON.stringify(issued));
+    const { code } = issued.output as { code: string };
+    const pairing = await post(
+      {
+        id: CAPTURE_PAIR,
+        input: { code, deviceName: "Phone" },
+        approved: true,
+        session: "tab.policy",
+        via: "pairing-test",
+      },
+      "page",
+    );
+    expect(pairing.status).toBe(200);
+    expect(pairing.body.code).toBe("approval_required");
+    expect(pairing.body).toHaveProperty("message", "approve pairing");
+  });
+
+  test("a program relay only receives output visible to both callers", async () => {
+    await trustExtension(root, "relay-fixture.ts");
+    const read = { id: "ext.relay-fixture.project", input: {} };
+    expect((await post(read, "page")).body.output).toEqual({
+      visible: true,
+      personOnly: "person detail",
+      version: "person",
+      rows: [{ id: "row", personOnly: "person row detail" }],
+    });
+    expect((await post(read, "program")).body.output).toEqual({
+      visible: true,
+      programOnly: "program detail",
+      version: "program",
+      rows: [{ id: "row", programOnly: "program row detail" }],
+    });
+    const relayed = await post({ ...read, caller: "program" }, "page");
+    expect(relayed.body.status).toBe("succeeded");
+    expect(relayed.body.output).toEqual({
+      visible: true,
+      rows: [{ id: "row" }],
+    });
+    const broken = { ...read, input: { broken: true } };
+    const failure = {
+      status: "failed",
+      id: read.id,
+      code: "internal",
+      message: "action output is invalid",
+    };
+    expect((await post(broken, "program")).body).toEqual(failure);
+    expect((await post({ ...broken, caller: "program" }, "page")).body).toEqual(failure);
+  });
+
   test("edits: a node it adds and renames is written", async () => {
     const added = await post({ id: "node.add", input: { id: "n.page", text: "mine" } }, "page");
     expect(added.body).toMatchObject({ status: "succeeded" });

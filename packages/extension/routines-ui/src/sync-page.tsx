@@ -19,7 +19,7 @@ import {
   type SyncParams,
 } from "@kb/routines";
 import { nodesOfKind } from "@kb/model";
-import { cn, Dialog, navigate, toast, useNodes } from "@kb/ui-sdk";
+import { cn, Dialog, navigate, replacePath, toast, useNodes } from "@kb/ui-sdk";
 import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./buttons";
 import { CALENDAR_PATH, syncPath } from "./routes";
 import { setupCall } from "./setup-calls";
@@ -164,7 +164,7 @@ function ConnectReturn() {
     if (started.current) return;
     started.current = true;
     const redirect = window.location.href;
-    window.history.replaceState({}, "", CONNECT_PATH);
+    replacePath(CONNECT_PATH);
     if (handed.has(redirect)) return;
     handed.add(redirect);
     void setupCall("finish", { redirect }, Schema.Struct({ account: Schema.String })).then(

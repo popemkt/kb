@@ -5,7 +5,8 @@
  * directory and the app, are layers over these (`stores.ts`, `app.ts`).
  */
 import { Context, Layer } from "effect";
-import { submitCapture, type SubmitCapture } from "./capture.ts";
+import { platformKeychain, type Keychain } from "@kb/keychain";
+import { pairWithHost, submitCapture, type PairWithHost, type SubmitCapture } from "./capture.ts";
 import type { DesktopConfig } from "./config.ts";
 import type { FocusReturn } from "./focus.ts";
 import type { KbRunner } from "./kb-command.ts";
@@ -29,11 +30,22 @@ export class FocusKeeper extends Context.Service<FocusKeeper, FocusReturn>()(
   "@kb/desktop/FocusKeeper",
 ) {}
 
-/** How a capture reaches its host. */
+/** How the desktop reaches a host on the capture wire: pairing, and submitting a capture. */
 export class CaptureClient extends Context.Service<
   CaptureClient,
-  { readonly submit: SubmitCapture }
+  { readonly pair: PairWithHost; readonly submit: SubmitCapture }
 >()("@kb/desktop/CaptureClient") {
-  /** The real `capture.submit` call over HTTP. */
-  static readonly layer = Layer.succeed(CaptureClient, { submit: submitCapture });
+  /** The real `capture.pair` and `capture.submit` calls over HTTP. */
+  static readonly layer = Layer.succeed(CaptureClient, {
+    pair: pairWithHost,
+    submit: submitCapture,
+  });
+}
+
+/** Where a paired remote store's credential is kept: the platform keychain. */
+export class CredentialKeychain extends Context.Service<CredentialKeychain, Keychain>()(
+  "@kb/desktop/CredentialKeychain",
+) {
+  /** This machine's keychain (the macOS Keychain, or the freedesktop secret service). */
+  static readonly layer = Layer.sync(CredentialKeychain, () => platformKeychain());
 }
