@@ -38,16 +38,19 @@ statements move into DESIGN.md → Data model → tag behaviours and DESIGN-UI.m
    fields are its parameters. So the CLI, MCP, the page, JSONL and SQLite
    handle it with no new verb and no new storage shape.
 4. **Resolvers are pure, synchronous functions of one context.** That
-   context is a clock sample, the actor, and the graph as it was before the
-   write. Families contribute resolvers in their declaration, so the page and
-   the server run the same code. Anything that does I/O (AI, the network, a
-   calendar) is not a resolver. It is a command run on an event, in a second
-   transaction with its own undo.
+   context is a clock sample, the actor, and the graph as the caller may read
+   it, scoped before anything resolves. Query answers are taken per plan
+   attempt, over that attempt's graph. Families contribute resolvers in
+   their declaration, so the page and the server run the same code.
+   Anything that does I/O (AI, the network, a calendar) is not a resolver.
+   It is a command run on an event, in a second transaction with its own
+   undo.
 5. **Instantiation runs where `fill from` runs today**, inside the write plan
-   (`planNodeAdd`, `projectPropEdits`). That gives one transaction, one undo
-   step, every surface alike, and nothing scheduled. Copied content gets ids
-   derived from the instance's id, which makes it idempotent and keeps the
-   page and the server agreeing on ids.
+   (`planNodeAdd`, and `planNodeUpdate`, which the update plan becomes so it
+   can carry copies). That gives one transaction, one undo step, for creating
+   and for tagging alike, every surface alike, and nothing scheduled.
+   Copied content gets ids derived from the instance's id, which makes it
+   idempotent and keeps the page and the server agreeing on ids.
 
 ## 1. How Tana and the others do it
 
@@ -432,13 +435,31 @@ kb add "due ← in 7 days" --parent <P> --tag "relative date" \
 
 **`fill from` becomes a resolver without a migration.** The field-level
 setting `sys.f.fillFrom: X` is read as an implicit initializer of the
-built-in `#from ancestor` resolver with `field = X`, in every template that
-templates the field. The reader is one function, `initializersOf(template,
-field)`. It returns the template's explicit initializer for the field, else
-the field's `fill from` lowered to one. The stored setting stays as it is.
-This bridges the two, rather than keeping two fill paths side by side (Rule
-1: "Bridges over mirrors"). It is the same move `show` made over the old
-`hidden` checkbox.
+built-in `#from ancestor` resolver with `field = X`. The stored setting stays
+as it is. This bridges the two, rather than keeping two fill paths side by
+side (Rule 1: "Bridges over mirrors"). It is the same move `show` made over
+the old `hidden` checkbox.
+
+**The fields an initializer can fill come from the tags, not from a template
+node.** Today `fillOnTagging` fills every field the gained tags template,
+their chains included (`templateFieldsOf`), whether or not any template node
+exists. That stays exactly as it is:
+
+- The set of fields comes from `sys.f.fields` along the gained tags'
+  chains, as now. Each field the template node holds a value or an
+  initializer for is added to that set, so a template can also fill a field
+  the tag does not template. That is legal, because tags never restrict
+  fields.
+- For each field in the set, the one reader, `initializersOf(chain,
+  field)`, returns the nearest template node's explicit initializer or
+  static value for the field. If no template node in the chain says
+  anything (and none needs to exist), it returns the field's `fill from`
+  lowered to `#from ancestor`.
+
+So a tag with no `sys.f.tag.template` behaves exactly as today: a gained
+`#task` still fills `project` from the parent project, through the field's
+`fill from`. WP‑0's equivalence test covers this case with no template node
+anywhere in the graph.
 
 ### 3.4 What is stored is a plain value
 
@@ -484,7 +505,9 @@ interface NodeSection {
 interface Resolver<A> {
   readonly id: NodeId;                       // the resolver tag's id (keyed point; one implementation per id)
   readonly args: Schema.Schema<A>;           // decoded from the initializer's field values, by field id
-  readonly reads: ReadonlyArray<"clock" | "actor" | "ancestors" | "graph">;
+  readonly reads: ReadonlyArray<"clock" | "actor" | "nodes" | "query">;
+  /** The queries it will ask for these args, so a plan attempt can answer them before planning ("query" only). */
+  readonly asks?: (args: A) => readonly QueryRef[];
   readonly resolve: (ctx: ResolveContext, args: A) => readonly PropValue[];
 }
 
@@ -493,13 +516,38 @@ interface ResolveContext {
   readonly actor: Actor;                      // who makes the write
   readonly instance: { id: NodeId; parent: NodeId | undefined; props: Readonly<Record<NodeId, readonly PropValue[]>> };
   readonly field: NodeId;                     // the field it fills, so a resolver can read its type and cardinality
-  readonly graph: GraphReads & { query: (edn: string) => readonly (readonly unknown[])[] }; // the graph before the write
+  /** This attempt's graph as the CALLER may read it (readableNodes), not the graph. */
+  readonly nodes: ScopedReads;
+  /** Answers to the queries `asks` named, over this attempt's graph, already scoped (readableQuery). */
+  readonly answers: QueryAnswers;
 }
 ```
 
+- **Reads are the caller's, applied before anything resolves.** A resolver
+  never sees the raw graph. The plan builds `ctx.nodes` from the attempt's
+  nodes through `readableNodes(invocation, nodes)` and `ctx.answers` through
+  `readableQuery` (`@kb/sandbox`'s `script-reach.ts`). These are the
+  functions that already bound what a script's canvas actions read. For a
+  person, an agent or the CLI, nothing is narrowed today, so the view is the
+  whole graph. For a script whose grant does not read the graph, a node
+  beyond its subject and the vocabulary is bare: an id with no text, fields
+  or children.
+  - **This has to happen before resolving, not at the commit.** The commit
+    catches a script's write that comes to _reference_ a node beyond its
+    reach (`scriptWriteRefusal` follows every carrier of the reference
+    relation). It cannot catch a value read from such a node and copied as
+    plain text. A `#from ancestor` that copies a text field from a parent
+    outside the subject leaves no reference behind.
+  - With the view scoped first, that ancestor reads as bare, there is
+    nothing to copy, and the field is reported `beyond-reach` (§6.5).
+  - The same scoped view is the only source for what is handed to a
+    sandboxed resolver (§4.3).
+  - The template's own nodes are read under the same rule. See §6.5 and D11.
 - **The contract.**
   - `resolve` is synchronous and pure in `ctx`. It writes nothing, does no
-    I/O, and returns the same values for the same context.
+    I/O, and returns the same values for the same context. A resolver that
+    reads `query` gets its rows only through `ctx.answers`, answered before
+    the pure plan runs (§6.6). It never calls a query runner itself.
   - A family declares its resolvers in its declaration
     (`defineExtension({…, resolvers})`), beside `refCarriers` and
     `declaredOptions`, which are also functions. The declaration plugin
@@ -528,7 +576,10 @@ interface ResolveContext {
 A resolver tag may name a `#script` (`sys.f.resolver.script`) instead of
 having a declared implementation. Its code is evaluated in QuickJS as a
 **pure function**: the host serializes the `ctx` slices the tag's `reads`
-declares, together with the decoded arguments, and passes them in. The guest
+declares, together with the decoded arguments, and passes them in. It
+serializes them from the caller-scoped view (`ctx.nodes`, `ctx.answers`,
+§4.2), never from the attempt's raw nodes. So what crosses into QuickJS is
+already what the caller may read, and a bare node crosses as an id. The guest
 gets no `kb.*` API, no grant and no calls. It returns JSON, which is
 checked like any value. Trust works as it does for every script, by digest
 (DESIGN.md → Trust). This is narrower than any grant: what it can read is
@@ -561,11 +612,11 @@ evaluate synchronously inside the write plan with the module warmed
 | `#today` | none | date | clock | the writer's local date (§6.6). Tana: "to current date" |
 | `#now` | none | time; text (ISO instant) | clock | same instant as the write's `createdAt` |
 | `#relative date` | `phrase` (text) | date | clock | through `parseDateInput`, the one phrase reader (`in 7 days`, `next fri`) |
-| `#parent` | none | ref | ancestors | Tana's `sys:owner`; Capacities' "This object" inverted |
+| `#parent` | none | ref | nodes | Tana's `sys:owner`; Capacities' "This object" inverted |
 | `#instance` | none | ref | none | the new node itself, for a content child's "belongs to" field; Notion's self-reference |
-| `#ancestor with tag` | `tag` (ref → tag) | ref | ancestors | the nearest ancestor that is a node of the tag (`isA`). Tana: "to ancestor with this supertag" |
-| `#from ancestor` | `field` (ref → field) | any | ancestors | what `fill from` does today, named. Tana: "to value from ancestor with this field". Covers "the date of the day it sits under", as `fill from` does with `sys.f.days.key` |
-| `#query` | `query` (ref → query node), `limit` (number, default 1) | ref | graph | the first `limit` rows, in the query's order. Parameter-free EDN only, as `targetQuery` |
+| `#ancestor with tag` | `tag` (ref → tag) | ref | nodes | the nearest ancestor that is a node of the tag (`isA`). Tana: "to ancestor with this supertag" |
+| `#from ancestor` | `field` (ref → field) | any | nodes | what `fill from` does today, named. Tana: "to value from ancestor with this field". Covers "the date of the day it sits under", as `fill from` does with `sys.f.days.key` |
+| `#query` | `query` (ref → query node), `limit` (number, default 1) | ref | query | the first `limit` rows, in the query's order. Parameter-free EDN only, as `targetQuery` |
 
 ### 5.2 Built in, after a decision
 
@@ -579,10 +630,10 @@ evaluate synchronously inside the write plan with the module warmed
 
 | Family | Resolver | Kind |
 | --- | --- | --- |
-| days | `#this week` / `#this month`: the period node containing today | pure; reads clock and graph |
+| days | `#this week` / `#this month`: the period node containing today | pure; reads clock and nodes |
 | routines | `#next occurrence` of a routine (a parameter): the date of its next event | pure over the stored rule |
 | locations | `#this location`: the location node of the root the write is in | pure; reads the location registry kept in the home store, so it needs a design note |
-| canvas | `#canvas of`: the canvas a node is placed on | pure; reads graph |
+| canvas | `#canvas of`: the canvas a node is placed on | pure; reads nodes |
 | a repository's own | `#ticket prefix` built from a project field | pure |
 | **out** | an issue tracker id, an AI summary, a calendar event id, a URL title | I/O. These are commands on `on added` (WP‑6), or the AI section's autofill. |
 
@@ -592,9 +643,27 @@ evaluate synchronously inside the write plan with the module warmed
 
 Instantiation runs exactly where `fill from` runs now. It is
 `fillOnTagging`, grown into `instantiate(ctx, graph, node, gained)` in
-`tag-behaviour.ts`. Its callers are `planNodeAdd` (adds, outline pastes,
-batches, captures, families planning their own) and `projectPropEdits`
-(`node.update`). It runs in each case below:
+`tag-behaviour.ts`. It has two callers:
+
+- `planNodeAdd`, for adds, outline pastes, batches, captures and families
+  planning their own;
+- a new **`planNodeUpdate`**, for `node.update`, both on its own and inside
+  `node.batch`.
+
+Today `projectPropEdits` returns only props. That is enough for `fill
+from`, which writes values on the node itself, but a template's content is
+new nodes. So the shared update plan grows to the shape `planNodeAdd`
+already has: `planNodeUpdate(graph, node, edits, ctx)` writes the node's
+props and the gained templates' copies into the working graph and returns
+`{props, written}`. `node.update`'s handler (`operations/src/actions.ts`,
+where it calls `projectPropEdits` today) upserts everything in `written`,
+in the same transaction as the edit. So tagging an existing node commits
+and undoes its template content in one step, exactly as an add does.
+`projectPropEdits` stays as a projection of the same plan (its `props`), for
+readers that only predict props, such as days' untag interceptor
+(`extension/days/src/untag.ts`). It is not a second planner.
+
+Instantiation runs in each case below:
 
 - **Creating a node with tags**, those named and those added by the parent's
   `child tag`.
@@ -682,18 +751,30 @@ field's `allowedRefIdsOf` is dropped, and the drop is reported (§6.5).
   was not filled: #fiscal week is not loaded"). The CLI prints a line and
   `--json` returns the list. A family that is off reads as unavailable, as
   its views already do. D2 is the alternative.
-- **A script's writes.** If a script's `node.add` gains a tag whose template
-  fills a ref to a node outside the script's subject, the commit would
-  refuse the whole write (`scriptWriteRefusal`). The planner drops that
-  value instead, as `beyond-reach`, so a script can still create a tagged
-  node. The copies themselves sit under the instance, inside the subject.
+- **A script's writes.** A script's add or update is planned over the
+  script's readable view (§4.2), so what it cannot read never reaches a
+  value or a copy:
+  - **Values read through a resolver** from a node beyond its reach come
+    back empty and are reported `beyond-reach`. That covers a ref, which
+    the commit would refuse (`scriptWriteRefusal`), and plain text copied
+    from it, which the commit could not catch.
+  - **The template's own nodes are read under the same rule.** A template
+    node P and its content are not vocabulary today (`isVocabulary` in
+    `@kb/sandbox`: `sys.*`, a tag, a field, a field's option), so for a
+    script P reads bare. Its statics, content and initializers are then
+    unreadable, and the gained tag's template is skipped and reported, not
+    copied. Whether a tag's template should count as vocabulary, readable
+    by every script like the tag's own name, is D11.
+  - **Copies sit under the instance**, inside the subject, so writing them
+    is within reach.
 - **Asynchronous resolvers (scripts, WP‑5)**, if synchronous evaluation
-  turns out not to be possible, would run in a step before the plan. The
-  action's Effect handler finds the initializers that need them, runs them,
-  and hands the pure plan their values. A planner with no services (an
-  interceptor or a capture target) then sees those fields as `missing`.
-  That is the one place this design gives up "a planner reads the very
-  answer the action writes", and it is why WP‑5 is last.
+  turns out not to be possible, join the step that answers queries (§6.6).
+  Each plan attempt's Effect runs them over the scoped view and hands the
+  pure plan their values, so there is still one commit, retried as a whole.
+  A planner with no services (an interceptor or a capture target) sees
+  those fields as `missing`. That is the one place this design gives up "a
+  planner reads the very answer the action writes", and it is why WP‑5 is
+  last.
 
 ### 6.6 Determinism: clock, time zone, page versus server
 
@@ -705,24 +786,56 @@ field's `allowedRefIdsOf` is dropped, and the drop is reported (§6.5).
   days family's `time zone` setting), else the process's. A
   thin client's day on the server is GAP `01M5E2YBN75HF5C8HZPG62CAJH`'s
   question, and this inherits that answer rather than adding a second one.
-- **The page plans first, and the server is the truth.** The page runs the
-  same resolvers over its replica, so the row appears filled at once. The
-  server replans and its image replaces the page's on the receipt, under
-  the existing hold rules. A clock value may move by a few milliseconds. A
-  resolver the page lacks leaves the field empty until the receipt fills
-  it, so the page acts as an accelerator ("Hosts are accelerators", applied
-  to the page).
-- **Nothing is scheduled.** Everything happens at write time, in the store,
-  under the commit's lock. A one-shot `kb add` gets the same result as a
-  page with `kb ui` running.
+- **Queries are answered per plan attempt, over that attempt's graph.**
+  Core does not plan under the store lock. `persistPlannedEffect`
+  (`operations/src/session.ts`) catches up, plans over `ctx.nodes`, and
+  commits on the condition that the store is still at the state it read
+  (`expected`). If another writer got in first, it plans again over what
+  the store now holds. Query-dependent resolvers fit that loop as one step
+  inside each attempt's `plan` Effect, before the pure plan:
+  1. `queriesNeeded(graph, input)`, a pure function, lists the initializers
+     the gained templates will run that read `query`, and the queries their
+     resolvers `asks` for.
+  2. The attempt answers them over its own `ctx.nodes`, through the
+     session's index, which `reloadEffect` has just brought to exactly that
+     state, and scopes them with `readableQuery`.
+  3. The pure plan (`planNodeAdd` or `planNodeUpdate`) reads them from
+     `ctx.answers`.
+
+  If the conditional commit fails, the next attempt re-answers over the new
+  graph. So the answers a commit carries are always those of the graph that
+  commit was planned on. It stays one commit, one transaction and one undo
+  step.
+- **The page defers query-dependent resolvers to the server.** The page's
+  query engine runs in a worker, so it answers asynchronously and can lag
+  the replica. The page's local plan therefore does not ask it. An
+  initializer whose resolver reads `query` is left **pending** in the local
+  plan: the field stays empty locally, and nothing is reported as
+  `unresolved`. The server's plan of the same invocation answers it as
+  above, inside the one commit the server makes. The receipt's image fills
+  the field under the existing hold rules. Nothing on the page writes a
+  second time.
+- **Otherwise the page plans first, and the server is the truth.** The
+  resolvers that read only the clock, the actor and nodes run on the page
+  over its replica, so the row appears filled at once. The server replans,
+  and its image replaces the page's on the receipt. A clock value may move
+  by a few milliseconds. A resolver the page lacks is pending in the same
+  way as a query one. The page acts as an accelerator ("Hosts are
+  accelerators", applied to the page).
+- **Nothing is scheduled.** Everything happens at write time. Planning
+  happens before the lock, and the commit is conditional on the state that
+  was read, so a one-shot `kb add` gets the same result as a page with
+  `kb ui` running.
 
 ### 6.7 Every change to the write path, named
 
 | Change | Where | Kind |
 | --- | --- | --- |
-| `planNodeAdd` and `projectPropEdits` take a `WriteContext` (`at`, `ClockSample`, actor, resolvers, query runner) instead of `at` | `domain/model/src/node-write.ts` and every caller (operations, days, canvas, capture) | restructure, behaviour-preserving (WP‑0) |
-| `fillOnTagging` becomes `instantiate`, with `fill from` as its first initializer source | `tag-behaviour.ts` | restructure (WP‑0) |
-| the plan may add copy nodes besides the instance and its parent | `planNodeAdd`'s `written` list; `node-add-tree`, `node-batch` | addition (WP‑2) |
+| `planNodeAdd` takes a `WriteContext` (`at`, `ClockSample`, actor, the caller's read scope, resolvers, the attempt's query answers) instead of `at` | `domain/model/src/node-write.ts` and every caller (operations, days, canvas, capture) | restructure, behaviour-preserving (WP‑0) |
+| `planNodeUpdate(graph, node, edits, ctx) → {props, written}` becomes the shared update plan; `node.update`'s handler (and `node.batch`'s update calls) upserts `written`; `projectPropEdits` becomes its props projection | `node-write.ts`; `operations/src/actions.ts` (node.update), `node-batch.ts`; `days/src/untag.ts` keeps the projection | restructure, behaviour-preserving (WP‑0): `written` is just the node until templates exist |
+| `fillOnTagging` becomes `instantiate`, with `fill from` as its first initializer source, and the field set still from the gained tags' templates (§3.3) | `tag-behaviour.ts` | restructure (WP‑0) |
+| each plan attempt answers its templates' queries before the pure plan (`queriesNeeded`, then `readableQuery` over the attempt's index) | the `plan` Effects handed to `persistPlannedEffect` (node.add, node.update, node.addTree, node.batch) | addition (WP‑3) |
+| the plan may add copy nodes besides the instance and its parent, from an add **or an update** | `planNodeAdd`'s and `planNodeUpdate`'s `written`; `node-add-tree`, `node-batch` | addition (WP‑2) |
 | receipts gain `unresolved` | `@kb/contracts` action output for `node.add`, `node.addTree`, `node.batch`, `node.update` | wire change; record the fingerprint in that commit (WP‑3) |
 | `copyId` | `@kb/model` | addition (WP‑2) |
 | a `#counter` commit guard | a core guard, or the family that ships `#counter` | addition (WP‑4) |
@@ -773,13 +886,20 @@ additions (Rule 1). Every WP runs the cheap chain plus the tests named.
 
 **WP‑0. Restructure the write plan (no behaviour change).**
 
-- Introduce `WriteContext` and thread it through `planNodeAdd`,
-  `projectPropEdits` and their callers.
+- Introduce `WriteContext` (with the caller's read scope) and thread it
+  through `planNodeAdd` and its callers.
+- Introduce `planNodeUpdate → {props, written}` as the shared update plan.
+  `node.update` and `node.batch` upsert its `written`, and `projectPropEdits`
+  becomes its props projection, so days' untag interceptor is unchanged.
+  `written` holds only the node until WP‑2.
 - Rename `fillOnTagging` to `instantiate`, with `initializersOf` lowering
-  `fill from`.
-- *Tests:* the existing `node-write` and `tag-behaviour` tests pass
-  unchanged, and a property test shows the new path equals the old over
-  random graphs.
+  `fill from`. The fields still come from the gained tags' templates (§3.3).
+- *Tests:*
+  - the existing `node-write`, `tag-behaviour`, node.update and `node.batch`
+    tests pass unchanged;
+  - a property test shows the new path equals the old over random graphs,
+    including tags that fill from with **no template node anywhere**;
+  - `untag.test.ts` still predicts what the action writes.
 - *Acceptance:* zero diff in `fill from` behaviour, and the wire fingerprint
   is unchanged.
 
@@ -811,12 +931,18 @@ additions (Rule 1). Every WP runs the cheap chain plus the tests named.
 - `sys.f.tag.template`, and the Content template section: "Add template"
   makes P, P's rows are edited in place, and P is not drawn twice.
 - Static values and content copies, with `copyId`, in every path through
-  `planNodeAdd` and `projectPropEdits`.
+  `planNodeAdd` and `planNodeUpdate`.
+- A script's add or update reads the template under its scope (D11's
+  answer, or skipped and reported).
 - *Tests:*
   - model tests for precedence, inheritance order, a diamond, idempotence
     on re-tag, and explicit children skipping content;
   - an action test over the CLI, MCP and the page invoke with one result
-    and one undo step;
+    and one undo step, for **both** creating a tagged node **and tagging an
+    existing node** with `node.update` (its copies are in the same
+    transaction, and one undo removes them with the tag);
+  - a script test: an add whose template is outside the script's reach
+    copies nothing it cannot read;
   - a page-versus-server test showing equal ids;
   - a merge-driver test with both branches instantiating;
   - a browser check on a scratch store, creating a `#meeting` with Enter.
@@ -828,11 +954,21 @@ additions (Rule 1). Every WP runs the cheap chain plus the tests named.
 - `sys.resolver` and the §5.1 tags with their parameters, the
   `tag.resolvers` point and the `resolvers` declaration part.
 - `unresolved` on receipts, with the toast.
+- Per-attempt query answers (`queriesNeeded`, scoped by `readableQuery`) in
+  the `plan` Effects, and "pending" for query initializers in the page's
+  local plan.
 - An "Add dynamic value…" palette step in the template section, and the
   "⚡" chip drawing an initializer in its field slot.
 - *Tests:*
   - `resolverContract` over every resolver;
   - failure cases (family off, a throw, non-conforming, beyond reach);
+  - a scope test: a script whose grant does not read the graph gets
+    `beyond-reach`, not text, from `#from ancestor` over a parent outside
+    its subject;
+  - a contention test: a `#query` initializer whose answer changes between
+    two attempts commits the second attempt's answer, in one commit;
+  - a page test: a `#query` field is empty locally, filled by the receipt,
+    with one push and no second write;
   - the zone rule at a midnight boundary;
   - the wire fingerprint recorded in the commit.
 - *Acceptance:* `#meeting` gets today, its project and a follow-up due in
@@ -843,9 +979,13 @@ commit guard and a person key.
 
 **WP‑5. Sandboxed resolvers.**
 
-- A `#script`-backed resolver, evaluated pure in QuickJS.
-- *Tests:* run it through `sandboxContract`'s hostile cases (loop, memory,
-  oversized output) as `failed`, never a hung write.
+- A `#script`-backed resolver, evaluated pure in QuickJS, with inputs
+  serialized from the caller-scoped view only.
+- *Tests:*
+  - run it through `sandboxContract`'s hostile cases (loop, memory,
+    oversized output) as `failed`, never a hung write;
+  - assert that the serialized input holds no words, fields or children of
+    a node the caller reads bare.
 
 **WP‑6. Commands and AI sections.** These depend on commands as nodes
 (phases 0–2) and Brief 8.
@@ -904,6 +1044,15 @@ multiple templates per tag (D1b); Tana's Voice chat (no kb surface).
 10. **Should sandboxed (third-party) resolvers be allowed at all?**
     - **Recommended:** yes, in WP‑5, pure evaluation only.
     - Alternative: trusted families only, for good.
+11. **Can a script read a tag's template?** A script whose grant does not
+    read the graph reads a template node bare today, because P is not
+    vocabulary. So its adds get no template (§6.5).
+    - **Recommended:** make a tag's template subtree vocabulary
+      (`isVocabulary`), readable by every script, as the tag's own name and
+      fields are. It is schema the person publishes for every node of the
+      tag.
+    - Alternative: keep it unreadable, so a script's tagged nodes get no
+      static values or content, only what the script writes itself.
 
 ## 10. Not verified
 
@@ -930,6 +1079,37 @@ multiple templates per tag (D1b); Tana's Voice chat (no kb surface).
     `createdAt` (`copyId` keeps the instance's prefix, so both readings
     agree);
   - whether the page's invocation already carries the person's zone to the
-    server for every write, or only for `ext.days.today`.
+    server for every write, or only for `ext.days.today`;
+  - whether the session's index (`ctx.index`) answers datalog synchronously
+    and exactly at the state `reloadEffect` leaves for the attempt.
+    `readableQuery` takes a synchronous runner, and `persistPlannedEffect`
+    reloads before each `plan`. If the index lags, step 2 of §6.6 builds a
+    one-off index over the attempt's nodes instead.
 - **Looked at in the browser:** only the tag page and an instance on a
   scratch store, about five minutes. Screenshots 1–2.
+
+## 11. Revision, 2026-11-22 (review by the coordinator's reviewer)
+
+Four changes after review. The premise held: `fillOnTagging` runs inside
+the shared add and update planners, in the same transaction.
+
+1. **§3.3: `fill from` without a template node.** The fields an initializer
+   may fill still come from the gained tags' templates, as today. A tag
+   with no `sys.f.tag.template` keeps filling its fields through `fill
+   from`.
+2. **§4.2, §4.3, §6.5: reads are scoped to the caller before resolving.**
+   `ctx.nodes` and `ctx.answers` come from `readableNodes` and
+   `readableQuery`. QuickJS inputs are serialized from that view only.
+   Scoping matters because a value read from an out-of-scope node and copied
+   as plain text leaves no reference for the commit to catch. D11 is new:
+   can a script read a tag's template?
+3. **§6.6: queries are answered per plan attempt.** Core plans before the
+   lock and commits conditionally (`persistPlannedEffect`), so query answers
+   are taken inside each attempt over that attempt's graph, and retried
+   with it. The page's local plan leaves query initializers pending, and the
+   server fills them in its one commit.
+4. **§6.1, §6.7, §8: tagging an existing node instantiates in one step.**
+   The shared update plan becomes `planNodeUpdate → {props, written}`.
+   `node.update` and `node.batch` upsert the copies in the same transaction,
+   and `projectPropEdits` becomes its props projection. WP‑0 makes this
+   restructure, and WP‑2 tests creating and tagging alike.
