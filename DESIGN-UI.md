@@ -1258,8 +1258,8 @@ one, in three places, and in each it is the same value of the same field:
 It is content on a row and a page, so it wraps where a row's text wraps
 ([Long text](#long-text)); in a picker or a result it is a pointer's hint,
 clamped to one line, its whole text in a tooltip. It is set a step smaller
-than the row's text (the `meta` step, through the `.kb-description` role,
-which sets the `--kb-text-size` the text role reads) and in a text value's
+than the row's text (the `meta` step: the `.kb-description` role sets the
+text role it holds at that step) and in a text value's
 ink, so it reads as the row's second line, not as another row. A node with
 no description draws nothing: no empty line, no placeholder.
 
