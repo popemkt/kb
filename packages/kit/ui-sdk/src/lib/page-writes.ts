@@ -13,6 +13,7 @@ import type { FieldType, Writable } from "@kb/model";
 import type { FrameViewKey, ViewConfig, ViewFilter } from "@kb/views";
 import type { OutlineFormatId } from "@kb/outline-paste";
 import type { RefCreation } from "./refs";
+import type { PageHistory } from "./text-history";
 import type { PropValue } from "./types";
 
 /** Where moved rows land: under `parent` (null: the top level), after the sibling `after` (null: first; absent: at the end). */
@@ -147,6 +148,12 @@ export interface PageWrites {
    * inside another is part of the outer one.
    */
   readonly together: <T>(gesture: () => Promise<T>) => Promise<T | null>;
+  /**
+   * The page's undo and redo stacks now, newest last, each entry an identity
+   * that stays the same as it moves between them: what a row's own history
+   * ties its steps to (`lib/text-history.ts`).
+   */
+  readonly history: () => PageHistory;
   /** D19: undo through inverse invocations of the same shared actions. */
   readonly undo: () => Promise<boolean>;
   /** D19: redo the last undone mutation. */

@@ -592,7 +592,7 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     // when every one is: the label says which.
     run: (ctx) => {
       const unpin = allPinned(ctx);
-      nodeAction(ctx, (nodeId) =>
+      return nodeAction(ctx, (nodeId) =>
         isPinned(ctx.outline.nodes, nodeId) === unpin
           ? browserHost().writes.togglePin(nodeId)
           : undefined,
@@ -648,7 +648,7 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     // A selected row under another selected row goes with it.
     run: (ctx) => {
       const roots = selectionRoots(ctx.target.nodeIds, (id) => ctx.outline.nodes.get(id)?.parentId);
-      nodeAction({ ...ctx, target: { ...ctx.target, nodeIds: roots } }, (nodeId) =>
+      return nodeAction({ ...ctx, target: { ...ctx.target, nodeIds: roots } }, (nodeId) =>
         browserHost().writes.deleteNode(nodeId),
       );
     },
@@ -952,7 +952,7 @@ export function listNodeCommands(ctx: CommandContext): NodeCommandListing[] {
         faceOf: command.faceOf,
         label: chrome.label,
         icon: chrome.icon,
-        run: () => void runCommand(command.id, ctx),
+        run: () => runCommand(command.id, ctx),
       };
     });
 }

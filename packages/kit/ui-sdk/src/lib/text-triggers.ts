@@ -19,15 +19,24 @@ export interface OpenTrigger {
   readonly query: string;
 }
 
-/** A pick edits its span or consumes the row in a graph write. */
+/**
+ * A pick edits its span, or consumes what was typed in writes of its own.
+ * An edit's text and its write are one write of the page's
+ * (`PageWrites.together`), which the text host makes: one undo step.
+ */
 export type TriggerPick =
   | {
       readonly insert: string;
-      /** A write made once the text is in place. */
-      readonly write?: () => Promise<void>;
+      /** A write made with the text's, as one write. */
+      readonly write?: () => Promise<unknown>;
+      /** What follows once that write has landed (where the caret goes). */
+      readonly landed?: () => void;
     }
   | {
-      /** Owns the row's removal and the focus after the write lands. */
+      /**
+       * Owns what was typed for the trigger (the text it covers, or the
+       * whole row), the writes the pick makes, and the focus after they land.
+       */
       readonly consume: () => Promise<void>;
     };
 

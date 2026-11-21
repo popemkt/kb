@@ -141,6 +141,7 @@ const INERT_WRITES: PageWrites = {
   moveToGroup: done,
   captureNode: refused,
   addChildNode: refused,
+  history: () => ({ undo: [], redo: [] }),
   undo: refused,
   redo: refused,
   makeSupertag: refused,

@@ -951,8 +951,9 @@ operations (split, merge, indent, outdent, delete, move) are the covered case.
 A text has two writes, told apart by who writes it: a keystroke's
 (`PageWrites.updateNodeContent`), which records no step because the row's
 own text undo covers it (below), and a command's, written whole from
-outside the editor (`PageWrites.setNodeText`, Remove reference…), which is
-one undo step as every command's write is.
+outside the editor (`PageWrites.setNodeText`, Remove reference…, a pick
+from the text's triggers), which is one undo step as every command's
+write is.
 
 **Node text is one surface, read or edited.** There is no raw-source edit
 mode. `lib/md-edit.ts` `inlineNodes` is the one description of what inline
@@ -984,9 +985,16 @@ While editing, the DOM is the text: it is rebuilt from `content` on mount and
 when `content` moved on its own (a merge), never from a `content` still behind
 the editor's own writes. Text undo inside the row is the host's
 (`lib/text-history.ts`, `components/ui/use-text-history.ts`), recorded from the
-row's `content` stream so every write path — typing, `[[` completion,
-Shift+Enter — is covered, because native undo cannot follow a rebuilt tree;
-structural undo stays the store's (below).
+row's `content` stream so every typing path — keys, Shift+Enter, a paste —
+is covered, because native undo cannot follow a rebuilt tree; structural
+undo stays the store's (below). The two meet in the row's history: each
+of its steps marks the store's last undo entry when it was taken
+(`PageWrites.history`), a pick from a trigger is held as the store's step
+it made, in its place (Triggers in the text), and ⌘Z in the row takes back
+first whatever the store wrote since the row's last step (a command run on
+the row, a pick in the palette) through the store's undo, then shows the
+text the store holds. So ⌘Z in the row takes back the last thing done
+while it is edited, and what the row shows is what the store holds.
 
 **Refs are atomic in the editor.** `[[id|label]]` renders as a
 `contenteditable=false` link carrying its serialized token, in both states, so
@@ -1787,7 +1795,16 @@ picker at the caret, without leaving the text. The triggers are one table
 on the text host (`TextTrigger`, `lib/text-triggers.ts`). Each row of it
 says where a trigger opens, what it offers and what a pick does; the host
 runs every row with the one picker engine and the one list. A pick
-can replace what was typed for the trigger or consume the row in a write.
+can replace what was typed for the trigger, the opener and its query, and
+may then write, or consume what was typed (the row, for `>`) in writes of
+its own and own the focus after them. A pick that replaces the
+typed text writes the text it leaves and its own write as one write of the
+page's (`PageWrites.together`: one `node.batch`, one undo step), so one
+undo puts the row back as it was before the pick: the typed trigger back,
+the reference or tag gone. ⌘Z in the row reaches it in its place among
+the row's typing (`lib/text-history.ts`, a `page` step tied to the store's
+undo entry), and ⌘⇧Z makes it again. A refused write leaves the text and
+the caret as they were.
 
 - `[[` opens anywhere and offers every node (`nodeCandidates`). A pick
   inserts a reference, `[[id|label]]`, and Enter with nothing to pick
@@ -1800,7 +1817,11 @@ can replace what was typed for the trigger or consume the row in a write.
   provider other than core's is elected for `ui.date-target` (DESIGN.md →
   [Provider roles](./DESIGN.md#provider-roles)): with days on, the date's
   day. A pick inserts a reference to the node, or to the date's node, made
-  if need be.
+  if need be. As a row's whole text (`@` and the query, the caret at its
+  end), on a row whose text is its own, a pick makes the row a reference
+  row to that node instead, the write Turn into reference… makes
+  (`outline.add-ref`), and the text goes. The row is then selected, not
+  edited, since its text is now the node it references.
 - `#` opens at the start of the text or after a space, its query one word.
   It is the Add tag step (`outline.add-tag`): it offers the tags, and a new
   one by name, and a pick takes `#` and the query out of the text and tags
@@ -1825,10 +1846,23 @@ can replace what was typed for the trigger or consume the row in a write.
   server acceptance.
   To add a field to a node that has text, use Add field on that node
   (its menu, or the palette).
+- `/` opens at the start of the text or after a space, its query one word,
+  so `a/b` and an address are text. It offers the row's node menu, the
+  commands and the order the node palette shows (`BrowserHost.nodeCommands`),
+  matched by label. A pick consumes what was typed for it: `/` and the
+  query go from the text as typing takes text away, then the command runs
+  about the row through the page's write path (`PageWrites.together`), so
+  the writes it answers are one undo step, and no undo brings the typed
+  trigger back, whether a command's write joins that step or not (Add
+  chart's view is not a page write). A command that opens a picker step
+  (Add tag, Move to…) opens it in the node palette, on the row. Once the
+  write has landed and nothing else holds the focus, the row is edited
+  where it is drawn then (under its new parent, after Indent), the caret
+  where `/` was.
 
-`[[` is every text host's. `@`, `#` and `>` are the outline's: its rows
-pass them to their text host beside `[[`. A trigger with nothing to offer is
-closed, so its keys stay the text's: `@` or `#` in prose and `> ` starting a
+`[[` is every text host's. `@`, `#`, `>` and `/` are the outline's: its
+rows pass them to their text host beside `[[`. A trigger with nothing to
+offer is closed, so its keys stay the text's: `@` or `#` in prose and `> ` starting a
 quote are typed as text. Escape closes the picker and keeps the text, until
 the query changes. The table is the text host's own, not a plugin point;
 when a second family needs a trigger of its own, it becomes one.
