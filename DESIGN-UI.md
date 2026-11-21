@@ -7765,6 +7765,16 @@ rows. A clamped label carries its full text in a `title` tooltip.
 `outline-layout.e2e.ts` measures the title in a real engine at a desktop
 and a phone width.
 
+A field's value is content too, but a value is read beside its node, not
+as the page. A value at rest shows at most six lines (`line-clamp-6`,
+`useLongValue` in `field-value`): one that overflows them draws "Show
+more" under it, which shows it whole and turns to "Show less". Whether it
+overflows is measured on the drawn value, again when its text or width
+changes. Reading it whole is the drawn value's passing state, written
+nowhere, and is not editing it: editing shows the whole value, as it always
+does. So a pasted log, or a canvas's document under Show properties,
+stays a few lines in the outline until it is asked for.
+
 ### Elevation
 
 How far a surface floats above the page, lowest first. `--elevation-<level>`

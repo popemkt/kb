@@ -1313,14 +1313,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — per-item origins in the gizmo
 - **node** — `01M41W57GRNCMBJG1RYJQTA68P`
 
-### GAP: long field values are drawn in full in the outline
-
-- **expected** — A field value longer than a few lines is clamped in the outline's field row, with an expand control to read it whole, as a row's own text is not (DESIGN-UI → Long text covers node text and pointer labels only).
-- **current** — A field's value renders in full and wraps (FieldsSection → NodeField); nothing clamps or expands a long value.
-- **impact** — Show properties on a #canvas node reveals its document field, so the row draws the whole canvas JSON; any long text field (pasted logs, notes) stretches the outline the same way.
-- **closes** — A clamp-with-expand on the outline's field value view, stated in DESIGN-UI → Long text, with a test on a long value; the canvas document under Show properties then shows a few clamped lines.
-- **node** — `01M6BAEDQ6NQTXPBY5VNTJ5KBN`
-
 ### GAP: Manage capture devices with verified host approval
 
 - **expected** — A person can inspect, pair and revoke their devices from an authenticated host surface. Pairings survive a store move and expired codes are retired.
@@ -3051,6 +3043,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — toast moves onto ui.store's own surface; canvas-api takes the node map instead of the store type. The run-command third is done (wave 2026-09-09 g4).
 - **rule** — UI import matrix
 - **node** — `01M1RXMQPVJKREGDS7D37J1MWN`
+
+### GAP: long field values are drawn in full in the outline
+
+- **expected** — A field value longer than a few lines is clamped in the outline's field row, with an expand control to read it whole, as a row's own text is not (DESIGN-UI → Long text covers node text and pointer labels only).
+- **current** — A field's value renders in full and wraps (FieldsSection → NodeField); nothing clamps or expands a long value.
+- **impact** — Show properties on a #canvas node reveals its document field, so the row draws the whole canvas JSON; any long text field (pasted logs, notes) stretches the outline the same way.
+- **closes** — A clamp-with-expand on the outline's field value view, stated in DESIGN-UI → Long text, with a test on a long value; the canvas document under Show properties then shows a few clamped lines.
+- **node** — `01M6BAEDQ6NQTXPBY5VNTJ5KBN`
 
 ### GAP: mapSelectionKey maps keys to actions through a 46-branch chain
 

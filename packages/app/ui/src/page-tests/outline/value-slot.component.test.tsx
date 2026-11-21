@@ -495,6 +495,47 @@ describe("a text value is node text", () => {
     expect(slot.getAttribute("data-editing")).toBe("true");
   });
 
+  it("clamps a value longer than its lines at rest, with a toggle to read it whole", async () => {
+    // The page measures what it draws; this DOM lays nothing out, so the
+    // value says it is taller than its clamp.
+    const proto = dom.window.HTMLElement.prototype as unknown as object;
+    const was = {
+      scroll: Object.getOwnPropertyDescriptor(proto, "scrollHeight"),
+      client: Object.getOwnPropertyDescriptor(proto, "clientHeight"),
+    };
+    Object.defineProperty(proto, "scrollHeight", { configurable: true, get: () => 400 });
+    Object.defineProperty(proto, "clientHeight", { configurable: true, get: () => 120 });
+    try {
+      const slot = await mountText("a long note\n".repeat(40));
+      expect(editable().getAttribute("data-clamped")).toBe("true");
+      const toggle = present(
+        container.querySelector<HTMLElement>('[data-long-value-toggle="true"]'),
+        "toggle",
+      );
+      expect(toggle.textContent).toBe("Show more");
+      await act(async () => {
+        toggle.click();
+      });
+      // Read whole, not edited.
+      expect(editable().getAttribute("data-clamped")).toBeNull();
+      expect(toggle.textContent).toBe("Show less");
+      expect(slot.getAttribute("data-editing")).toBeNull();
+    } finally {
+      for (const [name, descriptor] of [
+        ["scrollHeight", was.scroll],
+        ["clientHeight", was.client],
+      ] as const) {
+        if (descriptor === undefined) Reflect.deleteProperty(proto, name);
+        else Object.defineProperty(proto, name, descriptor);
+      }
+    }
+  });
+
+  it("a short value has no toggle", async () => {
+    await mountText("short");
+    expect(container.querySelector('[data-long-value-toggle="true"]')).toBeNull();
+  });
+
   it("renders its inline markdown at rest: formatting and ref pills", async () => {
     await mountText("**bold** and [[n.x|X]]");
     expect(editable().querySelector("strong")?.textContent).toBe("bold");
