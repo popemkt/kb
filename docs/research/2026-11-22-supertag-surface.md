@@ -1132,7 +1132,11 @@ multiple templates per tag (D1b); Tana's Voice chat (no kb surface).
     caller's behalf could reflect unreadable nodes. Today's callers ask
     queries whose rows are node ids (target queries), and I found no
     scalar case, but I did not audit every caller. If one exists, it is a
-    gap of its own, separate from this proposal.
+    gap of its own, separate from this proposal;
+  - that the scoped index omits timestamps for bare nodes.
+    `readableNodes` keeps `createdAt` and `updatedAt` today, and the query
+    index exposes both, so the id-only rule needs regression coverage in the
+    WP that builds the scoped index (WP‑3).
 - **Looked at in the browser:** only the tag page and an instance on a
   scratch store, about five minutes. Screenshots 1–2.
 
