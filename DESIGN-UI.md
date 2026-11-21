@@ -1653,6 +1653,21 @@ the row's anatomy, a primitive of `@kb/ui-sdk` that prefs renders too
 (`PrefFieldRow`); it is handed its glyph. A field's glyph is its kind's
 (`useSlotKind`), so the glyph and the editor come from one kind.
 
+**A field wears its tag's colour.** A field that a tag of the node brings
+draws its glyph in that tag's colour, on its row and on its chip in the
+hidden fields line, so a node with fields from two tags shows which field
+came with which chip. The tag is the one the node carries whose chain
+templates the field first (`templateSourcesOf`, `@kb/model`): an ancestor's
+field wears the colour of the chip that brought it, and a field two tags
+bring wears the first's. The colour is the chip's (`TagBadge.color`: the
+tag's `sys.f.color`, else its palette slot), inked as a chip's text is
+(`fieldInkOn`, `lib/tag-color.ts`), so it holds the chip's contrast in every
+design system (`lib/design-systems.test.ts`). A field no tag of the node
+brings, one a kind brings (`sys.tag`, `sys.field`, which are no chip), and
+a row with no field node keep the neutral glyph. Only the glyph takes the
+colour: the name keeps the label's ink, so a row of fields still reads as
+one column.
+
 **Three verbs, the same on every kind.**
 
 | Verb                                               | Mouse                                                                                                                                                                  | Keyboard                                                                                                                                   |

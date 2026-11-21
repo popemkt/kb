@@ -12,6 +12,7 @@ import { cardinalityOf, declaresOptionSet, type FieldType } from "@kb/model";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import {
   fieldsSectionProps,
+  fieldInkOn,
   browserHost,
   cn,
   type FieldContext,
@@ -623,6 +624,7 @@ export function NodeField({
       depth={depth}
       valueOnly={valueOnly}
       icon={icon}
+      ink={fieldInkOn(context.schema.get(nodeId), fieldId, context.schema)}
       fieldId={fieldId}
       label={label}
       debug={debug}
@@ -688,7 +690,9 @@ export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps
   if (props.length === 0) return null;
   const rows = props.filter((p) => p.placement === "row" || opened.has(p.fieldId));
   const closed = (placement: "chip" | "tucked") =>
-    props.filter((p) => p.placement === placement && !opened.has(p.fieldId));
+    props
+      .filter((p) => p.placement === placement && !opened.has(p.fieldId))
+      .map((p) => ({ ...p, ink: fieldInkOn(node, p.fieldId, context.schema) }));
   const chips = closed("chip");
   const tucked = closed("tucked");
   const open = (fieldId: string) => {
