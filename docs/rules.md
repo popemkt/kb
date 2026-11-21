@@ -419,6 +419,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — packageShards packs mutants by line range instead of by file, emitting file:start-end entries in a shard's mutate.
 - **node** — `01M558MRWHR92991GYFRC5WWXY`
 
+### GAP: a node drawn at several places shares one open or closed choice
+
+- **expected** — Each place a node is drawn (a row instance: under its parent, as a query result, under a reference) keeps its own open or closed choice, so opening or closing one row's subtree changes only the rows drawn under it
+- **current** — The outline's expansion is one choice per node id (toggleCollapse, withExpansion, openRows): the subtree keys open or close each node they reach, so the same node drawn elsewhere (in the tree, under another query, in another pane) opens or closes with it
+- **impact** — ⌘⌥↓ on a query, a reference or a row whose descendants also appear elsewhere opens those rows everywhere, and ⌘⌥↑ closes them everywhere; Expand all and Collapse all do the same over the scope
+- **closes** — Expansion keyed by row instance where a row's choice can differ from its node's, as GAP: a reference opened in place shows its target as the target's own open or closed choice asks for references opened in place; the subtree keys then write the instances subtreeOf found
+- **node** — `01M7XP1SNNVNYZKH5GCSW3RH6C`
+
 ### GAP: a number knob's range is the declaration's, not data on its field node
 
 - **expected** — A knob field carries its own range and step as data, so every surface that writes it (kb set, node.update, the field editor) refuses a value outside them, as it refuses a value of the wrong type.

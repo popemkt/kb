@@ -1003,7 +1003,11 @@ function rowsDrawnOpen(
   }
 }
 
-/** The rows of the subtree at row `instanceKey`, as its outline draws it all open (`subtreeOf`). */
+/**
+ * The rows of the subtree at row `instanceKey`, as its outline draws it all
+ * open (`subtreeOf`): their nodes, whose choice is every row's of that node.
+ */
+// GAP [[01M7XP1SNNVNYZKH5GCSW3RH6C]] a node drawn at several places shares one choice
 function subtreeDrawnOpen(instanceKey: string): string[] {
   return rowsDrawnOpen(walkHostOf(instanceKey), graphNow(), (rows, nodes) =>
     subtreeOf(rows, instanceKey, nodes),
