@@ -15,6 +15,7 @@ import {
   type ActionReceipt,
   type ActionInvocation,
   type KbContext,
+  onWire,
   type SurfaceWire,
 } from "@kb/contracts";
 import {
@@ -29,8 +30,17 @@ import {
   writeErr,
   bunFileSystemLayer,
 } from "@kb/runtime";
-import { type FailureCode, ResolveError, isDomainError, receiptCodeOf } from "@kb/model";
-import { UsageError } from "./map.ts";
+import {
+  type DomainError,
+  type FailureCode,
+  ResolveError,
+  ensureDomainError,
+  isDomainError,
+  isSysPrefixed,
+  receiptCodeOf,
+  resolveFieldId,
+} from "@kb/model";
+import { fieldsNeedingCreate, UsageError, type PlannedAction } from "./map.ts";
 import { EXIT_USAGE } from "./arguments.ts";
 import { filledLines, formatReceipt } from "./format.ts";
 
@@ -254,3 +264,79 @@ export const invokeCliEffect = Effect.fn("invokeCliEffect")(function* (
   );
   return approved ? yield* invokeReceiptEffect(ctx, { ...call, approved: true }) : receipt;
 });
+
+function ensureFieldsEffect(
+  ctx: KbContext,
+  plan: PlannedAction,
+  create: boolean,
+): Effect.Effect<ActionReceipt | null, DomainError, ActionHandlerEnv> {
+  return Effect.gen(function* () {
+    if (!create) return null;
+    // Minted in their own transactions, before the write. GAP [[01M52F7X4YQ7W3TJHVPBBXARGP]]
+    for (const name of fieldsNeedingCreate(plan)) {
+      if (isSysPrefixed(name) || name === "type" || name === "fields") {
+        continue;
+      }
+      const outcome = yield* Effect.try({
+        try: () => {
+          resolveFieldId(ctx.nodes, name);
+          return "ok" as const;
+        },
+        catch: (err) => ensureDomainError(err),
+      }).pipe(
+        Effect.catchIf(
+          (err) => err.code === "not_found",
+          () => Effect.succeed("missing" as const),
+        ),
+      );
+      if (outcome !== "missing") continue;
+      const receipt = yield* invokeCliEffect(
+        ctx,
+        onWire(ACTION_INVOKE_WIRE, { id: "field.define", input: { name } }),
+      );
+      if (receipt.status === "failed") return receipt;
+    }
+    return null;
+  });
+}
+
+/** Run a planned registry action and write formatted stdout. */
+export function runPlanEffect(
+  ctx: KbContext,
+  plan: PlannedAction,
+  globals: GlobalOpts,
+  opts: { create?: boolean; command?: string } = {},
+): Effect.Effect<number, Error, ActionHandlerEnv> {
+  return Effect.gen(function* () {
+    const created = yield* ensureFieldsEffect(ctx, plan, opts.create === true);
+    if (created && created.status === "failed") {
+      writeOut(formatReceipt(created, { json: globals.json === true }));
+      return EXIT_FAILED;
+    }
+
+    const receipt = yield* invokeCliEffect(
+      ctx,
+      onWire(ACTION_INVOKE_WIRE, { id: plan.id, input: plan.input }),
+    );
+
+    writeOut(
+      formatReceipt(receipt, {
+        json: globals.json === true,
+        command: opts.command,
+      }),
+    );
+    return receipt.status === "succeeded" ? EXIT_OK : EXIT_FAILED;
+  });
+}
+
+/** Commander's collector for a repeatable option. */
+export function collect(value: string, previous: string[]): string[] {
+  return previous.concat([value]);
+}
+
+export interface ForceOpts {
+  force?: boolean;
+}
+export interface IdOpts {
+  id?: string;
+}

@@ -6,7 +6,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { CommanderError } from "commander";
-import { collectAliasOrigins, toPublicOrigin } from "../src/arguments.ts";
+import { collectAliasOrigins, toPublicOrigin } from "../src/commands/ui-options.ts";
 
 const NOT_ORIGINS = [
   "kb.localhost",

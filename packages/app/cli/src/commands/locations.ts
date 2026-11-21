@@ -11,7 +11,7 @@ import type { Command } from "commander";
 import { Effect, Predicate } from "effect";
 import { onWire, type ActionReceipt, type KbContext } from "@kb/contracts";
 import { writeErr, type ActionHandlerEnv } from "@kb/runtime";
-import { invokeCliEffect, kbAction, ACTION_INVOKE_WIRE, report } from "./command.ts";
+import { invokeCliEffect, kbAction, ACTION_INVOKE_WIRE, report } from "../command.ts";
 
 /** One location row as printed: its fields read loosely, since the action's schema is the family's. */
 interface PrintedRow {

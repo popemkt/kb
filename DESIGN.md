@@ -323,7 +323,11 @@ in `harness/src/constraints.ts`. The UI row fences the issuer's chunk;
 its meaning is stated in [DESIGN-UI](DESIGN-UI.md#extension-ui-halves).
 The CLI row measures the command dispatcher (`cli.ts`): `main.ts` already
 loads that dispatcher dynamically for launch validation, so using the launcher
-would hide the command's eager imports. The CLI row fences the dependency
+would hide the command's eager imports. The dispatcher holds the command
+table, every command by name with the module under `cli/src/commands/` that
+declares it, and loads only the invoked command's module (every one for help);
+the CLI row forbids an eager import into `commands/`, so a command's options
+and parsers load with that command alone. The CLI row fences the dependency
 itself. Its current violations form the `lazy-fence` ledger lane, keyed by
 importing file and specifier. The `cli-closure` budget
 ([Budgets](#budgets)) holds total emitted bytes and
@@ -2838,7 +2842,7 @@ includeSystem?}` is the projection itself as a host answers it
   family that draws a set's connections (a canvas diagram) asks for them
   through it rather than importing the projection. The CLI's `kb trace <a> <b> [--kinds …] [--k n]`,
   `kb suggest <id> [--kinds …]` and `kb relate <source> <target> <field>`
-  are sugar over them (`cli/src/relations.ts`), as `kb backlinks` is over
+  are sugar over them (`cli/src/commands/relations.ts`), as `kb backlinks` is over
   `graph.query`; MCP, WebMCP and the agent list them as they list every
   action.
 - **Typing a relation** (`graph.relation.type {source, target, field}`) is
@@ -3475,7 +3479,7 @@ header names anyone else, or carries none, is named as any other is.
 
 The header is believed from whatever reaches the server, so it is sound
 only where the proxy is the one way in, and `kb ui` takes it only with
-`--socket <path>` (`checkUiListen` in `app/cli/src/arguments.ts`): the
+`--socket <path>` (`checkUiListen` in `app/cli/src/commands/ui-options.ts`): the
 server listens on a Unix socket instead of a TCP port, created with mode
 0600 under a matching umask, so only its owner and root can connect
 (`listen` in `app/server/src/listener.ts`). A socket is reached through its
