@@ -29,6 +29,11 @@ export interface NodeRowProps {
   lead?: React.ReactNode;
   /** Full node-content area (text + optional trailing chips). */
   content: React.ReactNode;
+  /**
+   * What the row says under its text, on the same text column: the node's
+   * description (DESIGN-UI.md → Outline editor, "A node's description").
+   */
+  subtitle?: React.ReactNode;
   className?: string;
   nodeId?: string;
   /** Render-instance key when the same nodeId appears more than once. */
@@ -85,6 +90,7 @@ export function NodeRow({
   bullet,
   lead,
   content,
+  subtitle,
   className,
   nodeId,
   instanceKey,
@@ -114,8 +120,14 @@ export function NodeRow({
       depth={depth}
       glyph={bullet}
       lead={lead}
-      text={content}
-      textClassName="node-content flex min-h-6 items-start gap-1.5 rounded-sm pr-1"
+      text={
+        <>
+          <div className="node-content flex min-h-6 items-start gap-1.5 rounded-sm pr-1">
+            {content}
+          </div>
+          {subtitle}
+        </>
+      }
       className={cn(
         "node-row group/node",
         "rounded-sm transition-colors duration-75",

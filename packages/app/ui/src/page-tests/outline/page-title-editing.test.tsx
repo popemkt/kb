@@ -5,7 +5,9 @@
  * the writes its keystrokes make are typing — never structural writes, which
  * a theme's art and a backdrop answer with a gesture. Enter ends it and
  * opens a first row, as Tana's title does, on every page that takes rows:
- * a day's as any node's.
+ * a day's as any node's. Tab out of the title's empty description goes on
+ * to what follows the title: with no fields, the page's first row, and with
+ * no rows either, back to the title, never to nothing.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -32,6 +34,8 @@ import { syncPagePlugins } from "@/test-support/page-plugins";
 const PAGE = "n.root-a";
 /** A node with no rows yet, as a new day is. */
 const EMPTY = "n.empty-page";
+/** A page with no fields, whatever rows it holds. */
+const BARE = "n.bare-page";
 
 /** Every activity the page reported, in order, as a backdrop is handed it. */
 const seen: PageActivity[] = [];
@@ -55,6 +59,7 @@ describe("the page title's edit", () => {
     g.HTMLElement = dom.HTMLElement;
     g.KeyboardEvent = dom.KeyboardEvent;
     g.MouseEvent = dom.MouseEvent;
+    g.FocusEvent = dom.FocusEvent;
     g.Node = dom.Node;
     g.CSS = { escape: (s: string) => s };
     g.IS_REACT_ACT_ENVIRONMENT = true;
@@ -154,6 +159,79 @@ describe("the page title's edit", () => {
         ?.hasAttribute("data-create-empty"),
     ).toBe(false);
   });
+
+  it("goes on from an empty description under the title, with no fields, to the page's first row", async () => {
+    await drawPage(BARE, ["n.bare-row"]);
+    await tabOutOfEmptyDescription(BARE);
+    expect(useOutlineStore.getState().activeNodeId).toBe("n.bare-row");
+  });
+
+  it("goes back to the title from an empty description on a page with no fields or rows", async () => {
+    await drawPage(BARE, []);
+    await tabOutOfEmptyDescription(BARE);
+    const { activeNodeId, activeInstanceKey } = useOutlineStore.getState();
+    expect([activeNodeId, activeInstanceKey]).toEqual([
+      BARE,
+      pageTitleInstanceKey(BARE, MAIN_OUTLINE_HOST),
+    ]);
+  });
+
+  /** Page `id`, with no fields, holding rows `rows`, drawn as the outline's root. */
+  async function drawPage(id: string, rows: readonly string[]): Promise<void> {
+    const at = "2026-11-11T00:00:00.000Z";
+    const plain = (nodeId: string, text: string, children: readonly string[] = []) => ({
+      id: nodeId,
+      text,
+      props: {},
+      children: [...children],
+      createdAt: at,
+      updatedAt: at,
+    });
+    useGraphStore
+      .getState()
+      .hydrateFromWire(
+        [
+          ...structuredClone(fixtureGraph.nodes),
+          plain(id, "A bare page", rows),
+          ...rows.map((row) => plain(row, `Row ${row}`)),
+        ],
+        fixtureGraph.rev,
+        "fixtures",
+      );
+    await act(async () => {
+      root.render(<OutlineEditor root={id} />);
+    });
+  }
+
+  /** ⌘K → Add description on page `id`'s title, then Tab out of it, empty. */
+  async function tabOutOfEmptyDescription(id: string): Promise<void> {
+    const addDescription = browserHost()
+      .nodeCommands(
+        { nodeId: id, frameId: id, nodeIds: [id] },
+        { close: () => {}, openStep: () => {} },
+      )
+      .find((command) => command.label === "Add description");
+    if (addDescription === undefined) throw new Error("the title offers no Add description");
+    await act(async () => {
+      await addDescription.run();
+    });
+    const editor = container.querySelector<HTMLElement>(
+      '[data-description] [data-editable-text="true"]',
+    );
+    if (editor?.getAttribute("contenteditable") !== "true")
+      throw new Error("the description did not open for editing");
+    await act(async () => {
+      editor.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }),
+      );
+    });
+    // happy-dom does not always dispatch the editor's blur: complete it.
+    if (editor.isConnected)
+      await act(async () => {
+        editor.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+      });
+    expect(container.querySelector("[data-description]")).toBeNull();
+  }
 
   /** Enter in the open title's editor. */
   async function pressEnterInTitle(): Promise<void> {

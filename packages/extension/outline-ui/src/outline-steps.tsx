@@ -39,6 +39,7 @@ import { moveRows } from "./row-moves";
 import { expandReference, removeReference } from "./reference-steps";
 import {
   declaresOptionSet,
+  descriptionOf,
   fieldTypeOf,
   isSysPrefixed,
   nodeName,
@@ -63,7 +64,7 @@ function kindCandidates(byId: ReadonlyMap<string, WireNode>, kind: string): Pick
   const nodeOf = (id: string) => byId.get(id);
   return [...byId.values()]
     .filter((n) => typeRefsOf(n).includes(kind))
-    .map((n) => ({ id: n.id, label: nodeName(n.id, nodeOf) || n.id }))
+    .map((n) => ({ id: n.id, label: nodeName(n.id, nodeOf) || n.id, hint: descriptionOf(n) }))
     .toSorted((a, b) => a.label.localeCompare(b.label));
 }
 

@@ -492,6 +492,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYMXMMZC9S8GS00CE6DFB`
 
+### GAP: a seeded tag or field takes a description only with force
+
+- **expected** — A description is a setting any node takes, a seeded tag's or field's included: a person describes a family's tag and its hint shows in the tag picker, without force, and takes it back.
+- **current** — sys.f.description is a field of no tag, and the write guard keeps a sys.* node closed to every field that does not configure it. configures holds one value, so the description cannot be a setting of both sys.tag and sys.field; describing a seeded node needs force. The outliner offers no Add description there and draws a seeded node's description as words.
+- **impact** — The hint in the tag and field pickers comes only from tags and fields a person made; a family's own tags show none unless the family seeds one.
+- **closes** — configures takes many values, or the guard reads settings from one place every sys kind shares, so sys.f.description configures every node kind; then the outliner's Add description is offered on seeded nodes too.
+- **rule** — Data-plane freedom: additive edits
+- **node** — `01M7ZP97P0FAAWC9NDQDWYAGK8`
+
 ### GAP: a stage with ambient occlusion renders without MSAA until three r187
 
 - **expected** — every stage antialiases its scene pass, occlusion or not
@@ -1697,6 +1706,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The gallery creates and edits a draft #look node and the session key is deleted; the workflow choice stays device-local or becomes a setting.
 - **rule** — Off-graph state is named
 - **node** — `01M7F15HTEG3R3KRT6DD9GV611`
+
+### GAP: the gallery's description and the node description are two fields for one concept
+
+- **expected** — One description field: the gallery's look brief is the node description, read through descriptionOf, and the gallery-net starter writes it by id.
+- **current** — Core seeds sys.f.description labelled 'node description', beside the gallery's sys.f.gallery.description labelled 'description'. The core label differs only so a name typed (description::, kb set <id> description) still resolves to one field.
+- **impact** — A look's brief shows as a field and not as the subtitle under its name; a person sees two description fields in Add field; the core field's label reads oddly.
+- **closes** — The gallery family ships a declared migration that moves sys.f.gallery.description values onto sys.f.description and retires its field with an alias, and the core field takes the label 'description'.
+- **node** — `01M7ZP9E60FSJZGBMZEBEFSNGQ`
 
 ### GAP: the graph legend overlays a renderer that cannot pan
 

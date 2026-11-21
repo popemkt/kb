@@ -318,8 +318,20 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                       <span className="h-1.5 w-1.5 rounded-full bg-foreground/25" />
                     )}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-ui text-foreground/85">
-                    {hit.text || "(empty)"}
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-ui text-foreground/85">
+                      {hit.text || "(empty)"}
+                    </span>
+                    {/* Its description, a pointer's hint: one line, whole in its title. */}
+                    {hit.hint !== undefined && (
+                      <span
+                        className="truncate text-meta text-foreground/70"
+                        title={hit.hint}
+                        data-palette-hint="true"
+                      >
+                        {hit.hint}
+                      </span>
+                    )}
                   </span>
                   {/* A shade of the row's own ink, so it holds AA on the active row's accent too. */}
                   <span className="shrink-0 font-mono text-caption text-foreground/70">

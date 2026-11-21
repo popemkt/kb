@@ -24,6 +24,8 @@ import {
 } from "@kb/ui-sdk";
 import { isQueryNode } from "@kb/model";
 import { projectsRows, type FrameViewKey } from "@kb/views";
+import { DescriptionLine } from "./description-line";
+import { useDescriptionShown } from "./description-state";
 import { FieldsSection } from "./fields-section";
 import { ViewToolbar } from "./view-toolbar";
 import { NodeContent } from "./node-content";
@@ -215,7 +217,8 @@ export function ZoomedRootHeader({
   // A query page's control holds its query, one click away: never behind the gear.
   const tucked = isList && !isQueryNode(node);
   const owner = useOwner(node.id);
-  const host = useOutlineHost();
+  const titleKey = pageTitleInstanceKey(node.id, useOutlineHost());
+  const described = useDescriptionShown(node.id, titleKey);
 
   return (
     <div
@@ -232,8 +235,17 @@ export function ZoomedRootHeader({
             onEnter={takesRows(node, view) ? () => void createFirstChild(node.id) : undefined}
           />
         }
-        {...menuAnchor(pageTitleInstanceKey(node.id, host))}
+        {...menuAnchor(titleKey)}
       />
+
+      {/* Its description, under the title: no line when it has none. */}
+      {described && (
+        <OutlineLine
+          depth={0}
+          className="pb-1"
+          text={<DescriptionLine rowId={node.id} nodeId={node.id} instanceKey={titleKey} />}
+        />
+      )}
 
       {/* Its tags and its owner: no line when it has neither. */}
       {(node.tags.length > 0 || owner !== null) && (
@@ -281,7 +293,9 @@ export function ZoomedRootHeader({
         }
       />
 
-      <FieldsSection nodeId={node.id} depth={-1} instanceKey={`title/${node.id}`} />
+      {/* The page's fields are the title instance's, so the keyboard leaving
+          the title, or its description, finds them, and leaves them for it. */}
+      <FieldsSection nodeId={node.id} depth={-1} instanceKey={titleKey} />
     </div>
   );
 }

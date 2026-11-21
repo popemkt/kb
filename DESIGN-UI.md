@@ -1237,6 +1237,58 @@ the node zoomed within an ontology. At the workspace root or in a pane
 with no subject node, the [capture destination](./DESIGN.md#provider-roles)
 decides where it goes.
 
+**A node's description.** A node's description (DESIGN.md → Data model →
+descriptions, `sys.f.description`) is drawn under its name, as Tana draws
+one, in three places, and in each it is the same value of the same field:
+
+- **On its row**, under the row's text, on the row's text column
+  (`NodeRow`'s `subtitle`, `DescriptionLine` in
+  `outline-ui/src/description-line.tsx`), inside the row's box, so it is
+  selected and dragged with the row and a tag's box moves it as it moves
+  the text. A contextual reference shows its target's.
+- **On the page it heads**, as a line of its own under the title and above
+  its tags (Outline layout → the page's title).
+- **Beside its name where it is offered**: as the one-line hint under the
+  name in every picker (`PickerCandidate.hint`, drawn by `PickerList`: the
+  tag and field pickers, `#`, `[[` and `@`, a ref field's values, the
+  palette's steps) and under a result in global search. A tag's or a
+  field's description is how a person tells two like-named ones apart
+  there.
+
+It is content on a row and a page, so it wraps where a row's text wraps
+([Long text](#long-text)); in a picker or a result it is a pointer's hint,
+clamped to one line, its whole text in a tooltip. It is set a step smaller
+than the row's text (the `meta` step: the `.kb-description` role sets the
+text role it holds at that step) and in a text value's
+ink, so it reads as the row's second line, not as another row. A node with
+no description draws nothing: no empty line, no placeholder.
+
+It is the field's value slot (`ValueSlot`), not an editor of its own, so
+it edits as a text value does: a click, Enter or F2 on it opens it, Enter
+keeps it, Escape puts it back, and an emptied description is a value taken
+out, so clearing it removes it. It shows trimmed, as every surface does,
+and an edit replaces, and a removal takes out, the value as stored. Where
+the keyboard goes after an edit is the slot's, by the key that ended it
+([Field values](#field-values-one-slot-grammar)): an edit that ends because focus went
+elsewhere leaves focus there, an emptied description included, and Tab
+goes on to the row's first field value, else the next row. Enter or
+Escape on an emptied description, Escape at rest, and leaving its editor
+with the arrows hand the keyboard back to the row: Escape selects the row,
+↑ edits the row's text at its end, and ↓ goes on to the row's first field
+value, else the next row. Under a page's title the next row is the page's
+first row, since the title stands before them, and with nothing to go on
+to, Tab and ↓ go back to the text, never to nothing. The outline's own
+arrows pass it by: it is reached by pointer, by ⌘K, or by its key. ⌘K and the node menu offer **Add
+description** on a node with none and **Edit description** on one that has
+one (`sys.cmd.outline.describe`, the outline's command), and Mod-Shift-E
+runs it: a page key, so it reaches a row being edited, a selected row and,
+with neither, the page's title. It opens the description where the command's
+node is drawn (`describe`): the row selected or edited on it, else the
+page's title. On a node with none it opens an empty slot there, editing,
+which leaves nothing behind when it is left empty. A description no one
+may write without force (a system node's) is drawn as words, and the
+command is not offered there.
+
 ### Outline layout
 
 The outline lays every line out on one grid, whatever the line is: a node
@@ -1316,14 +1368,16 @@ any, take that depth's columns.
 
 #### The page's title
 
-The page's head stacks three lines at depth 0, each with an empty glyph
+The page's head stacks four lines at depth 0, each with an empty glyph
 column, so each starts on the text column the page's rows start on:
 
 1. **The title**, which owns its whole line. It wraps only where the
    column ends, and keeps its box while it is edited
    ([Long text](#long-text)).
-2. **Its tags and owner**, a line drawn only when it has either.
-3. **Its view control**, on a line of its own.
+2. **Its description**, a line drawn only when it has one or one is being
+   added ([A node's description](#outline-editor-i1)).
+3. **Its tags and owner**, a line drawn only when it has either.
+4. **Its view control**, on a line of its own.
    - On a list page it is the one quiet gear, shown on hover or keyboard
      focus of the head.
    - On a projected view or a query page it is the whole toolbar. The view
@@ -1692,6 +1746,17 @@ surface that draws and edits its values. None of the surfaces has a click or
 key handler of its own. A new type is one more kind, never a component
 deciding its own clicks.
 
+**Where the keyboard goes after an edit is the key's that ended it.** A key
+that closes an editor (Enter, Escape, Tab, an arrow off the text) leaves
+with the edit where it goes next, and the edit, once it lands, says how it
+ended: kept, changed, or the value taken out (nothing typed into a new one,
+or a typed one emptied). The key's destination holds in every case. Enter
+and Escape stay on the value, or, when it was taken out, go where taking a
+value out goes: its neighbour, else the row. Tab and the arrows go on from
+it either way. An edit that ends because focus went elsewhere carries no
+destination, so focus stays where it went. A line break (Shift+Enter) ends
+nothing.
+
 **A type's kind is a contribution.** `ui.value-kinds` is keyed by the
 type's option node, a child of `sys.f.fieldType` (DESIGN.md → Field types).
 The outline contributes the kinds of the eight built-in types
@@ -1722,6 +1787,21 @@ stands for no field node (a preference) draws the glyph inert. `FieldRow` is
 the row's anatomy, a primitive of `@kb/ui-sdk` that prefs renders too
 (`PrefFieldRow`); it is handed its glyph. A field's glyph is its kind's
 (`useSlotKind`), so the glyph and the editor come from one kind.
+
+**A field wears its tag's colour.** A field that a tag of the node brings
+draws its glyph in that tag's colour, on its row and on its chip in the
+hidden fields line, so a node with fields from two tags shows which field
+came with which chip. The tag is the one the node carries whose chain
+templates the field first (`templateSourcesOf`, `@kb/model`): an ancestor's
+field wears the colour of the chip that brought it, and a field two tags
+bring wears the first's. The colour is the chip's (`TagBadge.color`: the
+tag's `sys.f.color`, else its palette slot), inked as a chip's text is
+(`fieldInkOn`, `lib/tag-color.ts`), so it holds the chip's contrast in every
+design system (`lib/design-systems.test.ts`). A field no tag of the node
+brings, one a kind brings (`sys.tag`, `sys.field`, which are no chip), and
+a row with no field node keep the neutral glyph. Only the glyph takes the
+colour: the name keeps the label's ink, so a row of fields still reads as
+one column.
 
 **Three verbs, the same on every kind.**
 
@@ -3427,7 +3507,7 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | Group | What it holds | Its rows today |
 | --- | --- | --- |
 | `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
-| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference… (Change reference target… on a reference), Add field, Add value…, Set field…, Make supertag, Type this reference…, Remove reference… |
+| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference… (Change reference target… on a reference), Add field, Add / Edit description, Add value…, Set field…, Make supertag, Type this reference…, Remove reference… |
 | `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: …, Copy node ID |
 | `arrange` | where it sits | Indent, Outdent, Move to…, Move and leave reference… |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |

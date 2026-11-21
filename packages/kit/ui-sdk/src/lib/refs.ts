@@ -1,4 +1,5 @@
 import {
+  descriptionOf,
   closesCycle,
   declaresOptionSet,
   isAcyclicField,
@@ -129,6 +130,7 @@ function candidatesInLabelOrder(
   const all = Array.from(nodes.values(), (n) => ({
     id: n.id,
     label: nodeName(n.id, nodeOf) || n.id,
+    hint: descriptionOf(n),
   }));
   const sorted = all.toSorted((a, b) => a.label.localeCompare(b.label));
   labelOrdered.set(nodes, sorted);

@@ -51,6 +51,15 @@ export interface ValueSlotProps {
   placeholder?: string;
 }
 
+/**
+ * How an edit ended: nothing changed, a value written, or the value taken
+ * out (nothing typed into a new one, or a typed one emptied).
+ */
+type EditOutcome = "kept" | "changed" | "removed";
+
+/** Where the keyboard goes once an edit a key ended has landed, by how it ended. */
+type AfterEdit = (outcome: EditOutcome) => void;
+
 /** A slot with no stack around it has nothing to remove itself from. */
 const noRemove = (): void => undefined;
 
@@ -169,11 +178,14 @@ function useSlotEditing({ spec, shown, isNew, autoOpen, field, onCommit, onRemov
   const [rejected, setRejected] = useState<RejectedInput | null>(null);
   const handle = useRef<EditHandle>(null);
   /**
-   * Where the keyboard goes once the edit lands: the next value's new slot,
-   * a neighbour, this value again. `changed` says whether a value was written
-   * (then this slot is drawn anew, so it is found by place, not held).
+   * Where the keyboard goes once the edit lands, set by the key that ended
+   * it (Enter, Escape, Tab, an arrow): the next value's new slot, a
+   * neighbour, this value again. It hears how the edit ended, so a value
+   * taken out still sends the keyboard where its key meant. An edit that
+   * ends because focus went elsewhere has none, and focus stays where it
+   * went.
    */
-  const then = useRef<((changed: boolean) => void) | null>(null);
+  const then = useRef<AfterEdit | null>(null);
 
   /**
    * Activate the slot: open its editor — with the caret at `at`, for a caret
@@ -195,26 +207,35 @@ function useSlotEditing({ spec, shown, isNew, autoOpen, field, onCommit, onRemov
     if (parsed === undefined) {
       setRejected(null);
       // Nothing typed into a new value's slot: there is no value to keep.
-      if (spec.editor === "caret" && isNew) onRemove();
-      else next?.(false);
+      if (spec.editor === "caret" && isNew) {
+        onRemove();
+        next?.("removed");
+      } else next?.("kept");
     } else if (spec.editor === "caret" && text.trim() === "") {
       // A typed value emptied is a value taken out, not a blank one kept.
       setRejected(null);
       onRemove();
+      next?.("removed");
     } else if (parsed.ok) {
       setRejected(null);
       onCommit(parsed.value);
-      next?.(true);
+      next?.("changed");
     } else setRejected({ text, reason: parsed.reason });
   };
 
   /** Commit what is typed, and carry on to `after` once the commit lands. */
-  const commitThen = (after: (changed: boolean) => void) => {
+  const commitThen = (after: AfterEdit) => {
     then.current = after;
     handle.current?.commit();
   };
 
-  return { mode, entry, rejected, setRejected, handle, begin, end, commitThen };
+  /** Put the value back, and carry on to `after` once the editor has closed. */
+  const cancelThen = (after: AfterEdit) => {
+    then.current = after;
+    handle.current?.cancel();
+  };
+
+  return { mode, entry, rejected, setRejected, handle, begin, end, commitThen, cancelThen };
 }
 
 /** What each keymap intent does to a slot, and where the keyboard goes after. */
@@ -225,6 +246,7 @@ function useSlotIntents({
   onRemove,
   begin,
   commitThen,
+  cancelThen,
   setRejected,
   follow,
 }: {
@@ -233,7 +255,8 @@ function useSlotIntents({
   field: FieldHandle;
   onRemove: () => void;
   begin: (at?: number | "end", seed?: string) => void;
-  commitThen: (after: (changed: boolean) => void) => void;
+  commitThen: (after: AfterEdit) => void;
+  cancelThen: (after: AfterEdit) => void;
   setRejected: (next: RejectedInput | null) => void;
   follow: () => void;
 }): Readonly<Record<ValueSlotIntent, (e: React.KeyboardEvent) => void>> {
@@ -244,12 +267,20 @@ function useSlotIntents({
     else field.leave(delta === -1 ? "up" : "down");
   };
 
-  /** This value again, at rest, once an edit has landed. */
-  const stay = () => {
+  /** Where the keyboard goes once value `el` is taken out: a neighbour at rest, else the row. */
+  const afterRemoval = (el: Element | null) => {
+    const neighbour = el === null ? null : (neighbourSlot(el, -1) ?? neighbourSlot(el, 1));
+    if (neighbour !== null) arriveAt(neighbour, "rest");
+    else field.leave("back");
+  };
+
+  /** This value again, at rest, once an edit has landed; if it was taken out, where `remove` goes. */
+  const stay = (): AfterEdit => {
     const el = element.current;
     const index = el === null ? -1 : slotIndex(el);
-    return (changed: boolean) => {
-      if (changed && index >= 0) field.focusSlot(index);
+    return (outcome) => {
+      if (outcome === "removed") afterRemoval(el);
+      else if (outcome === "changed" && index >= 0) field.focusSlot(index);
       else el?.focus();
     };
   };
@@ -260,10 +291,8 @@ function useSlotIntents({
     type: (e) => begin("end", e.key),
     remove: () => {
       const el = element.current;
-      const before = el === null ? null : (neighbourSlot(el, -1) ?? neighbourSlot(el, 1));
       onRemove();
-      if (before !== null) arriveAt(before, "rest");
-      else field.leave("back");
+      afterRemoval(el);
     },
     leave: () => field.leave("back"),
     previous: () => moveOn(-1, element.current),
@@ -280,9 +309,7 @@ function useSlotIntents({
     },
     cancel: () => {
       setRejected(null);
-      const back = stay();
-      handle.current?.cancel();
-      back(false);
+      cancelThen(stay());
     },
     removeEmpty: () => {
       const el = element.current;
@@ -303,7 +330,7 @@ function useSlotIntents({
  */
 function useSlotGestures(args: SlotArgs) {
   const { spec, shown, field, onRemove, onFollow } = args;
-  const { mode, entry, rejected, setRejected, handle, begin, end, commitThen } =
+  const { mode, entry, rejected, setRejected, handle, begin, end, commitThen, cancelThen } =
     useSlotEditing(args);
   const editing = entry !== null;
   const blank = spec.isBlank(shown);
@@ -341,6 +368,7 @@ function useSlotGestures(args: SlotArgs) {
     onRemove,
     begin,
     commitThen,
+    cancelThen,
     setRejected,
     follow,
   });

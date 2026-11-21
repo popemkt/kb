@@ -539,6 +539,7 @@ export {
 } from "./lib/stale-build";
 export {
   djb2Hash,
+  fieldInkOn,
   hashTagColor,
   nodeTagColors,
   optionColorOf,

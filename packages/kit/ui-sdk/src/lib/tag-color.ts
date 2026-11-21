@@ -16,12 +16,14 @@
  *    `oklch(…)`, and appending hex-alpha digits to those produces garbage.
  * 4. **Which ink a reference to a node wears in text** (`refInkIn`): its
  *    target's first tag colour, inked as a chip's text is.
+ * 5. **Which ink a field's glyph wears on a node** (`fieldInkOn`): the colour
+ *    of the tag that brings the field, inked as a chip's text is.
  */
 import type { WireNode } from "@kb/contracts";
-import { present, typeRefsOf, SYSTEM_IDS } from "@kb/model";
+import { present, templateSourcesOf, typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import type { SchemaIndex } from "./schema";
 import { hasText } from "./text";
-import type { TagBadge } from "./types";
+import type { OutlineNode, TagBadge } from "./types";
 
 /** Deterministic 12-color hash (djb2 % 12). */
 export const TAG_PALETTE = [
@@ -212,6 +214,26 @@ function tagInk(color: string): string {
  */
 export function refInkIn(schema: SchemaIndex, id: string): string | null {
   const [color] = nodeTagColors(schema.get(id));
+  return color === undefined ? null : tagInk(color);
+}
+
+/**
+ * The ink field `fieldId`'s glyph wears on `node` (DESIGN-UI.md → Field
+ * values, "A field wears its tag's colour"): the colour of the tag the node
+ * carries whose template brings the field (`templateSourcesOf`, its tags
+ * read from `nodes`, the schema), inked as a
+ * chip's text is, so it holds the chip's contrast. Null for a field no tag
+ * of the node brings, and for one only a kind brings (`sys.tag`, `sys.field`
+ * are no chip): its glyph stays neutral.
+ */
+export function fieldInkOn(
+  node: Pick<OutlineNode, "props" | "tags"> | undefined,
+  fieldId: string,
+  nodes: { get(id: string): Pick<OutlineNode, "props"> | undefined },
+): string | null {
+  if (node === undefined || node.tags.length === 0) return null;
+  const from = templateSourcesOf(typeRefsOf(node), (id) => nodes.get(id)).get(fieldId);
+  const color = from === undefined ? undefined : node.tags.find((tag) => tag.id === from)?.color;
   return color === undefined ? null : tagInk(color);
 }
 

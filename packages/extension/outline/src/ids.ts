@@ -21,6 +21,12 @@ export const OUTLINE_IDS = {
    * (`showsChildCounts`).
    */
   childCountsField: "sys.f.outline.child-counts",
+  /**
+   * "Add description" / "Edit description": the node command, on ⌘K, the
+   * node menu and Mod-Shift-E, that opens the node's description for editing
+   * where it is drawn (DESIGN-UI.md → Outline editor, "A node's description").
+   */
+  describeCommand: "sys.cmd.outline.describe",
   /** "Copy as…": the node command, on ⌘K, the node menu and Mod-Shift-C. */
   copyAsCommand: "sys.cmd.outline.copy-as",
   /**

@@ -30,6 +30,7 @@ import { pressRowBullet } from "./row-drag";
 
 import { FieldsSection } from "./fields-section";
 import { RowChildren } from "./frame-view-slot";
+import { DescriptionLine } from "./description-line";
 import { NodeContent } from "./node-content";
 import { RowCheck } from "./row-check";
 import { checkedTextClass, rowCheckOf } from "./row-check-state";
@@ -222,6 +223,7 @@ export const NodeBlock = memo(function NodeBlock({
                 <RowCheck nodeId={nodeId} instanceKey={instanceKey} check={check} />
               )
             }
+            subtitle={<DescriptionLine rowId={nodeId} nodeId={shownId} instanceKey={instanceKey} />}
             content={
               <NodeContent
                 node={node}
