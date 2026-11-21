@@ -242,6 +242,7 @@ describe("the agent bridge", () => {
       id: "node.get",
       input: { id: "n.root", depth: 0 },
       actor: "agent",
+      caller: "program",
     });
     expect(peer.heard.some((event) => event.type === "approval")).toBe(false);
   });
@@ -289,7 +290,7 @@ describe("the agent bridge", () => {
     // The host saw only the agent's own call, which it refused; the bridge never approves.
     // The call is made in the tab session of the person who asked.
     expect(h.invoked.filter((invocation) => invocation.id === "ext.gated.stamp")).toEqual([
-      { id: "ext.gated.stamp", input: {}, actor: "agent", session: "tab.a" },
+      { id: "ext.gated.stamp", input: {}, actor: "agent", caller: "program", session: "tab.a" },
     ]);
   });
 

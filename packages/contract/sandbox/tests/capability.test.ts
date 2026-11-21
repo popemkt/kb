@@ -41,6 +41,7 @@ describe("a guest's tool call", () => {
         id: "node.update",
         input: { id: "s", approved: true, actor: "human", script: { subject: "x" } },
         actor: "script",
+        caller: "program",
         script: { subject: "s", grant: scope.grant },
       },
     ]);

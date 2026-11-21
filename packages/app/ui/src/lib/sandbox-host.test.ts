@@ -150,6 +150,7 @@ describe("the page as a sandbox frame's host", () => {
         id: "node.get",
         input: { id: "n.s" },
         actor: "script",
+        caller: "program",
         script: { subject: "n.s", grant: RUN.grant },
       },
     ]);

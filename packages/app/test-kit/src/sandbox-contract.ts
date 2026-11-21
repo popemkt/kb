@@ -217,6 +217,7 @@ const PROPERTIES: readonly (readonly [string, Property])[] = [
               id: "node.get",
               input: { id: "subject", depth: 1 },
               actor: "script",
+              caller: "program",
               script: { subject: "subject", grant: GRANT },
             },
           ]);

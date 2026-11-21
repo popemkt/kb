@@ -231,6 +231,9 @@ describe("ext.canvas.run with the agent's model", () => {
   });
   test("no sandboxed code may start a run, so none reaches the model through one", async () => {
     const from = built.length;
+    // The page's wire ignores a positive approval claim on a call it relays as
+    // a script's (DESIGN.md → Action registry), so both ask for approval here;
+    // an approved script call is refused in process (script-run.test.ts).
     for (const approved of [false, true]) {
       const receipt = await call(
         RUN,
@@ -242,7 +245,7 @@ describe("ext.canvas.run with the agent's model", () => {
       );
       expect(receipt).toMatchObject({
         status: "failed",
-        code: approved ? "forbidden" : "approval_required",
+        code: "approval_required",
       });
     }
     expect(built).toHaveLength(from);
