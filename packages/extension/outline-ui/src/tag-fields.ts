@@ -38,3 +38,17 @@ export function resolveTagFields(
     all,
   };
 }
+
+/**
+ * A template's field ids with `fieldId` moved to index `to` of the order it
+ * leaves (clamped to its ends): what reordering a tag's fields writes. An id
+ * the template does not hold moves nothing. Which fields may move is the
+ * caller's: a shipped field keeps its place (`isShipped`), and moving a
+ * person's field never changes the order the shipped ones keep.
+ */
+export function movedTemplate(ids: readonly string[], fieldId: string, to: number): string[] {
+  if (!ids.includes(fieldId)) return [...ids];
+  const rest = ids.filter((id) => id !== fieldId);
+  const at = Math.max(0, Math.min(to, rest.length));
+  return [...rest.slice(0, at), fieldId, ...rest.slice(at)];
+}

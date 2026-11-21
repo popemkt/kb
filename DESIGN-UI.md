@@ -1155,7 +1155,11 @@ of its last before its first lands (a view node is minted before a frame
 names it; an upload is made before the text that names it), so a refusal
 leaves nothing behind. A tag's Fields list offers "Add field" on every tag;
 a field its owner ships (`isShipped`) is marked "shipped" and offers no
-remove. Only a row whose text is changed elsewhere is read-only at the door:
+remove and no move. A person's field moves: a step up or down from its
+row's controls, or dragged onto another row, landing at that row's place
+(one `replaceField` of `sys.f.fields`, which the commit accepts because the
+shipped fields keep their order). The template's order is the order its
+members' field rows show in. Only a row whose text is changed elsewhere is read-only at the door:
 `store.activateNode` degrades it to selection so no caret enters it, and the
 row shows a hover padlock with the reason.
 

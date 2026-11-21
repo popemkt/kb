@@ -588,15 +588,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Tools as nodes, and a how-to as a child node (or a field value) that refers to its tool; the starter writes it so and the art direction groups by it
 - **node** — `01M68CQN0E7CMMEATHT0RDYV10`
 
-### GAP: a tag's template fields cannot be reordered
-
-- **expected** — The fields a tag templates are an ordered list a person reorders where they add and remove them.
-- **current** — tag-fields-config.tsx adds and removes a template field; the order is the order they were added.
-- **impact** — Field rows on every tagged node show in an order nobody chose; fixing it needs node.update on the tag from the CLI.
-- **closes** — Reorder in tag-fields-config (drag or move up/down), writing the template's order.
-- **rule** — Editor first (the editor is the main human editing surface)
-- **node** — `01M5CRYP40YAHA2ZQFB850ARVZ`
-
 ### GAP: a tag's view pickers offer view types that cannot play their part
 
 - **expected** — the picker on a tag's view.default offers only the view types a node can be shown in (showsANode), the outline among them; the one on its view.row only the views a page draws at placement row
@@ -2635,6 +2626,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A release that changes the frame protocol breaks code nodes in tabs opened before it, with no reload to fix them.
 - **closes** — Digest-name the frame script (Vite entry with a hash, the page reading its name from the build) or add the sandbox protocol's schemas to the wire fingerprint.
 - **node** — `01M6GY0MXXXY2YQ8C3P77M2QNF`
+
+### GAP: a tag's template fields cannot be reordered
+
+- **expected** — The fields a tag templates are an ordered list a person reorders where they add and remove them.
+- **current** — Fixed: tag-fields-config moves a person's template field a step up or down from its row's controls, or by dragging it onto another row (movedTemplate in tag-fields.ts), writing the new sys.f.fields order with replaceField; a shipped field shows no move, as it shows no remove, so the order the owner ships stays.
+- **impact** — Field rows on every tagged node show in an order nobody chose; fixing it needs node.update on the tag from the CLI.
+- **closes** — Reorder in tag-fields-config (drag or move up/down), writing the template's order.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYP40YAHA2ZQFB850ARVZ`
 
 ### GAP: a theme's motion personality is CSS tokens, not options kb can read or set
 
