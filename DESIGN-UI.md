@@ -1380,6 +1380,12 @@ its title, tags and fields, its children in its view, and then what
 reaches it from elsewhere: for a tag or field, what carries it (Schema),
 then its References.
 
+- **The title selected holds the keyboard.** The page's title is its
+  node's own instance (`pageTitleInstanceKey`): selected, it takes the
+  keyboard focus, so Enter edits it, its caret at the end. A gesture that
+  opens a node for the keyboard (⌘K's Enter) selects it there; a page
+  loaded or opened by pointer selects nothing.
+
 - **A page that takes rows** (a list, not a projected view or a query;
   `takesRows`) offers two ways to its rows, the same on every node's page:
   - **Enter in its title** ends the title's edit and opens a first row
@@ -3374,7 +3380,12 @@ the one menu builder (`listNodeCommands`) reads the place from the
 command: no list position means anything, and no row is the shell's by
 being listed first.
 
-⌘K with no row anchored is the page's search (`CommandPalette`), and it
+⌘K with no row anchored is the page's search (`CommandPalette`). A node
+it finds opens at its page (`/node/<id>`, [Node pages](#node-pages)) in the
+focused pane, wherever the node lives, by click or by Enter: the outline
+is not moved home to reveal it. The page's title is then selected, so the
+keyboard is on the node: Enter edits its title and the node menu's
+commands act on it. It
 finds the node menu's commands too: those `listNodeCommands` offers the
 node it acts on — the selected row, else the node the page stands at, the
 one its focused pane is shown for (`paneSubjectAt`: a zoom, or a node

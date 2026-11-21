@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   cn,
   useFollow,
@@ -69,6 +69,17 @@ function EditableTitle({
     if (store.activeInstanceKey === key) store.deactivateNode();
   }, [key]);
 
+  // The title selected is the page's node selected: it holds the keyboard,
+  // so Enter edits it and the page's keys act from it. Opening a node from
+  // ⌘K selects it there (DESIGN-UI.md → Node pages).
+  const selected = useOutlineStore(
+    (s) => s.selectedInstanceKey === key && s.activeInstanceKey === null,
+  );
+  const restingTitle = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selected) restingTitle.current?.focus({ preventScroll: true });
+  }, [selected]);
+
   if (readOnly) {
     return (
       <h1
@@ -108,6 +119,7 @@ function EditableTitle({
 
   return (
     <div
+      ref={restingTitle}
       role="button"
       tabIndex={0}
       onClick={(e) => {

@@ -5,10 +5,9 @@ import {
   cn,
   type CommandContext,
   isCompositionKey,
-  isSysPrefixed,
   menuAnchorOf,
+  navigate,
   pageTitleInstanceKey,
-  schemaZoomKind,
   rowName,
   schemaOf,
   textOr,
@@ -23,7 +22,8 @@ import {
   withoutEntries,
   type PaletteHit,
 } from "@/lib/palette-index";
-import { pageProjection, shownNodes, useGraphStore } from "@/stores/graph.store";
+import { nodePath } from "@kb/views";
+import { shownNodes, useGraphStore } from "@/stores/graph.store";
 import { pageCommandApi, pageCommandContext, pageCommandTarget } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
 import { useUiStore } from "@/stores/ui.store";
@@ -168,14 +168,14 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         await runCommand(hit.id, commandContext(onClose));
         return;
       }
-      const node = shownNodes().get(hit.id);
-      if (schemaZoomKind(node) || isSysPrefixed(hit.id)) {
-        zoomTo(hit.id);
-        return;
-      }
-      pageProjection().reveal(hit.id);
+      // A node found is opened at its page, as any node is opened
+      // (DESIGN-UI.md → Node pages): the focused pane moves to it, wherever
+      // it lives, rather than the outline revealing it from home.
+      navigate(nodePath(hit.id));
+      // And it is the node the keyboard is on: its page's title, selected.
+      pageEditor().getState().selectNode(hit.id, pageTitleInstanceKey(hit.id));
     },
-    [onClose, zoomTo, nodeCommands],
+    [onClose, nodeCommands],
   );
 
   const onKeyDown = useCallback(
