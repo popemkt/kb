@@ -8375,3 +8375,14 @@ as a product precedent for saved views of one graph.
 [Neo4j NVL](https://neo4j.com/docs/nvl/current/) accepts node/relationship data
 through adapters; using a Cypher ecosystem renderer would not require changing
 kb's datastore or query model.
+
+### Phone pairing deep link
+
+A pairing QR code or link encodes `kb://pair?url=<encoded-origin>&code=<code>`,
+reusing the Android app's existing `kb://` scheme (`apps/android/README.md` →
+Pair a store; `DESIGN.md` → Phone app). `url` must be an `https://` origin
+(`http://` is accepted only in debug builds, matching the app's network
+security policy) with no path, query, fragment or userinfo, and `code` must be
+a 32-character hex code from `capture.pairCode`. Opening the link prefills the
+app's Stores pair form and never pairs silently: the person confirms with
+**Pair**.

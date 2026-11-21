@@ -11,6 +11,7 @@ const PAIR_CODE_COMMAND = `kb --root <store> --json action-invoke '{"id":"captur
 let state = { stores: [], entries: [], pending: 0, failed: 0 };
 let filter = "pending";
 let pairing = { open: false, busy: false, message: null, url: "https://", code: "" };
+let appliedPairPrefill = null;
 let draft = "";
 let note = null;
 
@@ -53,7 +54,18 @@ function when(iso) {
   return Number.isNaN(at.getTime()) ? iso : at.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
 }
 
-function storesView() {
+function clearPairHash() {
+  appliedPairPrefill = null;
+  if (location.hash.startsWith("#/stores?")) history.replaceState(null, "", "#/stores");
+}
+
+function storesView(params) {
+  const prefillUrl = params.get("url");
+  const prefillCode = params.get("code");
+  if (prefillUrl && prefillCode && appliedPairPrefill !== location.hash) {
+    appliedPairPrefill = location.hash;
+    pairing = { open: true, busy: false, message: null, url: prefillUrl, code: prefillCode };
+  }
   const stores = state.stores;
   const form = () => {
     const submit = async (event) => {
@@ -62,10 +74,13 @@ function storesView() {
       render();
       try {
         const result = await call("pair", { url: pairing.url, code: pairing.code });
-        pairing = result.ok
-          ? { open: false, busy: false, message: null, url: "https://", code: "" }
-          : { ...pairing, busy: false, message: result.message };
-        if (result.ok) note = { bad: false, text: result.message };
+        if (result.ok) {
+          pairing = { open: false, busy: false, message: null, url: "https://", code: "" };
+          clearPairHash();
+          note = { bad: false, text: result.message };
+        } else {
+          pairing = { ...pairing, busy: false, message: result.message };
+        }
       } catch (err) {
         pairing = { ...pairing, busy: false, message: err.message ?? String(err) };
       }
@@ -112,7 +127,11 @@ function storesView() {
         { class: "actions" },
         h("button", { class: "primary", type: "submit", disabled: pairing.busy }, pairing.busy ? "Pairing…" : "Pair"),
         stores.length > 0 &&
-          h("button", { class: "ghost", type: "button", onclick: () => ((pairing.open = false), render()) }, "Cancel"),
+          h(
+            "button",
+            { class: "ghost", type: "button", onclick: () => ((pairing.open = false), clearPairHash(), render()) },
+            "Cancel",
+          ),
       ),
     );
   };

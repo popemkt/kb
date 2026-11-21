@@ -5970,7 +5970,10 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
   - a home-screen widget and a quick-settings tile, which open `kb://capture`;
   - notifications when a capture is refused or a store stops accepting the
     phone;
-  - the back button, and `kb://` links.
+  - the back button, and `kb://` links (`kb://capture`, `kb://queue`,
+    `kb://stores`, `kb://pair?url=<origin>&code=<code>` — which validates the
+    origin and 32-character hex code and prefills the Stores form without
+    pairing silently — and `kb://open/<path>`).
 
   The phone does no graph writes of its own. It asks `kb.manifest` for
   `captureContract` when it pairs and before each run, and keeps a capture

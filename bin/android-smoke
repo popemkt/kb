@@ -206,17 +206,12 @@ shot 03-queue-waiting-for-a-store
 killed
 received 1 && fail "the store received a capture before it was paired"
 
-# 2. Pairing, as a person does it, delivers both.
-say "2. pair the store"
-# With no store paired yet, Stores opens on the pairing form.
-link kb://stores
-tap 'class="android.widget.EditText"' 1
-a shell input keyevent KEYCODE_MOVE_END
-for _ in 1 2 3 4 5 6 7 8; do a shell input keyevent KEYCODE_DEL; done
-a shell input text "http://127.0.0.1:$port"
+# 2. Pairing, via the kb://pair deep link (prefilled, confirmed with Pair), delivers both.
+say "2. pair the store via kb://pair deep link"
 code=$("$kb" --root "$store" --json action-invoke '{"id":"capture.pairCode"}' | jq -r .output.code)
-tap 'class="android.widget.EditText"' 2
-a shell input text "$code"
+link "kb://pair?url=http%3A%2F%2F127.0.0.1%3A$port&code=$code"
+await 30 shows "text=\"$code\"" || fail "kb://pair did not prefill the pairing code"
+received 1 && fail "kb://pair paired silently before tapping Pair"
 shot 04-pair-form
 tap 'text="Pair"'
 await 60 received 2 || fail "pairing did not deliver the two pending captures (host.log)"
