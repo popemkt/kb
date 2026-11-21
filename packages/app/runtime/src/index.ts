@@ -32,7 +32,6 @@ export { RootNotFoundError, resolveRootEffect } from "./root.ts";
 export { systemSecrets } from "./secrets.ts";
 export { aesGcmCipher, sealedSecrets, systemdCredsCipher } from "./sealed-secrets.ts";
 export type { SealCipher, SealedSecrets } from "./sealed-secrets.ts";
-export type { LookupResult, RunLookup } from "./secrets.ts";
 export { STORE_BACKENDS, createStore, migrateStore, selectStore } from "./store-selection.ts";
 export type { StoreBackend, StoreMigration } from "./store-selection.ts";
 export { openKb } from "./session.ts";

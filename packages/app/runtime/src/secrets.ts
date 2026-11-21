@@ -2,6 +2,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { SecretError, type SecretSink, type SecretStore } from "@kb/contracts";
+import { platformKeychain, runLookup, type KeychainError, type RunLookup } from "@kb/keychain";
 import { secretRefLabel, type SecretRef } from "@kb/model";
 import { dataPath } from "@kb/workspace-fs";
 import { readDotenvSecret, dotenvSecretSink } from "./dotenv-secrets.ts";
@@ -11,139 +12,11 @@ import {
   systemdCredsCipher,
   type SealedSecrets,
 } from "./sealed-secrets.ts";
-import { childProcessEnv } from "./child-env.ts";
 
-/** What one keychain lookup answered: its exit code and what it printed. */
-export interface LookupResult {
-  readonly code: number;
-  readonly stdout: string;
+/** A keychain failure as a secret error that names the reference. */
+function named(ref: SecretRef): (err: KeychainError) => SecretError {
+  return (err) => new SecretError({ message: `${secretRefLabel(ref)}: ${err.message}` });
 }
-
-/**
- * How the platform keychain (or a sealing helper) is asked: the command
- * line, what it reads on stdin, and what it answered. A value kb hands a
- * helper goes on stdin, never on a command line another user can list.
- * `signal` aborts when the lookup is given up, and the lookup stops with it.
- */
-export type RunLookup = (
-  argv: readonly string[],
-  signal: AbortSignal,
-  stdin?: string,
-) => Promise<LookupResult>;
-
-/**
- * How long a keychain lookup may take. The macOS keychain may ask the person
- * to allow the read, so this leaves time to answer; past it the lookup is
- * killed and the reference fails, so a turn never hangs on it.
- */
-const LOOKUP_TIMEOUT_MS = 30_000;
-
-/** The keychain command for `ref` on `platform`, or null where kb knows none. */
-function keychainArgv(
-  ref: Extract<SecretRef, { kind: "keychain" }>,
-  platform: string,
-): readonly string[] | null {
-  const account = ref.account;
-  if (platform === "darwin") {
-    return [
-      "security",
-      "find-generic-password",
-      "-s",
-      ref.service,
-      ...(account === undefined ? [] : ["-a", account]),
-      "-w",
-    ];
-  }
-  if (platform === "linux") {
-    return [
-      "secret-tool",
-      "lookup",
-      "service",
-      ref.service,
-      ...(account === undefined ? [] : ["account", account]),
-    ];
-  }
-  return null;
-}
-
-/**
- * How `ref` is written to the keychain on `platform`: the command, and what
- * it reads on stdin. macOS `security` takes a password only as an argument,
- * so it runs as `security -i` and reads that command on stdin; the value is
- * quoted, and one that cannot be quoted there is refused. The freedesktop
- * `secret-tool store` reads the value on stdin itself.
- */
-function keychainWrite(
-  ref: Extract<SecretRef, { kind: "keychain" }>,
-  platform: string,
-  value: string,
-): { readonly argv: readonly string[]; readonly stdin: string } | null {
-  const account = ref.account;
-  if (platform === "darwin") {
-    if (!/^[^"\\\s]+$/.test(value) || !/^[^"\\\s]+$/.test(ref.service + (account ?? "")))
-      return null;
-    const who = account === undefined ? "" : ` -a "${account}"`;
-    return {
-      argv: ["security", "-i"],
-      stdin: `add-generic-password -U -s "${ref.service}"${who} -w "${value}"\n`,
-    };
-  }
-  if (platform === "linux") {
-    return {
-      argv: [
-        "secret-tool",
-        "store",
-        `--label=kb ${ref.service}`,
-        "service",
-        ref.service,
-        ...(account === undefined ? [] : ["account", account]),
-      ],
-      stdin: value,
-    };
-  }
-  return null;
-}
-
-/** How `ref` is deleted from the keychain on `platform`, or null where kb knows none. */
-function keychainErase(
-  ref: Extract<SecretRef, { kind: "keychain" }>,
-  platform: string,
-): readonly string[] | null {
-  const account = ref.account;
-  if (platform === "darwin")
-    return [
-      "security",
-      "delete-generic-password",
-      "-s",
-      ref.service,
-      ...(account === undefined ? [] : ["-a", account]),
-    ];
-  if (platform === "linux")
-    return [
-      "secret-tool",
-      "clear",
-      "service",
-      ref.service,
-      ...(account === undefined ? [] : ["account", account]),
-    ];
-  return null;
-}
-
-/** A lookup as a child process, killed outright when `signal` aborts. */
-const runProcess: RunLookup = (argv, signal, stdin) => {
-  const child = Bun.spawn([...argv], {
-    stdout: "pipe",
-    stderr: "ignore",
-    stdin: stdin === undefined ? "ignore" : new TextEncoder().encode(stdin),
-    env: childProcessEnv("lookup"),
-    signal,
-    killSignal: "SIGKILL",
-  });
-  return Promise.all([new Response(child.stdout).text(), child.exited]).then(([stdout, code]) => ({
-    code,
-    stdout,
-  }));
-};
 
 /**
  * The secret store a `kb ui` process binds (DESIGN.md → Data model → a
@@ -171,27 +44,13 @@ export function systemSecrets(
   // oxlint-disable-next-line node/no-process-env -- the env: reference is this process's environment by definition
   const env = options.env ?? process.env;
   const platform = options.platform ?? process.platform;
-  const run = options.run ?? runProcess;
-  const timeoutMs = options.timeoutMs ?? LOOKUP_TIMEOUT_MS;
+  const run = options.run ?? runLookup;
+  const keychain = platformKeychain({
+    platform,
+    run,
+    ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+  });
   const sealed = options.sealed ?? defaultSealed(env, platform, run);
-  const ask = (ref: SecretRef, argv: readonly string[], stdin?: string) =>
-    Effect.tryPromise({
-      try: (signal) => run(argv, signal, stdin),
-      catch: () =>
-        new SecretError({
-          message: `${secretRefLabel(ref)}: ${argv[0] ?? "the keychain"} did not run`,
-        }),
-    }).pipe(
-      Effect.timeoutOrElse({
-        duration: timeoutMs,
-        orElse: () =>
-          Effect.fail(
-            new SecretError({
-              message: `${secretRefLabel(ref)}: ${argv[0] ?? "the keychain"} did not answer within ${timeoutMs / 1000}s`,
-            }),
-          ),
-      }),
-    );
   const place = (name: string): SecretRef =>
     platform === "darwin"
       ? { kind: "keychain", service: "kb", account: name }
@@ -205,15 +64,8 @@ export function systemSecrets(
       }
       if (ref.kind === "dotenv") return yield* readDotenvSecret(ref);
       if (ref.kind === "sealed") return yield* sealed.resolve(ref);
-      const argv = keychainArgv(ref, platform);
-      if (argv === null) {
-        return yield* new SecretError({
-          message: `${secretRefLabel(ref)}: kb reads no keychain on ${platform}`,
-        });
-      }
-      const answer = yield* ask(ref, argv);
-      const value = answer.stdout.replace(/\r?\n$/, "");
-      return answer.code !== 0 || value === "" ? yield* missing() : value;
+      const value = yield* keychain.read(ref).pipe(Effect.mapError(named(ref)));
+      return value ?? (yield* missing());
     }),
     place,
     sink: (ref: SecretRef): SecretSink => {
@@ -226,29 +78,8 @@ export function systemSecrets(
         return { write: () => readOnly, erase: readOnly };
       }
       return {
-        write: Effect.fn("kb.secrets.keychain.write")(function* (value: string) {
-          const write = keychainWrite(ref, platform, value);
-          if (write === null)
-            return yield* new SecretError({
-              message: `${secretRefLabel(ref)}: kb cannot write this to the keychain on ${platform}`,
-            });
-          const answer = yield* ask(ref, write.argv, write.stdin);
-          if (answer.code !== 0)
-            return yield* new SecretError({
-              message: `${secretRefLabel(ref)}: ${write.argv[0] ?? "the keychain"} refused the write`,
-            });
-          return undefined;
-        }),
-        erase: Effect.gen(function* () {
-          const argv = keychainErase(ref, platform);
-          if (argv === null)
-            return yield* new SecretError({
-              message: `${secretRefLabel(ref)}: kb writes no keychain on ${platform}`,
-            });
-          // An item already gone is erased: neither command tells that apart from success here.
-          yield* ask(ref, argv);
-          return undefined;
-        }),
+        write: (value: string) => keychain.write(ref, value).pipe(Effect.mapError(named(ref))),
+        erase: keychain.erase(ref).pipe(Effect.mapError(named(ref))),
       };
     },
     describe: Effect.gen(function* () {

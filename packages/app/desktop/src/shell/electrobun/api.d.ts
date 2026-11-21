@@ -80,6 +80,11 @@ declare module "electrobun/bun" {
     }): Promise<{ response: number }>;
   };
 
+  export const Updater: {
+    /** What `Resources/version.json` says of this build; `channel` is `dev`, `canary` or `stable`. */
+    localInfo: { channel(): Promise<string> };
+  };
+
   export interface ElectrobunConfig {
     app: {
       name: string;

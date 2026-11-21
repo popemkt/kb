@@ -1175,29 +1175,45 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P0 and P1 of docs/research/2026-10-31-offline-first.md §7: the pure reconcile, the agent, the convergence property test, kb sync and the server lane.
 - **node** — `01M69E3P6ADBBDTGRP4F6ZSR81`
 
-### GAP: kb desktop declares the raw capture envelope itself instead of importing the contract
-
-- **expected** — Quick capture builds its payload as @kb/contracts' CaptureSubmit (CaptureSubmitSchema, CAPTURE_CONTRACT), the one statement of the raw capture wire.
-- **current** — packages/app/desktop/src/core/capture.ts declares RawCapture and CAPTURE_CONTRACT locally, matching the contract on feat/raw-capture-host, which was not on main when the desktop branched.
-- **impact** — If the contract changes, the desktop's envelope can drift from it with every test green.
-- **closes** — Once the capture contract is on main, capture.ts imports CaptureSubmit and CAPTURE_CONTRACT from @kb/contracts and its tests parse the envelope with CaptureSubmitSchema.
-- **node** — `01M7QTTTHGVFE32XRVV96A696K`
-
-### GAP: kb desktop has no pairing for a remote store's capture; its token is pasted by hand
-
-- **expected** — Adding a remote store pairs once (capture.pair with a one-use code the host's owner issues) and keeps the returned device credential in the OS keychain.
-- **current** — The store list takes an optional capture token as text and keeps it in the desktop's settings.json (mode 0600) beside the remote's origin (packages/app/desktop/src/core/config.ts).
-- **impact** — A remote capture works only with a token the person copied over, and the token sits in a plain file.
-- **closes** — The desktop calls capture.pair when a remote store is added and keeps the credential in Keychain (macOS) or the secret service (Linux).
-- **node** — `01M7QTTV8E0XFK9J0CKCNM6H5G`
-
 ### GAP: kb desktop keeps remote stores in its own settings, beside the home store's locations
 
 - **expected** — A store reached at an origin (a tailnet kb ui) is a location like a local root: a node in the home store that location.list lists and location.open answers, so the desktop, the page's Locations section and kb open see one list.
-- **current** — packages/app/desktop/src/core/config.ts keeps remote stores (key, name, origin, token) in the desktop's settings.json; local stores are read from location.list.
+- **current** — packages/app/desktop/src/core/config.ts keeps remote stores (key, name, origin, device id, accepted capture contracts) in the desktop's settings.json, their device credentials in the keychain; local stores are read from location.list.
 - **impact** — Two lists of stores: a remote added in the desktop is not in the page's Locations or kb locations, and one added elsewhere is not in the desktop.
 - **closes** — The locations family gains an origin (a URL-typed field beside sys.f.location.path, status derived by probing it), and the desktop lists and opens remotes through location.list and location.open.
 - **node** — `01M7QTTRFKDF9B7F4M29Z84XJQ`
+
+### GAP: kb desktop proves its kb runs, not that it is new enough
+
+- **expected** — Resolution passes over a kb that runs but lacks what the desktop calls (capture.submit, capture.pair), the same way it passes over one that cannot run, and says which version it needs.
+- **current** — processProbe in packages/app/desktop/src/core/kb-command.ts asks only kb --version to answer; an older installed kb wins in a release build and quick capture to its stores is refused with "update kb".
+- **impact** — On a Mac whose installed kb is an older nightly, a release build runs it ahead of a newer checkout kb, so capture to local stores fails until the installed kb is updated or "kb" is set.
+- **closes** — kb --version (or a capabilities action) reports the contract versions it serves, and the probe requires the capture contract the desktop speaks.
+- **node** — `01M7WV5DBWNMEWS2QG6M4VP3QY`
+
+### GAP: kb desktop reads a remote's capture contract once, at pairing
+
+- **expected** — The desktop learns which capture contracts a paired remote accepts from its kb.manifest when it checks the store, as the Android app does before it delivers (Deliverer.checkContract), so the store list and a capture see the host's current contract.
+- **current** — packages/app/desktop/src/core/stores.ts keeps the captureContract the capture.pair answer named as the remote's accepts in settings.json, and the store list shows that value until the store is paired again.
+- **impact** — A host updated to a new capture contract shows as in step until a capture is refused; a host that stops accepting captures is not noticed until then.
+- **closes** — The store list and the capture path ask the remote's kb.manifest (with the device credential) for captureContract, update accepts, and show waiting or paused states as Android does.
+- **node** — `01M7WZGP3B84JK08R43Y642C7N`
+
+### GAP: kb desktop resolves its kb once, at launch
+
+- **expected** — The desktop notices when the kb it runs stops answering (or a better one appears) and resolves again, without a restart.
+- **current** — packages/app/desktop/src/shell/electrobun/index.ts probes the candidates once at launch and keeps the choice for the life of the process.
+- **impact** — A kb installed, rebuilt or removed while the app runs is not seen until the person quits and reopens kb; the store list then says the kb could not run, and the advice says to reopen.
+- **closes** — KbCli resolves lazily and re-resolves after a run that failed without a receipt, behind the same KbRunner port.
+- **node** — `01M7WV5D06HSMA1JFBBRGE0B13`
+
+### GAP: kb desktop stamps build-machine paths into the app
+
+- **expected** — A built app carries no path of the machine or checkout it was built on; a kb for it is bundled or installed.
+- **current** — electrobun.config.ts stamps KB_DESKTOP_CHECKOUT_KB (the checkout bin/kb) and KB_DESKTOP_BUILD_BUN (the Bun the build ran with, often a Nix store path) into the bundle.
+- **impact** — The app works on the machine it was built on only while that checkout and that Bun exist: a removed worktree or a Nix garbage collection turns both candidates into ones the probe passes over.
+- **closes** — build:mac bundles a kb release (bin/release-bundle) by default, and the checkout candidate is kept for dev builds only.
+- **node** — `01M7WV5DQDNMQMR9QYJN839TNJ`
 
 ### GAP: kb desktop typechecks its Electrobun adapter against a hand-kept declaration
 

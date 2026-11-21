@@ -675,6 +675,7 @@
   "@kb/graph" = copyPathToStore ./packages/extension/graph;
   "@kb/graph-ui" = copyPathToStore ./packages/extension/graph-ui;
   "@kb/keybindings" = copyPathToStore ./packages/domain/keybindings;
+  "@kb/keychain" = copyPathToStore ./packages/infrastructure/keychain;
   "@kb/lab" = copyPathToStore ./packages/extension/lab;
   "@kb/lab-ui" = copyPathToStore ./packages/extension/lab-ui;
   "@kb/locations" = copyPathToStore ./packages/extension/locations;

@@ -12,7 +12,13 @@ export {
   submitCapture,
   textCapture,
 } from "./core/capture.ts";
-export type { CaptureHost, CaptureOutcome, RawCapture, SubmitCapture } from "./core/capture.ts";
+export type {
+  CaptureHost,
+  CaptureOutcome,
+  CaptureSubmit,
+  PairWithHost,
+  SubmitCapture,
+} from "./core/capture.ts";
 export { DEFAULT_SETTINGS, DesktopConfig, desktopDir, settingsOf } from "./core/config.ts";
 export type { DesktopSettings, RemoteStore, WindowMemory } from "./core/config.ts";
 export { startControlServer } from "./core/control.ts";
@@ -21,10 +27,17 @@ export { nodePagePath, parseDeepLink } from "./core/deep-link.ts";
 export type { DeepLink } from "./core/deep-link.ts";
 export { bundleIdOf, NO_FOCUS_RETURN, platformFocusReturn } from "./core/focus.ts";
 export type { FocusReturn } from "./core/focus.ts";
-export { kbProcessRunner, programPath, receiptOf, resolveKb } from "./core/kb-command.ts";
-export type { KbCandidates, KbRunner, Receipt } from "./core/kb-command.ts";
+export {
+  kbCandidates,
+  kbEnvironment,
+  kbProcessRunner,
+  processProbe,
+  resolveKb,
+} from "./core/kb-command.ts";
+export type { KbCandidate, KbRunner, Receipt } from "./core/kb-command.ts";
 export {
   CaptureClient,
+  CredentialKeychain,
   DesktopShell,
   DeviceSettings,
   FocusKeeper,
