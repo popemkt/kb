@@ -18,7 +18,7 @@ name: kb mutation
 # harness/src/mutation.ts: `plan` cuts the scope into shards of one
 # package's files run against that package's tests, each at most 45 minutes
 # by its estimate, and every shard runs incrementally from the baseline the
-# last complete run cached. The weekly run so re-tests only changed code; the
+# last report job cached. The weekly run so re-tests only changed code; the
 # monthly run, a dispatch with `full`, and any run with no cached baseline
 # test every mutant.
 
@@ -144,8 +144,8 @@ jobs:
           merge-multiple: true
           path: reports/mutation/shards/
 
-      # One report from every shard: the survivor list, the score on the run's
-      # summary, and the baseline the next run starts from.
+      # Merge the reports produced by available shards. Shards that failed
+      # before reporting contribute no results.
       - name: Merge reports
         run: bun run test:mutation merge
 
@@ -166,6 +166,7 @@ jobs:
       # absent, so the next run tests their mutants instead of reusing them.
       # One key per run; the next run restores the newest by prefix.
       - name: Save baseline
+        if: always() && hashFiles('reports/mutation/baseline.json') != ''
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: reports/mutation/baseline.json

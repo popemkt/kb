@@ -169,8 +169,7 @@ jobs:
   # The macos project (the GPU, macOS's fonts and scrollbars) on two macOS
   # runners, the portable one on two Ubuntu runners; which spec is which is
   # `MACOS_SPECS` in the render config. Linux runners never queue behind the
-  # account's five macOS slots. Each platform splits by test count, which is
-  # not time. GAP [[01M79GV526E3V6ZPVW0D6752FK]]
+  # account's five macOS slots. Shard selection is in the render config.
   render:
     needs: scope
     if: needs.scope.outputs.runtime == 'true'
@@ -209,9 +208,9 @@ jobs:
       - name: Render suite
         env:
           PROJECT: ${{ matrix.project }}
-          SHARD: ${{ matrix.shard }}
+          KB_RENDER_SHARD: ${{ matrix.shard }}
           KB_RENDER_TIMING: "1"
-        run: bun run test:render --project="$PROJECT" --shard="$SHARD"
+        run: bun run test:render --project="$PROJECT"
 
   validate:
     if: always()

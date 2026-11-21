@@ -20,7 +20,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Outline grid: one text column | DESIGN-UI.md#one-text-column | packages/extension/outline-ui packages/kit/ui-sdk outline | Every line's first letter starts on its depth's text column, --kb-text-inset after the glyph column: a row's text, a field's name, a ghost row's placeholder, a section's heading, a query's status line, a row's line preview. An inline mark never moves it: a link's outward mark follows its label, and a field's values start on one value column with a reference's bullet hung in the label's last glyph column. | ci | — |
 | Outline grid: the page's title is a line | DESIGN-UI.md#the-pages-title | packages/extension/outline-ui packages/kit/ui-sdk outline | The page's head is depth-0 lines with an empty glyph column, each on the text column the rows start on: the title, which owns its whole line and wraps only at the column's end; its tags and owner; its view control on a line of its own (the quiet gear on a list page, the whole toolbar on a projected view or a query page). Its fields follow as depth-0 field rows. | ci | — |
 | Compiler strictness contract | DESIGN.md#compiler-strictness-contract | repo | One base tsconfig owns strictness; the DESIGN.md table is the contract, packages declare only their delta, and a rejected flag is recorded with its measured count. | harness | — |
-| Core names no feature | DESIGN.md#extension-families | packages | Every extension package belongs to one family, tagged with the name the family declares once, and imports another extension package only of its own family. An app package imports an extension package only from a composition-root file (EXTENSION_ROOTS), never re-exported, or from a file named as a deferred breach; every extension package is loaded, by a value import, by a root of each host its scope runs in; and a family's browser half is its one @kb/<family>-ui package, a surface of @kb/ui named for a family being a deferred breach (CORE_BROWSER_HALVES). Not checked yet: that core packages hold no feature vocabulary (the open extension-boundaries gaps). | harness | — |
+| Core names no feature | DESIGN.md#extension-families | packages | Every extension package belongs to one family, tagged with the name the family declares once, and imports another extension package only of its own family. An app package imports an extension package only from a composition-root file (EXTENSION_ROOTS), never re-exported, or from a file named as a deferred breach; every extension package is loaded, by a value import, by a root of each host its scope runs in; and a family's browser half is its one @kb/<family>-ui package, a surface of @kb/ui named for a family being a deferred breach (CORE_BROWSER_HALVES). The harness checks literal copies of family-owned seeded ids. Open extension-boundaries gaps track other ways core still names features. | harness | — |
 | Coverage is a signal | DESIGN.md#testing-doctrine | repo | Coverage is reported and never a threshold; chasing a percentage manufactures exactly the noise the testing doctrine forbids. | harness | — |
 | Design tokens: every class is live | DESIGN-UI.md#design-tokens | packages/app/ui | Every class the UI writes emits CSS under kb's stylesheet. The token bridge resets Tailwind's own scales, so a default step (text-sm, shadow-xl, rounded-3xl) reads like a class and compiles to nothing; Tailwind itself, not a pattern list, decides which classes are dead. | harness | — |
 | Drift markers | AGENTS.md#drift-markers-and-gaps | repo | A deferred clean shape carries a GAP marker at the deferral site and a matching gap node naming expected, current, impact and closes. An unlabelled workaround is drift. | harness | — |
@@ -200,14 +200,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — making a chart needs Vega-Lite knowledge; agents can propose one, people mostly cannot
 - **closes** — a chart builder that writes the spec through the one chart spec check
 - **node** — `01M4187E5QQYRD8ENHQM968EEJ`
-
-### GAP: a check's invocation counts as wired when any surface file merely contains it
-
-- **expected** — A check's invocation is wired when a surface file runs it as a whole command: a hook or workflow line, a package.json script segment, a lint rule key — each surface reading its own file's grammar.
-- **current** — ext.check.audit's invocationIsWired accepts any substring of any surface file, so 'bun run test' is wired by 'bun run test:ui', and a comment that names a command counts as running it.
-- **impact** — A check can read as wired when nothing runs it, and its rule's enforcement then claims more than holds.
-- **closes** — Per-surface invocation grammars: command lines of the hook and workflow run steps, &&-segments of package.json scripts, rule keys of .oxlintrc.json; an invocation matches one whole.
-- **node** — `01M56TFECRSQN243PAEB6XGHRY`
 
 ### GAP: a checklist row shows no box until a tag ties one to its done field
 
@@ -1029,6 +1021,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M79MBMJQKDBBGJ2HG8Z6QEG2`
 
+### GAP: extension module initialization can run effects before the plugin loads
+
+- **expected** — Extension declarations and entries keep module initialization inert. Effects run through the plugin lifecycle.
+- **current** — The source gates check imports, foreign ids and runtime code-loading forms. They do not enforce inert module initialization or reject top-level writes to globals.
+- **impact** — Loading a module can run effects even when its plugin is never applied.
+- **closes** — Implement L3 in docs/research/2026-10-29-plugin-codependency.md and run the same admission check for bundled and repository extensions.
+- **rule** — Core names no feature
+- **node** — `01M7WXS4712B6AC2Q6TE43T7CA`
+
 ### GAP: family halves' page tests run in the shell (outline, collections, graph)
 
 - **expected** — a family half's tests hold it to BrowserHost through the test host (DESIGN-UI → Extension UI halves)
@@ -1215,14 +1216,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The prototype of docs/research/2026-10-31-online-stores.md §7: the port, the mirror store, the DO authority, the two-process sync test.
 - **node** — `01M6950VPS4MH8NWDWB4ZF9CP1`
 
-### GAP: kb mutation skips saving its baseline when the merge step fails
-
-- **expected** — The report job saves the next baseline even when a shard or the merge failed, as its comment says.
-- **current** — kb-mutation.yml 'Save baseline' has no if: always(), so a failed Download or Merge reports step skips it.
-- **impact** — The next weekly run misses the cache and runs in full: bounded by the shard plan, only slower.
-- **closes** — if: always() on the save step, guarded on the baseline file existing.
-- **node** — `01M55AE0NTW88HWFJ2V0ZH92KQ`
-
 ### GAP: KbIndex is DataScript in memory on both stores; sqlite holds nodes but answers no queries
 
 - **expected** — A KbIndex backed by the sqlite store — queries compiled from the query IR to SQL and answered by the database that already holds the nodes, so a sqlite root does not rebuild a whole DataScript db on every open.
@@ -1368,15 +1361,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Special nodes (inboxes, sys nodes) read the same as any other link.
 - **closes** — A seeded sys icon field and refInkOf reading it.
 - **node** — `01M3KA3BHNPNB8VX34HD8P2JCB`
-
-### GAP: nothing flags another family's action id or seed id spelled as a string
-
-- **expected** — L1, a harness lint, fails a string literal ext.<f>.<id> in a package of another family; L2, a harness test over bundledOwners(), fails a literal equal to a node id another family seeds; L3 keeps a module top level inert (no effects, no globalThis or window writes)
-- **current** — the family fence refuses imports only, so a coupling it forbids reappears as a string: four foreign action ids in ext-canvas, and sys.tag.canvas copied into the kit (gap 01M436DVSEHKNYWSF2MR07HPMR)
-- **impact** — each copy is a mirror held by a test or by nothing; a rename breaks it at run time, not at build
-- **closes** — P2 (L1) and P3 (L2, L3) of docs/research/2026-10-29-plugin-codependency.md
-- **rule** — Core names no feature
-- **node** — `01M63C0JP6WDX8CZ0VBPYQY4ER`
 
 ### GAP: nothing proves a family correct when no host runs
 
@@ -1587,14 +1571,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Every consumer needs bun on PATH; a machine without bun cannot run a release.
 - **closes** — The server reads the UI dist through one asset source that a compiled build fills from embedded files (Bun.embeddedFiles) and a bundle fills from disk; then publish.yml, the one release path, adds a compile matrix and release-smoke runs on each binary.
 - **node** — `01M56H9MA14N5TG8640BN6PHXP`
-
-### GAP: render shards split by test count, so every backdrop test lands in shard 1
-
-- **expected** — CI render shards hold about equal test time, whatever the file order
-- **current** — Playwright cuts contiguous slices of equal test count in file order, per project. The macos project (157 tests) put the backdrop files and gallery in shard 1 and head-band-contrast, render and lab in shard 2: 778 s of tests against 727 s in run 44019215801, which is near even, but the same files ran 1.5 to 2 times faster on another runner the hour before (run 44016049909), so the split by count is right only by luck of the file order.
-- **impact** — a shard that lands on a slow runner or a heavier file mix bounds Validate; render (macos) 1/2 took 961 s and 2/2 880 s of job time
-- **closes** — a duration-balanced split (Playwright has no timing-based sharding; PWTEST_SHARD_WEIGHTS is internal and still count-based); the backdrop timeout gap closing (2026-11-13) took about 110 s out of shard 1 but left the split by count
-- **node** — `01M79GV526E3V6ZPVW0D6752FK`
 
 ### GAP: replacement approval inspection awaits the keybinding consumer
 
@@ -1890,6 +1866,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — axesOf reads facets of facets from the library (a facet's nearest #facet ancestor), the starter groups its facets that way, AXIS_SPECS is deleted, and Reflect keys its JSON by an axis's name. Articulate, Remix and Scene keep calling axesOf, so all three follow.
 - **node** — `01M6BYQEZ6BC91MBTXM9NF1ZVX`
 
+### GAP: the core legacy view migration spells a graph-owned seed id
+
+- **expected** — The graph family owns the migration that depends on its seeded renderer field.
+- **current** — The core legacy view migration retains the renderer field id. The graph seed test checks it against GRAPH_IDS.
+- **impact** — Renaming the field requires editing both the family and the core migration.
+- **closes** — Move the graph-specific legacy conversion into a family-owned migration, or retire the legacy path when supported stores no longer need it.
+- **rule** — Core names no feature
+- **node** — `01M7WXS471S9B2FYXWQZV52PKD`
+
 ### GAP: the data-plane promises are not properties over the store (Phase 3)
 
 - **expected** — Referential closure (P1b), rename invariance (P2) and constrain-before-lock (P5) are storeContract properties, run over every store backend and each stated from its rejecting side (docs/research/2026-11-13-philosophy-as-checks.md, Phase 3).
@@ -1996,6 +1981,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Keyboard-only users cannot add a value to a field whose row is off screen or collapsed.
 - **closes** — A palette step per shown field that opens the field's value picker.
 - **node** — `01M3KA39PQAJZJ6C6ZY4RV1SPZ`
+
+### GAP: the offline demo spells graph-owned seed ids
+
+- **expected** — The graph family supplies the seed nodes and ids its offline demo uses through the composition root.
+- **current** — The offline demo reads the bundled seed but spells out which graph fields and options it takes, including the reference keys in its demo lens.
+- **impact** — A graph seed rename has to be reflected in the demo as a separate edit.
+- **closes** — Move the graph-owned slice of the demo behind a family contribution consumed by the composition root.
+- **rule** — Core names no feature
+- **node** — `01M7WXS470A29JEH2DHDGEWJD6`
 
 ### GAP: the outline's bullet kit keeps a copy of the canvas tag id
 
@@ -2663,6 +2657,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1XCB0ETCJH03FGJS6E75AFP`
 
+### GAP: check audit matched substrings instead of wired invocations
+
+- **expected** — A check names a command at the start of a simple shell command or an enabled lint rule by its complete key.
+- **current** — The audit reads shell hooks, workflow run steps, package scripts and enabled lint rules according to their file format. It ignores shell comments and preserves quoted words.
+- **impact** — A check can read as wired when nothing runs it, and its rule's enforcement then claims more than holds.
+- **closes** — Focused audit fixtures cover comment-only references, command lookalikes, workflow run steps, wrappers and full lint keys.
+- **node** — `01M56TFECRSQN243PAEB6XGHRY`
+
 ### GAP: CLI child returned no receipt in the socket surface contract
 
 - **expected** — Every CLI invocation returns its JSON receipt; failures are diagnosable without rerunning or hiding a transport fault.
@@ -2878,6 +2880,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Validate in withLink (the one writer) and make itemLead's type a checked link.
 - **node** — `01M55AE092VNPBQKGGZZHZZY9W`
 
+### GAP: kb mutation skipped saving its baseline after a report failure
+
+- **expected** — The report job saves the next baseline even when a shard or the merge failed, as its comment says.
+- **current** — The Save baseline step evaluates even after an earlier failure and saves when reports/mutation/baseline.json exists.
+- **impact** — The next weekly run misses the cache and runs in full: bounded by the shard plan, only slower.
+- **closes** — if: always() on the save step, guarded on the baseline file existing.
+- **node** — `01M55AE0NTW88HWFJ2V0ZH92KQ`
+
 ### GAP: KbContext carries two persistence interfaces
 
 - **expected** — KbContext exposes one Effect-native storage capability used by all core and extension handlers.
@@ -3045,6 +3055,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXMR501MC0KQ85WSNHC97R`
 
+### GAP: production source could copy another family’s seeded node id
+
+- **expected** — A harness test fails when production source spells a node id another bundled family seeds.
+- **current** — The harness reads the bundled seed owners and examines string literals in production source. Known copies cite open gaps at their sites. The action-id lint shipped earlier in 6149f12d.
+- **impact** — A copied id can silently couple two families and only fail when a seed id changes.
+- **closes** — The foreign seed id harness test exercises the real bundled ownership fold and a failing source fixture. Module initialization is tracked separately in GAP: extension module initialization can run effects before the plugin loads.
+- **rule** — Core names no feature
+- **node** — `01M63C0JP6WDX8CZ0VBPYQY4ER`
+
 ### GAP: PropValueEditor branches 24 ways over prop value type
 
 - **expected** — One editor per PropValue variant, selected through a registry keyed by the variant tag.
@@ -3077,6 +3096,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Replace the padlock with an owned-by note that names the node's family, and let a seeded node's title be edited as any node's is.
 - **rule** — Data-plane freedom: labels are cosmetic
 - **node** — `01M7342W0CNMFK152YEFNJHPP4`
+
+### GAP: render shards split by test count instead of measured duration
+
+- **expected** — CI render shards hold about equal test time, whatever the file order
+- **current** — CI assigns whole spec files using per-project durations from run 44377439682. The estimated macOS load is 731 s and 729 s, compared with the old split at 567 s and 893 s.
+- **impact** — a shard that lands on a slow runner or a heavier file mix bounds Validate; render (macos) 1/2 took 961 s and 2/2 880 s of job time
+- **closes** — The render config assigns the longest file to the lightest shard in turn, using the project median for files without a measurement.
+- **node** — `01M79GV526E3V6ZPVW0D6752FK`
 
 ### GAP: repository extensions have no fail-closed admission
 

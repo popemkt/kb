@@ -21,6 +21,7 @@ import {
   uiZoneOf,
 } from "./constraints.ts";
 import { type ImportKind, importsOf, sourceFilesUnder } from "./import-graph.ts";
+import { sourceSiteAt } from "./source-site.ts";
 import {
   PACKAGES_ROOT,
   WORKSPACE_ROOT,
@@ -34,9 +35,6 @@ const UI_SRC_ROOT = join(PACKAGES_ROOT, relative("packages", UI_SRC));
 
 /** The extension-less forms a TypeScript specifier may stand for. */
 const CANDIDATES = ["", ".ts", ".tsx", ".d.ts", "/index.ts", "/index.tsx"];
-
-/** `GAP [[id]]`, the marker grammar shared with `kb check gaps` (`ext.check.gaps`). */
-const GAP_MARKER = /GAP \[\[([^\]]+)\]\]/;
 
 /** One import inside the UI, with both ends placed in the zone matrix. */
 export interface UiImportSite {
@@ -84,21 +82,6 @@ function resolveWithin(file: string, specifier: string): string | undefined {
   return found === undefined ? undefined : relative(UI_SRC_ROOT, found);
 }
 
-/**
- * The 1-based line an offset falls on, and the gap marker that line carries:
- * on the line itself, or on the line above when that line is a comment of its
- * own — a marker trailing the *previous* import belongs to that import, not
- * to this one. The offset is the specifier's, from {@link importsOf}, so a
- * multi-line import is placed on the line that names its module.
- */
-function siteAt(source: string, lines: readonly string[], offset: number) {
-  const index = source.slice(0, offset).split("\n").length - 1;
-  const text = lines[index] ?? "";
-  const above = lines[index - 1]?.trimStart() ?? "";
-  const marker = GAP_MARKER.exec(text) ?? (above.startsWith("//") ? GAP_MARKER.exec(above) : null);
-  return { line: index + 1, gap: marker?.[1] };
-}
-
 let cached: UiImportSite[] | undefined;
 
 /** Every import statement in the UI's `src/`, one entry per occurrence. */
@@ -115,7 +98,7 @@ export function uiImportSitesIn(file: string, source: string): UiImportSite[] {
   const lines = source.split("\n");
   const zone = uiZoneOf(file);
   return importsOf(join(UI_SRC_ROOT, file), source).map(({ specifier, kind, start }) => {
-    const at = siteAt(source, lines, start);
+    const at = sourceSiteAt(source, lines, start);
     const target = resolveWithin(file, specifier);
     return {
       file,

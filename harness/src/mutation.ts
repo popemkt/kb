@@ -22,12 +22,12 @@
  * shards; no shard grows past the budget, unless one file alone does.
  *
  * Every shard runs incrementally from one baseline, the merged report of the
- * last complete run. Stryker reuses the result of every mutant whose code did
+ * last run that produced reports. Stryker reuses the result of every mutant whose code did
  * not change. With no coverage it cannot tell that a changed test would now
  * kill a survivor, so a full run (`--full`: monthly in CI, and whenever there
  * is no baseline) is what catches up with the tests.
  */
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import {
   copyFileSync,
   existsSync,
@@ -41,8 +41,9 @@ import { createRequire } from "node:module";
 import { availableParallelism } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { Instrumenter } from "@stryker-mutator/instrumenter";
+import Ajv from "ajv";
 import { calculateMetrics } from "mutation-testing-metrics";
-import type { MutationTestResult } from "mutation-testing-report-schema";
+import { schema, type MutationTestResult } from "mutation-testing-report-schema";
 import { WORKSPACE_ROOT, gitWorkspaceFiles, workspacePackages } from "./workspace.ts";
 
 /** The longest a shard's mutants may take, by the plan's estimate: a margin under the job's 120 minutes. */
@@ -50,13 +51,17 @@ export const SHARD_BUDGET_SECONDS = 45 * 60;
 
 const BASE_CONFIG = join(WORKSPACE_ROOT, "stryker.config.json");
 const SHARD_DIR = "reports/mutation/shards";
-/** The merged report of the last complete run, which every shard's incremental run starts from. */
+const INCREMENTAL_DIR = "reports/mutation/incremental";
+const reportValidator = new Ajv({ validateFormats: false });
+const validReport = reportValidator.compile<MutationTestResult>(schema);
+/** The merged report of the last run that produced reports, which every shard's incremental run starts from. */
 const BASELINE = "reports/mutation/baseline.json";
 
 /** What of `stryker.config.json` the lane reads; the rest passes through to every shard. */
 export interface StrykerConfig {
   readonly mutate: readonly string[];
   readonly commandRunner: { readonly command: string };
+  readonly reporters: readonly string[];
   readonly htmlReporter: { readonly fileName: string };
   readonly mutator?: Record<string, unknown>;
   readonly [option: string]: unknown;
@@ -141,7 +146,9 @@ export function shardConfig(
     },
     concurrency: options.concurrency,
     incremental: true,
-    incrementalFile: `${SHARD_DIR}/${shard.name}.json`,
+    incrementalFile: `${INCREMENTAL_DIR}/${shard.name}.json`,
+    reporters: [...base.reporters, "json"],
+    jsonReporter: { fileName: `${SHARD_DIR}/${shard.name}.json` },
     force: options.full,
     htmlReporter: { fileName: `${SHARD_DIR}/${shard.name}.html` },
   };
@@ -282,35 +289,62 @@ export async function planShards(base: StrykerConfig = readBaseConfig()): Promis
   });
 }
 
-/** Runs one shard from the baseline, leaving its report under `reports/mutation/shards/`. */
-function runShard(
-  shard: MutationShard,
-  full: boolean,
-  base: StrykerConfig = readBaseConfig(),
-): void {
-  const config = shardConfig(base, shard, { full, concurrency: runnerConcurrency() });
-  const configPath = join(WORKSPACE_ROOT, SHARD_DIR, `${shard.name}.config.json`);
+/** Runs a shard with a private working baseline and a separate report for collection. */
+export function runShard(shard: MutationShard, full: boolean, root: string = WORKSPACE_ROOT): void {
+  const config = shardConfig(readBaseConfig(), shard, { full, concurrency: runnerConcurrency() });
+  const configPath = join(root, SHARD_DIR, `${shard.name}.config.json`);
+  const incremental = join(root, config.incrementalFile);
   mkdirSync(dirname(configPath), { recursive: true });
+  mkdirSync(dirname(incremental), { recursive: true });
+  rmSync(incremental, { force: true });
+  rmSync(join(root, config.jsonReporter.fileName), { force: true });
+  rmSync(join(root, config.htmlReporter.fileName), { force: true });
   writeFileSync(configPath, JSON.stringify(config, null, 2));
-  const baseline = join(WORKSPACE_ROOT, BASELINE);
-  if (!full && existsSync(baseline))
-    copyFileSync(baseline, join(WORKSPACE_ROOT, config.incrementalFile));
-  execSync(`stryker run ${configPath}`, { cwd: WORKSPACE_ROOT, stdio: "inherit" });
+  const baseline = join(root, BASELINE);
+  if (!full && existsSync(baseline)) copyFileSync(baseline, incremental);
+  execFileSync("stryker", ["run", configPath], { cwd: root, stdio: "inherit" });
 }
 
-/** Merges the shards' reports into the baseline and the HTML report, and prints the score. */
-function mergeShards(base: StrykerConfig = readBaseConfig()): number {
-  const dir = join(WORKSPACE_ROOT, SHARD_DIR);
-  const read = (name: string): unknown => JSON.parse(readFileSync(join(dir, name), "utf8"));
-  const shards = readdirSync(dir)
-    .filter((name) => name.endsWith(".config.json"))
-    .map((name) => {
-      const config = read(name) as { mutate: string[]; incrementalFile: string };
-      return {
-        mutate: config.mutate,
-        report: read(basename(config.incrementalFile)) as MutationTestResult,
+/** The current run's shard outputs. A config can arrive without its reporter's output. */
+export function readShardReports(root: string): ShardReport[] {
+  const dir = join(root, SHARD_DIR);
+  if (!existsSync(dir)) return [];
+  const outputs = new Set(readdirSync(dir));
+  const reports: ShardReport[] = [];
+  for (const name of outputs) {
+    if (!name.endsWith(".config.json")) continue;
+    let path = join(dir, name);
+    try {
+      const config = JSON.parse(readFileSync(path, "utf8")) as {
+        mutate?: unknown;
+        jsonReporter?: { fileName: string };
       };
-    });
+      if (config.jsonReporter === undefined) continue;
+      const reportName = basename(config.jsonReporter.fileName);
+      if (!outputs.has(reportName)) continue;
+      path = join(dir, reportName);
+      const report: unknown = JSON.parse(readFileSync(path, "utf8"));
+      if (!validReport(report)) throw new Error(reportValidator.errorsText(validReport.errors));
+      const { mutate } = config;
+      if (!Array.isArray(mutate) || !mutate.every((file) => typeof file === "string")) {
+        throw new Error(`${name} does not list the shard's files`);
+      }
+      reports.push({ mutate, report });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(`Skipping unreadable mutation shard output ${path}: ${reason}`);
+    }
+  }
+  return reports;
+}
+
+/** Merges the available reports into the baseline and HTML report, and prints the score. */
+function mergeShards(base: StrykerConfig = readBaseConfig()): void {
+  const shards = readShardReports(WORKSPACE_ROOT);
+  if (shards.length === 0) {
+    console.warn("No mutation shard reports were produced.");
+    return;
+  }
   const merged = mergeReports(shards);
   writeFileSync(join(WORKSPACE_ROOT, BASELINE), JSON.stringify(merged));
   writeFileSync(join(WORKSPACE_ROOT, base.htmlReporter.fileName), reportHtml(merged));
@@ -319,7 +353,6 @@ function mergeShards(base: StrykerConfig = readBaseConfig()): number {
   console.log(line);
   const summary = process.env.GITHUB_STEP_SUMMARY;
   if (summary !== undefined) writeFileSync(summary, `${line}\n`, { flag: "a" });
-  return score;
 }
 
 async function main(args: readonly string[]): Promise<void> {
