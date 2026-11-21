@@ -984,6 +984,7 @@ function instancesOver(
  * until none is. A query's results are its answer, so results not yet
  * answered are not among them.
  */
+// GAP [[01M7XSM8DNSX1HCZW2217PX5M1]] results of a query not yet answered stay closed
 function rowsDrawnOpen(
   host: string,
   graph: PageGraphState,
