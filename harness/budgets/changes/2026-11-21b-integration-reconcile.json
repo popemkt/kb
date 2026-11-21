@@ -1,0 +1,6 @@
+{
+  "reason": "The production bundle measures 2,079,692 eager bytes after integrating the builder branches, 15,333 bytes above their combined allowance of 2,064,359.",
+  "raise": {
+    "page-eager": { "bytes": 15333 }
+  }
+}

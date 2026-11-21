@@ -1,6 +1,6 @@
 import { MagnifyingGlassIcon } from "@phosphor-icons/react";
-import { SYSTEM_IDS } from "@kb/model";
-import { browserHost, shownNode, type PaletteStep } from "@kb/ui-sdk";
+import { isQueryNode, SYSTEM_IDS } from "@kb/model";
+import { shownNode, type PaletteStep } from "@kb/ui-sdk";
 import { addTag } from "./outline-steps";
 import { writtenEdn } from "./query-builder/model";
 
@@ -14,10 +14,12 @@ export const findTagged: PaletteStep = {
   placeholder: "Search tags…",
   icon: <MagnifyingGlassIcon size={12} />,
   candidates: addTag.candidates,
-  commit: async ({ targetNodeId, schema, pickedId }) => {
+  commit: async ({ targetNodeId, schema, pickedId, writes }) => {
     const row = schema.get(targetNodeId);
     if (row === undefined) return;
-    await browserHost().writes.initializeProp(shownNode(row, schema).id, SYSTEM_IDS.queryField, {
+    const target = shownNode(row, schema);
+    if (isQueryNode(target)) return;
+    await writes.initializeProp(target.id, SYSTEM_IDS.queryField, {
       t: "str",
       v: writtenEdn([
         {

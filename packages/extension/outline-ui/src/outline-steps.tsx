@@ -201,7 +201,7 @@ const addValue: PaletteStep = {
     const row = outlineNodes().get(targetNodeId);
     if (instanceKey !== null && row !== undefined) {
       const land = landInFieldsOf(instanceKey, shownNode(row, schema).id);
-      if (row.collapsed) store.toggleCollapse(targetNodeId);
+      if (!store.isOpen(instanceKey)) store.toggleCollapse(instanceKey);
       land(pickedId, "add");
     }
     return Promise.resolve();
