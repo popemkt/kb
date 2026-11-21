@@ -1244,11 +1244,10 @@ once, when it is next read, not once per child. That list is the only record
 of a node's children: the node itself is stored without them, and `get` is
 the one place the two are joined, so no read sees children the graph no
 longer holds. It holds the roots in order
-once asked, so each placement at the roots costs a binary search. One cost
-remains: each placement at the roots inserts into the ordered array, and that
-moves the roots after it in memory (O(R) moves; GAP
-[[01M52RTGASH2F5PVW7CK2Q50VN]]). Appending to one group within one plan steps
-each rank after the last (`rankBetween`'s tail step), whose growth is
+once asked, in a `SortedList` (a treap: a search tree on the visible order
+with each subtree's size), so placing a node at the roots, taking one out and
+reading a root by position each cost O(log R). Appending to one group within
+one plan steps each rank after the last (`rankBetween`'s tail step), whose growth is
 logarithmic ([Sibling ranks](#sibling-ranks)), so a plan of thousands of
 siblings under one parent keeps every rank usable and reads a constant number
 of neighbours per item.

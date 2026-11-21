@@ -1581,14 +1581,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a rounded-rect hit volume in the shape table
 - **node** — `01M41GAZ88QXRS7M85S0JN0ZW1`
 
-### GAP: placing a top-level item inserts into the plan graph's ordered roots array
-
-- **expected** — placing an item at the forest roots costs O(log R) in a plan (an ordered structure with logarithmic insert)
-- **current** — IndexedNodes keeps the roots in one ordered array and splices into it, moving the rest in memory: O(R) per top-level placement
-- **impact** — an outline paste with many top-level items over a store with many roots does R work per item (a memmove; small constant)
-- **closes** — an ordered structure with logarithmic insert for the roots in node-graph.ts, counted in the plan test
-- **node** — `01M52RTGASH2F5PVW7CK2Q50VN`
-
 ### GAP: PropValue still carries the legacy {t:"date"} variant
 
 - **expected** — PropValue has one carrier per value; dates are {t:"str"} only.
@@ -3180,6 +3172,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Field defaults are stated once per field in code and again in the ontology, and a malformed prop degrades silently per field instead of failing the decode.
 - **closes** — Track 2 domain-typing work: express LensPerspective as a Schema and decode props through it. Not mechanical - it changes what happens on malformed input.
 - **node** — `01M1MGCEBYDFRNJX1JKXXN825H`
+
+### GAP: placing a top-level item inserts into the plan graph's ordered roots array
+
+- **expected** — placing an item at the forest roots costs O(log R) in a plan (an ordered structure with logarithmic insert)
+- **current** — Fixed: IndexedNodes keeps the roots in a SortedList (sorted-list.ts, a treap with subtree sizes), so a top-level placement, an unroot and a positional read each cost O(log R); a property test holds it to a sorted array and counts O(log n) comparisons per insert, and node-graph.contract.test.ts still holds both adapters equal.
+- **impact** — an outline paste with many top-level items over a store with many roots does R work per item (a memmove; small constant)
+- **closes** — an ordered structure with logarithmic insert for the roots in node-graph.ts, counted in the plan test
+- **node** — `01M52RTGASH2F5PVW7CK2Q50VN`
 
 ### GAP: pre-commit admission reads the working tree
 
