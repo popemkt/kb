@@ -109,6 +109,27 @@ describe("node page references", () => {
     );
   });
 
+  it("expands the shown target's children for a contextual backlink", async () => {
+    const reference = wire("n.context", "", ["n.own-child"]);
+    reference.props[SYSTEM_IDS.refTargetField] = [{ t: "ref", v: TARGET }];
+    await draw(TARGET, [
+      reference,
+      wire("n.own-child", "The reference’s own child"),
+      wire("n.shown-child", "The target’s child"),
+    ]);
+    await act(async () => {
+      useGraphStore.getState().applyTx([wire(TARGET, "Write spec", ["n.shown-child"])], [], {
+        rev: 2,
+      });
+    });
+
+    const selector = '[data-backlink-id="n.context"]';
+    await settled(() => expect(find(`${selector} button[aria-expanded]`)).not.toBeNull());
+    await act(async () => present(find(`${selector} button[aria-expanded]`), "chevron").click());
+    expect(find(`${selector} [data-node-block][data-node-id="n.shown-child"]`)).not.toBeNull();
+    expect(find(`${selector} [data-node-block][data-node-id="n.own-child"]`)).toBeNull();
+  });
+
   it("links a matched span in one undo step and moves the row between sections", async () => {
     await draw(TARGET);
     await settled(() =>

@@ -1447,8 +1447,9 @@ two-step for that.
 
 On a zoomed node, **References** lists the other nodes with a
 `:node/mentions` edge to it. Each referrer has a clickable ancestor path
-above it. Its chevron reveals the children visible in the current outline
-as ordinary rows without moving or opening the referrer itself.
+above it. Its chevron reveals the shown node’s children visible in the current
+outline as ordinary rows. For a contextual reference, those are its target’s
+children. The referrer stays in place.
 
 **Unlinked mentions** follows References. It finds a case-insensitive
 whole-word or phrase match for the displayed title in plain-text segments.

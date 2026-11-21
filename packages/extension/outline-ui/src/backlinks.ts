@@ -5,6 +5,7 @@ import {
   queryBacklinks,
   rowTitle,
   type SchemaIndex,
+  shownNode,
   type TagBadge,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
@@ -39,7 +40,7 @@ type ReferenceReader = Pick<NodeIndex, "getNode" | "referenceFields">;
 
 /**
  * Other nodes that reference `nodeId`, excluding self-references.
- * Shared so every backlink reader uses the exact same query and self-filter.
+ * Shared by References and Unlinked mentions.
  */
 export function otherBacklinks(
   run: EdnRunner,
@@ -85,7 +86,7 @@ export function backlinkRows(
     return {
       id: b.id,
       text: node ? rowTitle(node, schema) : b.text,
-      tags: node?.tags ?? [],
+      tags: node === undefined ? [] : shownNode(node, schema).tags,
       relations:
         referrer === undefined || references === null
           ? []

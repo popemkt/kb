@@ -5,6 +5,7 @@ import {
   NodeLinkRow,
   projectedRowKey,
   schemaOf,
+  shownNode,
   useAnswered,
   useGraphRead,
   usePageGraph,
@@ -45,9 +46,13 @@ export function ReferencesSection({ nodeId }: { nodeId: string }) {
 }
 
 function ReferenceItem({ row, parentKey }: { row: BacklinkRow; parentKey: string }) {
-  const { outline } = useGraphRead();
+  const { outline, schema } = useGraphRead();
   const [expanded, setExpanded] = useState(false);
-  const children = outline.get(row.id)?.children.filter((id) => outline.has(id)) ?? [];
+  const referrer = outline.get(row.id) ?? schema.get(row.id);
+  const children =
+    referrer === undefined
+      ? []
+      : shownNode(referrer, schema).children.filter((id) => outline.has(id));
   const canExpand = children.length > 0;
   const Caret = expanded ? CaretDownIcon : CaretRightIcon;
   const instanceKey = childInstanceKey(parentKey, row.id);
