@@ -213,12 +213,12 @@ const SELECTION_STEPS: SelectionSteps = {
   zoomOut: ({ instanceKey }) => zoomOut(outlineHostOfInstance(instanceKey)),
   expandSubtree: ({ instanceKey }) => {
     for (const key of eachInstance(instanceKey)) {
-      useOutlineStore.getState().expandSubtree(key, outlineHostOfInstance(key));
+      void useOutlineStore.getState().expandSubtree(key, outlineHostOfInstance(key));
     }
   },
   collapseSubtree: ({ instanceKey }) => {
     for (const key of eachInstance(instanceKey)) {
-      useOutlineStore.getState().collapseSubtree(key, outlineHostOfInstance(key));
+      void useOutlineStore.getState().collapseSubtree(key, outlineHostOfInstance(key));
     }
   },
   createAfter,
