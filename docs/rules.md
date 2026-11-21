@@ -305,14 +305,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Cell claims in the kernel: step 5 declared point slots plus step 7 replaceable cells, with the overlap relation stated in the point spec, read by contributeErased.
 - **node** — `01M6Y9H5FD9GVMK9N9QBT5DNTN`
 
-### GAP: a layout's panes are not mentions of the nodes they show
-
-- **expected** — the nodes a layout's panes show are derived as mentions at load, so they backlink to the layout
-- **current** — panes sit inside the sys.f.layout JSON, and the loader derives no mention from them
-- **impact** — a node shown in a saved workspace or dashboard does not list it in its backlinks
-- **closes** — derive mentions from layout panes at load, as decision 6 does for canvas layout entries
-- **node** — `01M411FNY9J46BD71N2C5641NB`
-
 ### GAP: a light page fades a GPU backdrop into the paper in linear light, so its deepest ink is a mid-tone
 
 - **expected** — A backdrop drawn as ink on a light page can reach the page's own ink: the dark end of the fade into the paper is even in display space, so a shadow or a line reads as ink.
@@ -2519,6 +2511,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a hosted kb ui behind a socket, the CLI and kb mcp cannot drive the person's tabs (ui.screen and its commands) or find the running server; the browser, through the proxy, is unaffected
 - **closes** — A presence record that is a loopback origin or a socket path (validated as the origin is), with servingUi and the screen relay fetching over the socket
 - **node** — `01M5CMVS78WRBD760MNSS3BMJJ`
+
+### GAP: a layout's panes are not mentions of the nodes they show
+
+- **expected** — the nodes a layout's panes show are derived as mentions at load, so they backlink to the layout
+- **current** — panes sit inside the sys.f.layout JSON, and the loader derives no mention from them
+- **impact** — a node shown in a saved workspace or dashboard does not list it in its backlinks
+- **closes** — derive mentions from layout panes at load, as decision 6 does for canvas layout entries
+- **node** — `01M411FNY9J46BD71N2C5641NB`
 
 ### GAP: a live preview stands in the one preview height every family starts from (180px), which an event card outgrows
 

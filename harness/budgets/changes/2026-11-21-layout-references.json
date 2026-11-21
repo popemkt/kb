@@ -1,0 +1,11 @@
+{
+  "reason": "Core declares the layout field a carrier of the reference relation (layoutReferences, @kb/views), so a node lists the dashboards and saved workspaces that show it among its References. The CLI's eager bundle grows to 2893523 bytes, 1654 over its limit. The views barrel exports layoutReferences.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 1654
+    },
+    "surface": {
+      "@kb/views": 1
+    }
+  }
+}

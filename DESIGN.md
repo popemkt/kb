@@ -1818,8 +1818,11 @@ children: [≥2 layouts], sizes?}`). A split inside a row is a column and
   outline is saved as the node it is zoomed to. The node is filed in the
   Views list and can be pinned. An agent builds a dashboard the same way,
   from the catalog entry: it can name a host, whose default view it then
-  is. The nodes that a layout's panes open live inside that JSON, so the
-  loader derives no mention of them (GAP [[01M411FNY9J46BD71N2C5641NB]]).
+  is. The nodes its panes show are references of it: core declares the
+  layout field a carrier of the reference relation (`layoutReferences`),
+  as the canvas declares its document, so a node's References list every
+  dashboard and saved workspace that shows it — each pane's node and the
+  view it opens through, an outline pane's zoom and scope.
 - **A layout that contains itself stops at the first repeat.** Each pane
   of a dashboard draws its page through a slot shown for its location, and
   the node route draws through a slot shown for the view node, so opening

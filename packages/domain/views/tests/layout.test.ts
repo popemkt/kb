@@ -18,6 +18,7 @@ import {
   freshPaneId,
   issueText,
   layoutPanes,
+  layoutReferences,
   neighbourOf,
   normalizeLayout,
   openBeside,
@@ -563,5 +564,48 @@ describe("what /node/<id> opens", () => {
     expect(openOff(nodes, "n.frame", "v.snippet")).toEqual(
       Result.fail("v.snippet is no view node"),
     );
+  });
+});
+
+describe("a layout's references", () => {
+  test("core's layout field carries the nodes its panes show, in reading order", () => {
+    const core = present(
+      BUNDLED_DECLARATIONS.find((declaration) => declaration.name === "core"),
+      "core's declaration",
+    );
+    expect(core.refCarriers?.map((carrier) => carrier.field)).toEqual([SYSTEM_IDS.layoutField]);
+    const root = {
+      split: "row",
+      children: [
+        {
+          tabs: [
+            { id: "a", path: "/node/n.a" },
+            { id: "b", path: "/node/n.b/v.board" },
+          ],
+        },
+        {
+          tabs: [
+            { id: "c", path: "/o/n.scope/outline/n.zoom" },
+            { id: "d", path: "/outline/n.a" },
+            { id: "e", path: "/" },
+            { id: "f", path: "/settings" },
+          ],
+        },
+      ],
+    };
+    expect(layoutReferences({ t: "str", v: JSON.stringify(root) })).toEqual([
+      "n.a",
+      "n.b",
+      "v.board",
+      "n.scope",
+      "n.zoom",
+      "n.a",
+    ]);
+  });
+
+  test("a value that is no layout carries nothing", () => {
+    expect(layoutReferences({ t: "str", v: "not json" })).toEqual([]);
+    expect(layoutReferences({ t: "str", v: JSON.stringify({ tabs: [] }) })).toEqual([]);
+    expect(layoutReferences({ t: "ref", v: "n.a" })).toEqual([]);
   });
 });

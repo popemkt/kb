@@ -115,6 +115,7 @@ export {
   findPane,
   freshPaneId,
   layoutPanes,
+  layoutReferences,
   neighbourOf,
   normalizeLayout,
   openBeside,

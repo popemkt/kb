@@ -29,6 +29,7 @@ import {
   DocsMarkdownView,
   HomeView,
   LayoutView,
+  layoutReferences,
   NodeReadView,
   NodeView,
   OntologyListView,
@@ -66,6 +67,8 @@ export const coreExtension = defineExtension({
     viewDef(NodeReadView),
   ],
   declaredOptions: [{ kind: DESIGN_SYSTEM_OPTIONS, options: [KB_DESIGN_SYSTEM] }],
+  // A layout's panes are references of the nodes they show (`layoutReferences`).
+  refCarriers: [{ field: SYSTEM_IDS.layoutField, refsOf: layoutReferences }],
   // Its own lists it files under its node: the families' migration records.
   files: {
     [extensionNodeId("core")]: [

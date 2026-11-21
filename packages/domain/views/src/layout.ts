@@ -6,7 +6,8 @@
  * views states the model; this module is its vocabulary and its pure edits.
  */
 import { Result, Schema } from "effect";
-import { SYSTEM_IDS, canonicalJson, firstStr } from "@kb/model";
+import { SYSTEM_IDS, canonicalJson, firstStr, type NodeId, type PropValue } from "@kb/model";
+import { nodeLocationOf, outlineLocationOf } from "./location.ts";
 import { subjectRootOf, subjectRootProps } from "./subject.ts";
 import { NoParams, issueText, paramsIssues, viewKey, type ConfigReport } from "./view-key.ts";
 
@@ -128,8 +129,7 @@ function readArrangement(raw: string | undefined, report: ConfigReport): unknown
  * A layout view: a view node naming `layout.grid`, whose arrangement is one
  * text prop (`sys.f.layout`) holding the tree as canonical JSON — the shape a
  * canvas keeps its layout in, so a drag writes one prop atomically. The nodes
- * its panes open live inside that JSON, so the loader derives no mention of
- * them and they have no backlink to the layout. GAP [[01M411FNY9J46BD71N2C5641NB]]
+ * its panes open are references of it (`layoutReferences`).
  */
 export const LayoutView = viewKey(`${LAYOUT_NAMESPACE}.grid`, "Layout", LayoutParams, {
   read: (props, _host, report) => readArrangement(firstStr(SYSTEM_IDS.layoutField)(props), report),
@@ -315,4 +315,34 @@ export function decodeLayout(input: unknown): Result.Result<LayoutTree, string> 
 /** Whether two layouts are the same arrangement. */
 export function sameLayout(a: LayoutTree, b: LayoutTree): boolean {
   return canonicalJson(a) === canonicalJson(b);
+}
+
+/** The nodes a pane at location `path` shows: its node and the view it opens through, or its outline's scope and zoom. */
+function locationReferences(path: string): NodeId[] {
+  const opened = nodeLocationOf(path);
+  if (opened !== null)
+    return opened.view === undefined ? [opened.node] : [opened.node, opened.view];
+  const zoomed = outlineLocationOf(path);
+  return [zoomed?.ontology ?? null, zoomed?.zoom ?? null].filter((id) => id !== null);
+}
+
+/**
+ * What a value of the layout field points at (DESIGN.md → Layout views): the
+ * nodes its panes show, in reading order, with repeats. Core declares the
+ * field a carrier of the reference relation with it, so a node lists every
+ * dashboard and saved workspace that shows it among its References, as a
+ * canvas that shows it is listed. None for a value that is no layout.
+ */
+export function layoutReferences(value: PropValue): NodeId[] {
+  if (value.t !== "str") return [];
+  let raw: unknown;
+  try {
+    raw = JSON.parse(value.v);
+  } catch {
+    return [];
+  }
+  const tree = decodeLayout(raw);
+  return Result.isFailure(tree)
+    ? []
+    : layoutPanes(tree.success).flatMap(({ path }) => locationReferences(path));
 }
