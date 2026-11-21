@@ -400,14 +400,23 @@ describe("a text value is node text", () => {
     container.remove();
   });
 
-  async function mountText(v: string) {
+  const linkable: NodeMap = new Map([
+    ["n.target", stubOutlineNode({ id: "n.target", text: "Target one" })],
+  ]);
+  const linkContext = fieldContextOf({
+    schema: schemaOfGraph(linkable),
+    nodes: linkable,
+    queries: null,
+  });
+
+  async function mountText(v: string, within = context) {
     await act(async () => {
       root.render(
         createElement(ValueSlot, {
           value: { t: "str", v },
           fieldType: "text",
           fieldId: "f.note",
-          context,
+          context: within,
           onCommit: (next: PropValue) => committed.push(next),
           onFollow: (target: FollowTarget) => followed.push(target),
         }),
@@ -439,6 +448,51 @@ describe("a text value is node text", () => {
       );
     });
   }
+
+  /** Type `text` at the end of the value, as the browser does: the DOM, the caret, then input. */
+  async function typeAtEnd(text: string) {
+    await act(async () => {
+      const el = editable();
+      const doc = dom.window.document;
+      el.append(doc.createTextNode(text) as unknown as Node);
+      const range = doc.createRange();
+      range.selectNodeContents(el as unknown as never);
+      range.collapse(false);
+      const selection = present(dom.window.getSelection(), "selection");
+      selection.removeAllRanges();
+      selection.addRange(range);
+      el.dispatchEvent(new dom.window.Event("input", { bubbles: true }) as unknown as Event);
+    });
+  }
+
+  const listbox = () => container.querySelector('[role="listbox"]');
+
+  it("[[ opens the node picker at the caret, and a pick lays a reference into the value", async () => {
+    const slot = await mountText("see ", linkContext);
+    await act(async () => {
+      slot.click();
+    });
+    await typeAtEnd("[[Targ");
+    expect(listbox()?.textContent).toContain("Target one");
+    // Enter is the picker's: it picks, and the value is still being edited.
+    await key("Enter");
+    expect(listbox()).toBeNull();
+    expect(slot.getAttribute("data-editing")).toBe("true");
+    await leave();
+    expect(committed).toEqual([{ t: "str", v: "see [[n.target|Target one]]" }]);
+  });
+
+  it("Escape closes the [[ picker and keeps the edit open", async () => {
+    const slot = await mountText("", linkContext);
+    await act(async () => {
+      slot.click();
+    });
+    await typeAtEnd("[[Targ");
+    expect(listbox()).not.toBeNull();
+    await key("Escape");
+    expect(listbox()).toBeNull();
+    expect(slot.getAttribute("data-editing")).toBe("true");
+  });
 
   it("renders its inline markdown at rest: formatting and ref pills", async () => {
     await mountText("**bold** and [[n.x|X]]");

@@ -1860,8 +1860,11 @@ the caret as they were.
   where it is drawn then (under its new parent, after Indent), the caret
   where `/` was.
 
-`[[` is every text host's. `@`, `#`, `>` and `/` are the outline's: its
-rows pass them to their text host beside `[[`. A trigger with nothing to
+`[[` is every text host's, and a text value's editor runs it too: a pick
+lays the reference into the value being edited, written when the edit is
+kept (`useTextTriggers`, the one hook both surfaces take). `@`, `#`, `>`
+and `/` are the outline's: its rows pass them to their text host beside
+`[[`. A trigger with nothing to
 offer is closed, so its keys stay the text's: `@` or `#` in prose and `> ` starting a
 quote are typed as text. Escape closes the picker and keeps the text, until
 the query changes. The table is the text host's own, not a plugin point;
@@ -1869,8 +1872,7 @@ when a second family needs a trigger of its own, it becomes one.
 
 **Named gaps.** A ref value's bullet follows on a plain click (a value's
 bullet has no children of its own to expand) rather than expanding the
-target's children inline under the field. `[[` completion is not offered while
-editing a text value (a typed token still mentions). The date editor's Enter
+target's children inline under the field. The date editor's Enter
 commits without opening a next value, and its Tab does not move on. Pasting
 several lines into a many-valued field is not split into values. The node
 palette has no "Add value to …" command. `sys.f.color` keeps its always-open
