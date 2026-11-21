@@ -1,5 +1,5 @@
 export { pinnedBackups } from "./backup-pins.ts";
-export { ACTORS, ActorSchema, actorKind } from "./actor.ts";
+export { ACTORS, AGENT_ACTOR, ActorSchema, actorKind } from "./actor.ts";
 export type { Actor, ActorKind } from "./actor.ts";
 
 export { byNodeId, canonicalJson, canonicalJsonl, canonicalJsonlOf } from "./canonical.ts";

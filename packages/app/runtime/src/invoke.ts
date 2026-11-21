@@ -17,7 +17,12 @@ import { invokeReceiptEffect, receiptFromError } from "./registry.ts";
  * process (an agent's, a script's) keeps who made it, since only code
  * already running here, with its whole reach, hands one over.
  */
-export const IN_PROCESS_WIRE: SurfaceWire = { carriesApproval: true, actor: "cli", relays: true };
+export const IN_PROCESS_WIRE: SurfaceWire = {
+  carriesApproval: true,
+  actor: "cli",
+  caller: "program",
+  relays: true,
+};
 
 /**
  * Invoke an action in this process: a call made on another wire as that

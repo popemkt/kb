@@ -3,10 +3,9 @@
  * conversation at a time, drawn from the transcript `@kb/agent` reduces, and
  * the person's answer to an approval-required call.
  *
- * Approving or declining is a call the tab makes itself, through the
- * browser's one invoke path, with `approved` set to the person's answer;
- * the invoke core decides it, and its receipt is what the agent is told.
- * There is no second way for the sidebar to approve anything.
+ * The tab invokes an accepted request as the person, through the browser's
+ * invoke path. A decline stays on the agent invocation. The invoke core
+ * decides the call, and the sidebar returns its receipt to the agent.
  *
  * Like the UI's other stores it is one per page. It reaches the channel and
  * the invoke path only through the ports its plugin attaches it to, which
@@ -25,7 +24,13 @@ import {
   type ToolEntry,
   type Transcript,
 } from "@kb/agent";
-import { failed, onWire, type ActionInvocation, type ActionReceipt } from "@kb/contracts";
+import {
+  PAGE_WIRE,
+  failed,
+  onWire,
+  type ActionInvocation,
+  type ActionReceipt,
+} from "@kb/contracts";
 
 /** Where the chat reaches the agent and the graph. */
 /**
@@ -108,7 +113,10 @@ export function decideCall(call: string, approved: boolean): void {
     .transcript.entries.find((held): held is ToolEntry => held.kind === "tool" && held.id === call);
   if (bound === null || entry?.state !== "awaiting") return;
   update((transcript) => withDecision(transcript, call, approved ? "approved" : "declined"));
-  const invocation = onWire(AGENT_WIRE, { id: entry.action, input: entry.input, approved });
+  const request = { id: entry.action, input: entry.input };
+  const invocation = approved
+    ? onWire(PAGE_WIRE, request)
+    : onWire(AGENT_WIRE, { ...request, approved: false });
   const at = conversation();
   void bound
     .invoke(invocation)

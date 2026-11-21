@@ -4,12 +4,11 @@ import type { FileSystem } from "effect/FileSystem";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import {
   ActionReceiptSchema,
-  CAPTURE_PAIR,
-  CAPTURE_SUBMIT,
   CaptureDeviceDigest,
-  CaptureVersion,
+  admitsCaptureCaller,
+  callerRefusal,
   failed,
-  succeeded,
+  isCaptureCaller,
   listingOf,
   onWire,
   requestOf,
@@ -23,7 +22,13 @@ import {
   type SurfaceWire,
 } from "@kb/contracts";
 import { captureCredential, captureDeviceDigest, reloadEffect } from "@kb/operations";
-import { bunFileSystemLayer, writeErr, servedPage, type ActionHandlerEnv } from "@kb/runtime";
+import {
+  actionDefinitionEffect,
+  bunFileSystemLayer,
+  writeErr,
+  servedPage,
+  type ActionHandlerEnv,
+} from "@kb/runtime";
 import { SANDBOX_FRAME_HEADERS, SANDBOX_FRAME_PATH, sandboxFrameDocument } from "@kb/sandbox";
 import { canonicalRoot } from "@kb/workspace-fs";
 import * as assets from "./assets.ts";
@@ -39,8 +44,8 @@ const JSON_CONTENT_TYPE = "application/json;charset=utf-8";
 
 export interface UiHttpDeps {
   root: string;
-  /** Capture admission stamped by the HTTP request guard. */
-  capture?: Caller["capture"];
+  /** Caller stamped by the HTTP request guard; defaults from `wire` in direct unit calls. */
+  caller?: Caller;
   /** Where its page is (`uiAddressOf` its listener), as `/api/identity` says it. */
   page: string;
   ctx: KbContext;
@@ -238,51 +243,56 @@ function actionResponse(ctx: KbContext, receipt: ActionReceipt, headers?: Record
   return jsonResponse(response, { headers });
 }
 
-/** Only actions the capture client needs, on a wire that conveys no approval. */
+function defaultCaller(wire: SurfaceWire): Caller {
+  return { kind: wire.actor === "human" ? "person" : "program", wire, person: null };
+}
+
+/** Only actions whose declaration admits this capture caller, on a wire that conveys no approval. */
 const captureResponse = Effect.fn("kb.ui.capture")(function* (
   ctx: KbContext,
   { id, input }: ActionRequest,
-  token: string | undefined,
+  caller: Caller,
 ) {
   const refuse = (message: string) =>
     jsonResponse(failed(id, "forbidden", message), { status: 403 });
-  const discovery = id === "kb.manifest";
-  if (!discovery && id !== CAPTURE_SUBMIT && id !== CAPTURE_PAIR) {
-    return refuse("this listener or credential only admits capture actions");
-  }
-  if (id === CAPTURE_SUBMIT && token === undefined) {
-    return refuse("pair a device before submitting a capture");
-  }
-  if (id === CAPTURE_PAIR && token !== undefined) {
-    return refuse("exchange a pairing code without a device credential");
-  }
+  yield* reloadEffect(ctx);
+  const def = yield* actionDefinitionEffect(ctx, id);
+  const invocation = onWire(caller.wire, { id, input });
+  const denied = callerRefusal(def, invocation);
+  if (denied !== null) return refuse(denied);
+  const token = caller.capture?.token;
   const digest = token === undefined ? undefined : yield* captureDeviceDigest(ctx.root, token);
-  if (digest !== undefined) {
-    yield* reloadEffect(ctx);
-    if (captureCredential(ctx.nodes, digest) === undefined) {
-      return refuse("capture device credential is invalid or revoked");
-    }
+  if (digest !== undefined && captureCredential(ctx.nodes, digest) === undefined) {
+    return refuse("capture device credential is invalid or revoked");
   }
-  const receipt = yield* serverInvoke(ctx, onWire(HTTP_WIRE, { id, input })).pipe(
+  const receipt = yield* serverInvoke(ctx, invocation).pipe(
     Effect.provideService(CaptureDeviceDigest, digest),
   );
-  const output =
-    discovery && receipt.status === "succeeded"
-      ? succeeded(id, CaptureVersion.parse(receipt.output))
-      : receipt;
-  return actionResponse(ctx, output, { "cache-control": "no-store" });
+  return actionResponse(ctx, receipt, { "cache-control": "no-store" });
 });
 
-const invokeActionResponse = Effect.fn("ui.actionResponse")(function* (
-  deps: UiHttpDeps,
+const postActionResponse = Effect.fn("kb.ui.postAction")(function* (
+  req: Request,
   wire: SurfaceWire,
-  request: ActionRequest,
+  deps: UiHttpDeps,
 ) {
-  const { ctx, capture } = deps;
-  if (capture !== undefined) return yield* captureResponse(ctx, request, capture.token);
-  if (request.id === CAPTURE_PAIR) return yield* captureResponse(ctx, request, undefined);
-  const receipt = yield* serverInvoke(ctx, onWire(wire, request));
-  return actionResponse(ctx, receipt);
+  const body = yield* Effect.tryPromise(() => req.json()).pipe(Effect.option);
+  if (Option.isNone(body)) {
+    return invalidInput("request body must be JSON");
+  }
+
+  const made = requestOf(body.value);
+  if ("invalid" in made) return invalidInput(made.invalid);
+
+  const caller = deps.caller ?? defaultCaller(wire);
+  if (isCaptureCaller(caller.kind)) {
+    return yield* captureResponse(deps.ctx, made.request, caller);
+  }
+  const def = yield* actionDefinitionEffect(deps.ctx, made.request.id);
+  const receipt = yield* serverInvoke(deps.ctx, onWire(caller.wire, made.request));
+  const headers =
+    def !== undefined && admitsCaptureCaller(def) ? { "cache-control": "no-store" } : undefined;
+  return actionResponse(deps.ctx, receipt, headers);
 });
 
 const handleHttpRequestEffect = Effect.fn("kb.ui.request")(
@@ -302,15 +312,7 @@ const handleHttpRequestEffect = Effect.fn("kb.ui.request")(
     }
 
     if (url.pathname === "/api/action" && req.method === "POST") {
-      const body = yield* Effect.tryPromise(() => req.json()).pipe(Effect.option);
-      if (Option.isNone(body)) {
-        return invalidInput("request body must be JSON");
-      }
-
-      const made = requestOf(body.value);
-      if ("invalid" in made) return invalidInput(made.invalid);
-
-      return yield* provideActions(deps, invokeActionResponse(deps, wire, made.request));
+      return yield* provideActions(deps, postActionResponse(req, wire, deps));
     }
 
     const file =

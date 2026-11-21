@@ -20,7 +20,11 @@ export const AGENT_CHANNEL = `${agentExtension.name}.${AGENT_CHANNEL_ID}`;
  * action that is not denied to it (`listedOn`). Every call on it is the
  * agent's, the one the person approves included.
  */
-export const AGENT_WIRE: SurfaceWire = { carriesApproval: true, actor: "agent" };
+export const AGENT_WIRE: SurfaceWire = {
+  carriesApproval: true,
+  actor: "agent",
+  caller: "program",
+};
 
 const conversation = z.string().min(1);
 

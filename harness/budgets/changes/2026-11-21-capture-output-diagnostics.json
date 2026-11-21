@@ -1,0 +1,8 @@
+{
+  "reason": "The invoke core logs capture output schema diagnostics on the host and returns a generic failure to capture callers.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 579
+    }
+  }
+}

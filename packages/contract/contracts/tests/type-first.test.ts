@@ -7,7 +7,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import type { z } from "zod";
-import type { ActionMode, ActionModeSchema } from "../src/actions.ts";
+import type { ActionMode, ActionModeSchema, CallerKind, CallerKindSchema } from "../src/actions.ts";
 import type { TxMatch, TxMatchSchema } from "../src/tx-match.ts";
 
 /** Each is assignable to the other. */
@@ -27,6 +27,11 @@ type SameUnion<A extends { kind: string }, B extends { kind: string }> =
 describe("type-first schemas", () => {
   test("an action mode's schema reads exactly the written type", () => {
     const exact: SameUnion<z.output<typeof ActionModeSchema>, ActionMode> = true;
+    expect(exact).toBe(true);
+  });
+
+  test("a caller kind's schema reads exactly the written type", () => {
+    const exact: Mutual<z.output<typeof CallerKindSchema>, CallerKind> = true;
     expect(exact).toBe(true);
   });
 

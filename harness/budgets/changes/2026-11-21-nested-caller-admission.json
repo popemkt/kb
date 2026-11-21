@@ -1,0 +1,8 @@
+{
+  "reason": "The invoke core checks caller admission before applying a nested call's scope.",
+  "raise": {
+    "page-eager": {
+      "bytes": 105
+    }
+  }
+}

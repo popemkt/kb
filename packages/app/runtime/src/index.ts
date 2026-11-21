@@ -18,6 +18,7 @@ export { sessionOver } from "./own-write.ts";
 export { writeErr, writeOut } from "./output.ts";
 export { bunFileSystemLayer } from "./platform.ts";
 export {
+  actionDefinitionEffect,
   admitExtensions,
   invokeReceiptEffect,
   manifest,

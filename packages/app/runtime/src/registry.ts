@@ -26,8 +26,10 @@ import {
   NO_SWITCHES,
   type NodeLookup,
   type ActionContribution,
+  type ActionDefinition,
   type ActionHandlerEnv,
   type ActionInvocation,
+  type ActionMode,
   type ActionReceipt,
   type ContextReferences,
   type ExtensionFailure,
@@ -208,6 +210,9 @@ function registeredAction(contribution: Contribution<ActionContribution>): Regis
       title: value.title,
       description: value.description,
       mode: value.mode,
+      ...(value.callers === undefined ? {} : { callers: value.callers }),
+      ...(value.callerOutput === undefined ? {} : { callerOutput: value.callerOutput }),
+      ...(value.requestEnvelope === undefined ? {} : { requestEnvelope: value.requestEnvelope }),
       ...(value.batchOf === undefined ? {} : { batchOf: value.batchOf }),
       ...(value.targets === undefined ? {} : { targets: value.targets }),
       ...(value.context === undefined ? {} : { context: value.context }),
@@ -780,12 +785,23 @@ export const invokeEffect = Effect.fn("kb.invoke")(function* (
   );
 });
 
+/** Look up a reachable action's definition by id (core, bundled, repo, or hosted), without building JSON Schemas. */
+export const actionDefinitionEffect = Effect.fn("kb.actionDefinition")(function* (
+  ctx: KbContext,
+  id: string,
+): Effect.fn.Return<ActionDefinition | undefined, never, FileSystem | FamilyKernels> {
+  return yield* withSessionRegistry(invocationRegistry(ctx), (registry) =>
+    Effect.map(reachedBy(registry), (byId) => byId.get(id)?.def),
+  );
+});
+
 export const invokeReceiptEffect = Effect.fn("kb.invokeReceipt")(function* (
   ctx: KbContext,
   invocation: ActionInvocation,
+  scope?: ActionMode["kind"],
 ): Effect.fn.Return<ActionReceipt, never, ActionHandlerEnv> {
   return yield* withSessionRegistry(invocationRegistry(ctx), (registry) =>
-    Effect.flatMap(reachedBy(registry), (byId) => invokeReceiptWith(byId, ctx, invocation)),
+    Effect.flatMap(reachedBy(registry), (byId) => invokeReceiptWith(byId, ctx, invocation, scope)),
   );
 });
 

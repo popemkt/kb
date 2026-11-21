@@ -2,8 +2,9 @@ import { expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import {
+  ActionPoint,
   ActionReceiptSchema,
   CAPTURE_CONTRACT,
   CAPTURE_PAIR,
@@ -12,8 +13,16 @@ import {
   CAPTURE_SUBMIT,
   CapturePairReceiptSchema,
   CaptureReceiptSchema,
+  CoreInvoke,
+  CurrentCall,
+  defineExtension,
+  extensionNamespace,
+  provideAction,
+  type ExtensionEntry,
 } from "@kb/contracts";
+import { definePlugin } from "@kb/plugin";
 import { STORE_BACKENDS, bunFileSystemLayer, createStore, invoke, openKb } from "@kb/runtime";
+import { FakeTab } from "@kb/test-kit";
 import { startUi } from "../src/server.ts";
 
 async function read(response: Response) {
@@ -96,3 +105,261 @@ for (const backend of STORE_BACKENDS) {
     }
   });
 }
+
+const deviceEchoDecl = defineExtension({ name: "device-echo", label: "Device Echo" });
+const DEVICE_ECHO: ExtensionEntry = {
+  declaration: deviceEchoDecl,
+  entry: definePlugin({
+    name: deviceEchoDecl.name,
+    namespace: extensionNamespace(deviceEchoDecl.name),
+    apply: (ctx) =>
+      Effect.all(
+        [
+          ctx.contribute(
+            ActionPoint,
+            provideAction({
+              id: "ping",
+              title: "Device ping",
+              description: "Admits paired capture devices via declaration, with no server edit.",
+              mode: { kind: "read" },
+              callers: ["person", "program", "capture-device"],
+              context: { note: "subject" },
+              inputSchema: Schema.toStandardSchemaV1(
+                Schema.toStandardJSONSchemaV1(Schema.Struct({ note: Schema.String })),
+              ),
+              outputSchema: {
+                parse: Schema.decodeUnknownSync(
+                  Schema.Struct({ pong: Schema.String, via: Schema.optional(Schema.String) }),
+                ),
+              },
+              effect: (input: { note: string }) =>
+                Effect.gen(function* () {
+                  const call = yield* CurrentCall;
+                  return { pong: input.note, via: call?.invocation.via };
+                }),
+            }),
+          ),
+          ctx.contribute(
+            ActionPoint,
+            provideAction({
+              id: "private",
+              title: "Private action",
+              description: "Omits callers, so defaults to person and program only.",
+              mode: { kind: "read" },
+              inputSchema: { parse: (v: unknown) => v },
+              outputSchema: {
+                parse: Schema.decodeUnknownSync(Schema.Struct({ secret: Schema.Boolean })),
+              },
+              effect: () => Effect.succeed({ secret: true }),
+            }),
+          ),
+          ctx.contribute(
+            ActionPoint,
+            provideAction({
+              id: "nested",
+              title: "Nested CoreInvoke probe",
+              description:
+                "Invokes another action via CoreInvoke while running under a device caller.",
+              mode: { kind: "read" },
+              callers: ["person", "program", "capture-device"],
+              inputSchema: {
+                parse: Schema.decodeUnknownSync(Schema.Struct({ target: Schema.String })),
+              },
+              outputSchema: { parse: (v: unknown) => v },
+              effect: (input: { target: string }) =>
+                Effect.gen(function* () {
+                  const coreInvoke = yield* CoreInvoke;
+                  if (coreInvoke === null) return { status: "no-core" };
+                  return yield* coreInvoke({ id: input.target, input: {} }, "read");
+                }),
+            }),
+          ),
+        ],
+        { discard: true },
+      ),
+  }),
+};
+
+function postAction(base: string, id: string, input: unknown = {}, token?: string) {
+  return fetch(`${base}/api/action`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(token === undefined ? {} : { Authorization: `Bearer ${token}` }),
+    },
+    body: JSON.stringify({ id, input }),
+  });
+}
+
+test("a new action declaring device access is admitted with no server edit, and undeclared actions are refused", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kb-capture-declared-"));
+  const ctx = await openKb(root);
+  const captureOnly = await Effect.runPromise(
+    startUi({ root, port: 0, captureOnly: true, extensions: [DEVICE_ECHO] }),
+  );
+  const mainUi = await Effect.runPromise(
+    startUi({ root, port: 0, openBrowser: false, extensions: [DEVICE_ECHO] }),
+  );
+  const tab = await Effect.runPromise(FakeTab.open(mainUi.at, "tab.capture-test"));
+  try {
+    // Pair against the main kb ui listener (one store URL serves both UI and capture).
+    const issued = await invoke(ctx, { id: CAPTURE_PAIR_CODE, input: {} });
+    if (issued.status !== "succeeded") throw new Error(JSON.stringify(issued));
+    const { code } = issued.output as { code: string };
+    const pairRes = await postAction(mainUi.url, CAPTURE_PAIR, { code, deviceName: "Android" });
+    expect(pairRes.status).toBe(200);
+    expect(pairRes.headers.get("cache-control")).toBe("no-store");
+    const paired = await read(pairRes);
+    if (paired.status !== "succeeded") throw new Error(JSON.stringify(paired));
+    const { token, store } = CapturePairReceiptSchema.parse(paired.output);
+
+    const ping = (input: unknown, fromPage: boolean) =>
+      fetch(`${mainUi.url}/api/action`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(fromPage ? { origin: mainUi.url } : { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          id: "ext.device-echo.ping",
+          input,
+          session: tab.id,
+          via: "capture-test",
+        }),
+      });
+    const pageReceipt = await ping({}, true);
+    expect(await pageReceipt.json()).toMatchObject({
+      status: "succeeded",
+      output: { pong: "n.fake-tab-root", via: "capture-test" },
+      context: { note: { from: "subject", value: "n.fake-tab-root" } },
+    });
+    const baseline = await postAction(mainUi.url, "ext.device-echo.ping", {}, token);
+    const baselineBody: unknown = await baseline.json();
+    expect(baselineBody).toMatchObject({ status: "failed", code: "invalid_input" });
+    expect(await (await ping({}, false)).json()).toEqual(baselineBody);
+    const plainPing = await postAction(
+      mainUi.url,
+      "ext.device-echo.ping",
+      { note: "public" },
+      token,
+    );
+    const plainBody: unknown = await plainPing.json();
+    expect(plainBody).toEqual({
+      status: "succeeded",
+      id: "ext.device-echo.ping",
+      output: { pong: "public" },
+      rev: expect.any(Number),
+    });
+    expect(await (await ping({ note: "public" }, false)).json()).toEqual(plainBody);
+
+    // Main kb ui listener accepts a paired device credential for discovery and capture.
+    const mainManifest = await read(await postAction(mainUi.url, "kb.manifest", {}, token));
+    expect(mainManifest).toMatchObject({
+      status: "succeeded",
+      output: { captureContract: CAPTURE_CONTRACT },
+    });
+    if (mainManifest.status === "succeeded") {
+      expect(mainManifest.output).toEqual({ captureContract: CAPTURE_CONTRACT });
+    }
+    const share = {
+      captureId: crypto.randomUUID(),
+      capturedAt: "2026-11-20T12:00:00Z",
+      text: "Captured on the main UI URL",
+      target: { store: store.key },
+    };
+    const submitted = await read(await postAction(mainUi.url, CAPTURE_SUBMIT, share, token));
+    expect(submitted).toMatchObject({ status: "succeeded" });
+
+    // Main kb ui listener still serves regular UI/program callers normally.
+    expect((await fetch(`${mainUi.url}/api/graph`)).status).toBe(200);
+    expect((await fetch(`${mainUi.url}/api/manifest`)).status).toBe(200);
+    expect((await fetch(`${captureOnly.url}/api/manifest`)).status).toBe(403);
+    expect((await fetch(captureOnly.url)).status).toBe(403);
+    const captureFromPage = await fetch(`${captureOnly.url}/api/action`, {
+      method: "POST",
+      headers: { origin: captureOnly.url, "content-type": "application/json" },
+      body: JSON.stringify({ id: "kb.manifest", input: {} }),
+    });
+    expect(captureFromPage.status).toBe(403);
+    expect(
+      (await fetch(`${mainUi.url}/api/graph`, { headers: { Authorization: `Bearer ${token}` } }))
+        .status,
+    ).toBe(403);
+
+    // The newly declared device action works on both --capture-only and main kb ui with no server edit.
+    for (const base of [captureOnly.url, mainUi.url]) {
+      const manifestRoute = await fetch(`${base}/api/manifest`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(manifestRoute.status).toBe(403);
+      const ok = await postAction(base, "ext.device-echo.ping", { note: "hello" }, token);
+      expect(ok.status).toBe(200);
+      expect(await read(ok)).toMatchObject({ status: "succeeded", output: { pong: "hello" } });
+
+      // Undeclared action is refused with the same 403 text.
+      const denied = await postAction(base, "ext.device-echo.private", {}, token);
+      expect(denied.status).toBe(403);
+      expect(await read(denied)).toMatchObject({
+        status: "failed",
+        code: "forbidden",
+        message: "this listener or credential only admits capture actions",
+      });
+
+      // Nested CoreInvoke from a device action cannot reach an undeclared action,
+      // and still projects kb.manifest for capture-device.
+      const nestedDenied = await read(
+        await postAction(
+          base,
+          "ext.device-echo.nested",
+          { target: "ext.device-echo.private" },
+          token,
+        ),
+      );
+      expect(nestedDenied).toMatchObject({
+        status: "succeeded",
+        output: { status: "failed", code: "forbidden" },
+      });
+      for (const target of ["node.add", "ext.device-echo.unknown"]) {
+        const nested = await read(
+          await postAction(base, "ext.device-echo.nested", { target }, token),
+        );
+        expect(nested).toEqual({
+          status: "succeeded",
+          id: "ext.device-echo.nested",
+          output: {
+            status: "failed",
+            id: target,
+            code: "forbidden",
+            message: "this listener or credential only admits capture actions",
+          },
+        });
+      }
+      const nestedManifest = await read(
+        await postAction(base, "ext.device-echo.nested", { target: "kb.manifest" }, token),
+      );
+      expect(nestedManifest).toMatchObject({
+        status: "succeeded",
+        output: { status: "succeeded", output: { captureContract: CAPTURE_CONTRACT } },
+      });
+      if (nestedManifest.status === "succeeded") {
+        expect((nestedManifest.output as { output: unknown }).output).toEqual({
+          captureContract: CAPTURE_CONTRACT,
+        });
+      }
+    }
+
+    // Without a device credential on --capture-only, device-only action is refused.
+    expect(
+      (await postAction(captureOnly.url, "ext.device-echo.ping", { note: "anon" })).status,
+    ).toBe(403);
+    // With a device credential, capture.pair is refused (pairing-only on capture wire).
+    expect(
+      (await postAction(captureOnly.url, CAPTURE_PAIR, { code, deviceName: "Dup" }, token)).status,
+    ).toBe(403);
+  } finally {
+    await Effect.runPromise(tab.close);
+    await Effect.runPromise(captureOnly.stop);
+    await Effect.runPromise(mainUi.stop);
+    await rm(root, { recursive: true, force: true });
+  }
+});

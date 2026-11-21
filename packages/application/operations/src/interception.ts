@@ -204,8 +204,11 @@ const verdictOf = Effect.fnUntraced(function* (
  */
 const askGuards = Effect.fn("kb.guards")(function* (
   interception: Interception,
-  action: Action,
-  question: (guard: ActionGuard) => ((signal: AbortSignal) => Effect.Effect<GuardVerdict>) | null,
+  call: Pick<GuardCall, "action" | "invocation">,
+  question: (
+    guard: ActionGuard,
+    invocation: ActionInvocation,
+  ) => ((signal: AbortSignal) => Effect.Effect<GuardVerdict>) | null,
 ) {
   const missing = interception.missing();
   if (missing.length > 0) {
@@ -216,15 +219,23 @@ const askGuards = Effect.fn("kb.guards")(function* (
       message: `the deployment requires the guards of ${missing.join(", ")}, which are not loaded right now, so no call runs`,
     } satisfies GuardOutcome;
   }
+  const { invocation, action } = call;
+  const { callerCeiling } = invocation;
+  const subjects =
+    callerCeiling === undefined
+      ? [invocation]
+      : [{ ...invocation, ...callerCeiling, approved: false }, invocation];
   let asked: GuardOutcome | null = null;
   for (const guard of interception.guards(action)) {
-    const ask = question(guard.value);
-    if (ask === null) continue;
-    const verdict = yield* askOne(guard, interception.budgetMs.guard, ask);
-    if (verdict.decision === "allow") continue;
-    const outcome: GuardOutcome = { ...verdict, plugin: guard.owner };
-    if (verdict.decision === "deny") return outcome;
-    asked ??= outcome;
+    for (const subject of subjects) {
+      const ask = question(guard.value, subject);
+      if (ask === null) break;
+      const verdict = yield* askOne(guard, interception.budgetMs.guard, ask);
+      if (verdict.decision === "allow") continue;
+      const outcome: GuardOutcome = { ...verdict, plugin: guard.owner };
+      if (verdict.decision === "deny") return outcome;
+      asked ??= outcome;
+    }
   }
   return asked ?? ({ decision: "allow" } satisfies GuardOutcome);
 });
@@ -299,8 +310,8 @@ export function guardBefore(
   interception: Interception,
   call: Omit<GuardCall, "signal">,
 ): Effect.Effect<GuardOutcome> {
-  return askGuards(interception, call.action, ({ before }) =>
-    before === undefined ? null : (signal) => before(frozen({ ...call, signal })),
+  return askGuards(interception, call, ({ before }, invocation) =>
+    before === undefined ? null : (signal) => before(frozen({ ...call, invocation, signal })),
   ).pipe(
     Effect.map((outcome): GuardOutcome => {
       if (outcome.decision !== "allow") return outcome;
@@ -332,12 +343,12 @@ export function guardCommit(
     const node = call.nodeOf(id);
     return node === undefined ? undefined : sealed(node);
   };
-  return askGuards(interception, call.action, ({ commit }) =>
+  return askGuards(interception, call, ({ commit }, invocation) =>
     commit === undefined
       ? null
       : (signal) => {
           writes ??= sealed(call.writes);
-          return commit(frozen({ ...call, writes, nodeOf, signal }));
+          return commit(frozen({ ...call, invocation, writes, nodeOf, signal }));
         },
   );
 }

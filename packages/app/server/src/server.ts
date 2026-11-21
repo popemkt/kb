@@ -356,7 +356,7 @@ function serveUi(deps: {
           req,
           caller.wire,
           {
-            capture: caller.capture,
+            caller,
             root: deps.root,
             page: uiAddressOf(at),
             ctx,

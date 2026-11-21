@@ -1,0 +1,14 @@
+{
+  "reason": "Page relays preserve program callers and listings apply caller admission. The relay uses the model's shared agent actor.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 423
+    },
+    "page-eager": {
+      "bytes": 145
+    },
+    "surface": {
+      "@kb/model": 1
+    }
+  }
+}

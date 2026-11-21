@@ -9,6 +9,7 @@
 import type { NodeIndex } from "@kb/query";
 import { Option, Schema } from "effect";
 import {
+  invocationCaller,
   madeBy,
   hasPerson,
   madeByScript,
@@ -35,6 +36,14 @@ const decodeGrant = Schema.decodeUnknownOption(CodeGrant);
  * session, and for its `via`: a script's always, any other's unless it names
  * its own.
  */
+function inheritedCaller(
+  outer: ActionInvocation | undefined,
+  request: ActionRequest | ActionInvocation,
+) {
+  if (outer !== undefined) return invocationCaller(outer);
+  return "caller" in request ? request.caller : undefined;
+}
+
 export function callWithin(outer: RunningCall | null, request: ActionInvocation): ActionInvocation;
 export function callWithin(
   outer: RunningCall | null,
@@ -42,25 +51,35 @@ export function callWithin(
 ): ActionInvocation | null;
 export function callWithin(
   outer: RunningCall | null,
-  request: ActionRequest | ActionInvocation,
+  asked: ActionRequest | ActionInvocation,
 ): ActionInvocation | null {
   const caller = outer?.invocation;
+  const callerCeiling = caller?.callerCeiling;
+  const request = callerCeiling === undefined ? asked : { ...asked, callerCeiling };
   if (caller !== undefined && (madeByScript(caller) || madeBy(request) === "script")) {
     return scriptWithin(caller, request);
   }
+  return ordinaryWithin(caller, request);
+}
+
+function ordinaryWithin(
+  caller: ActionInvocation | undefined,
+  request: ActionRequest | ActionInvocation,
+): ActionInvocation | null {
   // Identified actors keep their provenance through ordinary nested calls.
-  // Entering a sandbox is still narrowed by scriptWithin above.
   const actor =
     typeof caller?.actor === "object" ? caller.actor : (madeBy(request) ?? caller?.actor);
   if (actor === undefined) return null;
   const session = request.session ?? caller?.session;
   const via = request.via ?? caller?.via;
+  const callerKind = inheritedCaller(caller, request);
   const { approved: statedApproval, ...requestData } = request;
   const approved =
     caller === undefined ? statedApproval : statedApproval === false ? false : hasPerson(caller);
   return {
     ...requestData,
     actor,
+    ...(callerKind === undefined ? {} : { caller: callerKind }),
     ...(approved === undefined ? {} : { approved }),
     ...(session === undefined ? {} : { session }),
     ...(via === undefined ? {} : { via }),
@@ -77,6 +96,7 @@ function scriptWithin(
   return {
     ...rest,
     actor: "script",
+    caller: invocationCaller(caller),
     ...((scope.session ?? caller.session) === undefined
       ? {}
       : { session: scope.session ?? caller.session }),

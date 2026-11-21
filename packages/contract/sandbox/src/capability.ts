@@ -27,7 +27,11 @@ import type { ToolCall, ToolResult } from "./protocol.ts";
  * as far as its host can put a person behind a call (the kb page asks them);
  * the guest's own calls never carry it.
  */
-export const SCRIPT_WIRE: SurfaceWire = { carriesApproval: true, actor: "script" };
+export const SCRIPT_WIRE: SurfaceWire = {
+  carriesApproval: true,
+  actor: "script",
+  caller: "program",
+};
 
 /** Where a run's calls go: the invoke core of the surface that hosts it. */
 export interface CapabilityHost {

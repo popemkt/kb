@@ -2954,7 +2954,33 @@ scope.
 
 Harman-lite (zod) + Effect-native handlers for owned actions:
 
-- `ActionDefinition { id, title, description, mode, inputSchema, outputSchema, effect? }` — JSON Schemas from each schema's Standard JSON Schema converter or `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
+- `ActionDefinition { id, title, description, mode, callers?, callerOutput?, requestEnvelope?, inputSchema, outputSchema, effect? }` — JSON Schemas from each schema's Standard JSON Schema converter or `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
+- **Callers.** An action's `callers` declaration lists the caller kinds that
+  may invoke it. Every invocation has a caller, stamped by its surface.
+  Nested calls inherit their outer caller. The core checks admission before a
+  nested call's read or write scope. The in-process default is
+  `person` for a human actor and `program` for other actors. An action without
+  a `callers` declaration admits those two kinds. The capture caller kinds
+  are `capture-device` for a paired device with a valid bearer credential and
+  `capture-pairing` for a request without a credential on a capture-only
+  listener. Both use the same registry admission as other calls and can only
+  reach actions that explicitly admit their kind. Their HTTP wire takes only
+  the action ID and input.
+
+  `callerOutput` declares the per-caller schema the invoke core applies after
+  the output schema on every call, including nested calls. A relay applies
+  both the effective caller's projection and the caller ceiling's projection
+  to the same validated result. A missing projection adds no restriction.
+  When both declare projections, the receipt keeps only common JSON fields
+  and values. Arrays intersect by position when lengths agree and elements
+  can be intersected. Capture calls and calls with an output projection get
+  a generic internal failure if an output interceptor or schema fails. The
+  host logs its diagnostics.
+  `kb.manifest` admits both capture caller kinds and projects their output
+  to `CaptureVersion`.
+- **Request envelope.** An action can declare `requestEnvelope: "input-only"`
+  to drop the tab session and `via` label and run without person approval on
+  every wire. `capture.pair` uses this envelope to exchange the one-use code.
 - **Mode**: every action states once, as a required field, what invoking it does.
   `{kind: "read"}` changes nothing.
   `{kind: "write", approval?: "required" | "delegated"}` may change the
@@ -3127,9 +3153,12 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     data, which no guard reads.
   - The flag goes on the invocation envelope, not in the input, so a surface
     can carry approval only if its wire format has an envelope.
-    `POST /api/action` and `kb action-invoke` do. An MCP tool call and a
-    WebMCP `execute` do not, because their arguments are the input, so a
-    call that asks is always refused over MCP and WebMCP.
+    Only a trusted in-process call can carry a positive approval assertion.
+    An external action envelope may carry a decline. The server ignores
+    its positive approval claims and recognises the page's own gesture
+    from its wire. A person who accepts an agent's approval prompt makes
+    the call as their own page gesture. A call that asks is refused over
+    MCP and WebMCP.
   - The wire also names its **actor**, who a call on it is made by: `human`
     (a gesture in the UI), `agent` (the sidebar agent, MCP, WebMCP, and any
     program that calls over HTTP), `cli`, or `script` (code in the sandbox,
@@ -3156,8 +3185,8 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     the request guard says which wire a request is on (Surfaces → Who the
     person is): the kb page in a browser is the page's, anything else a
     local program's (`HTTP_WIRE`, an agent's). The envelope the page sends
-    (`envelopeOf`) states no actor, so a relayed call is the page's on the
-    server (`// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]`). **Every call names
+    (`envelopeOf`) states no actor. The receiving wire stamps identity
+    and applies the caller ceiling described below. **Every call names
     its actor** in the core: what the invoke core takes is an
     `ActionInvocation`, whose actor the type requires. A call an action
     makes while another runs (`CoreInvoke`) is made by that one's actor
@@ -3167,8 +3196,8 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     calling `kb.manifest` on that wire. `kb.manifest` lists every action and
     says of each what is decided about the caller's own call
     (`decision`). One rule in `@kb/contracts`, `listedOn`, then leaves out an
-    action whose call could never succeed there: one denied to the wire's
-    actor, or one that asks on a wire that cannot carry approval
+    action whose declaration excludes a caller required by the wire, whose guard
+    denies the call, or whose guard asks on a wire that cannot carry approval
     (`listingOf`). A call by its id or tool name still reaches the invoke
     core and is refused. The same rule lists each action once, under its
     id: an alias the manifest lists (`aliasOf`) stays callable by its id or
@@ -3185,9 +3214,12 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     carries an `Origin` it lets through is the UI's own page, on the page's
     wire (`PAGE_WIRE`), and one that carries none is a local program's
     (`HTTP_WIRE`, an agent's). A browser sends `Origin` on every
-    WebSocket handshake and every `POST`, so the page's socket and its
-    actions are always the page's; its same-origin `GET`s carry none and
-    read on the program's wire, which reads the same. **The trade-off,
+    WebSocket handshake and every `POST`. The page may narrow its action
+    envelope to the `program` caller kind. When a relay changes identity,
+    the server keeps the original caller as the ceiling. An action and its
+    guards must admit both identities, including at commit and in nested
+    calls. The relay carries no implicit person approval. Same-origin
+    `GET`s carry no `Origin` and use the program's wire. **The trade-off,
     chosen plainly:** a local program can send the UI's `Origin` and pass
     as the page. That is accepted, because governance is not a security
     boundary here (Action registry → Current stance): who can reach the
@@ -3425,7 +3457,9 @@ back at the public origin, which its setup page says before it starts. An
 alias needs no public origin; a socket still does, since its page is the
 proxy's.
 
-**Hosted behind a proxy.** A hosted page works as a local one does: the
+### Hosted behind a proxy
+
+A hosted page works as a local one does: the
 page is the person's by its `Origin` (Surfaces → Who the person is), with
 nothing to open it by. A proxy that authenticates the person can also tell
 `kb ui` their name: `kb ui --identity-header <header>=<login>`
@@ -5643,8 +5677,7 @@ Desktop quick capture and native share receivers send their original share to
 `@kb/contracts` (`CaptureSubmitSchema`, `CaptureReceiptSchema`). The host
 advertises `captureContract` in `kb.manifest` when it serves the action. Clients
 compare the version before sending and keep the original share queued until the
-host confirms delivery. Omitted `version` uses v1. On HTTP, POST the ordinary
-action envelope `{id, input}` to `/api/action`. On MCP, call `capture_submit`.
+host confirms delivery. Omitted `version` uses v1. On MCP, call `capture_submit`.
 
 An explicit parent wins, including null for the top level. Otherwise the
 store's [capture target](#provider-roles) decides, using the store's day at
@@ -5670,11 +5703,14 @@ An inline capture asset takes its name from the digest of its stored bytes,
 so competing deliveries and retries reuse it. A failed graph commit can leave
 an unreferenced asset. GAP [[01M7QT8YBS8V0B97VWRP4D717F]] tracks reconciliation.
 
-For phone delivery, serve a dedicated `kb ui --capture-only` listener through
-HTTPS. It serves `POST /api/action` for capture version discovery, pairing
-and authenticated submission. Its manifest returns only `captureContract`.
-The regular UI can keep its own listener and access rules. On the host, issue
-a ten-minute, one-use code:
+For an audience that only needs phone capture, serve a dedicated
+`kb ui --capture-only` listener over HTTPS. To serve the UI and phone capture
+at one store URL, use the main `kb ui` listener over HTTPS and apply the
+regular UI and program access controls described in
+[Hosted behind a proxy](#hosted-behind-a-proxy).
+For HTTP, send the action envelope `{id, input}` to `POST /api/action`. See
+[Action registry](#action-registry) for caller admission and receipts.
+On the host, issue a ten-minute, one-use code with the CLI.
 
 ```sh
 kb --root /path/to/store --json action-invoke '{"id":"capture.pairCode"}'
@@ -5683,7 +5719,7 @@ kb --root /path/to/store --json action-invoke '{"id":"capture.pairCode"}'
 The device gives that `code` and its `deviceName` to `capture.pair`. The
 response supplies its `token`, `deviceId`, `store` (key and name), and
 `captureContract`. The device sends `Authorization: Bearer <token>` with
-discovery and submission. The credential conveys no person approval.
+discovery and submission.
 The store keeps a digest per device. Pairing returns the plaintext token once. The store key and credentials
 are bound to the host's canonical root. Revoke by invoking `capture.revoke`
 on the host CLI with `{deviceId}`. GAP [[01M7QT8Z33KEHWZ5KNQXRWGYZ4]] tracks

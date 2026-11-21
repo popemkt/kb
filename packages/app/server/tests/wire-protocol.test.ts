@@ -87,9 +87,15 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // `capture.submit`, `capture.pair`, `capture.pairCode` and `capture.revoke`
 // are new actions a previous page never calls, and `kb.manifest` may name a
 // `captureContract`, an optional field a previous page ignores.
+// Manifest entries carry an optional `callers` list when an action admits
+// non-default caller kinds; a previous page ignores it.
+// Protocol 12: the page must preserve the program caller when it relays
+// WebMCP actions. A previous page instead sends them as the person's calls.
+// Protocol 13: the page makes an accepted sidebar approval as a person
+// gesture. The server ignores approval claims in external envelopes.
 const RECORDED = {
-  protocol: 11,
-  fingerprint: "f9a6dcc61255ef7d9c003e73f5eb3b846dcc7e94ba14cea539fb7c3fbd99eacf",
+  protocol: 13,
+  fingerprint: "1950f9389f64ad76bbb03689652642a76ee0695a7e691b762d783ce6ca7b1b57",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

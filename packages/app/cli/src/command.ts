@@ -147,6 +147,7 @@ export function kbAction<A extends readonly unknown[], E>(
 export const ACTION_INVOKE_WIRE: SurfaceWire = {
   carriesApproval: false,
   actor: "cli",
+  caller: "program",
   ...processVia,
 };
 

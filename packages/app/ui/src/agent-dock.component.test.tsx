@@ -1,8 +1,8 @@
 /**
  * The agent dock over stand-in ports: what the channel says is drawn as it
- * streams, and the person's approve or decline is a call through the invoke
- * path with `approved` set to their answer, whose receipt goes back to the
- * agent. The bridge and the real invoke core are `@kb/agent`'s and the
+ * streams. Approval invokes the action as the person's gesture. Decline
+ * carries a refusal, and the receipt goes back to the agent.
+ * The bridge and the real invoke core are `@kb/agent`'s and the
  * surface contract's.
  */
 import { act, createElement } from "react";
@@ -153,7 +153,7 @@ describe("the agent dock", () => {
     expect(approve).toBeDefined();
     await act(async () => approve?.click());
     expect(s.invoked).toEqual([
-      { id: "ext.gated.stamp", input: { n: 1 }, approved: true, actor: "agent" },
+      { id: "ext.gated.stamp", input: { n: 1 }, actor: "human", caller: "person" },
     ]);
     expect(s.sent).toContainEqual({
       type: "receipt",
@@ -227,7 +227,7 @@ describe("the agent dock", () => {
     });
     await act(async () => button("Decline")?.click());
     expect(s.invoked).toEqual([
-      { id: "ext.gated.stamp", input: {}, approved: false, actor: "agent" },
+      { id: "ext.gated.stamp", input: {}, approved: false, actor: "agent", caller: "program" },
     ]);
     expect(s.sent.at(-1)).toEqual({
       type: "receipt",
