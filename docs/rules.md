@@ -1534,6 +1534,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — move store-jsonl's write-lock into a shared package as a path-keyed lock, take it around recordBuild's refresh-or-publish and prune, and add a concurrent refresh-vs-prune test
 - **node** — `01M6H0QPT8K2YPY6XV6SM5WRYH`
 
+### GAP: Query conversion must preserve a query saved by another tab
+
+- **expected** — The picker sets the query field only if it is empty when the write commits.
+- **current** — A tag pick can replace a query that another tab saved after the picker opened.
+- **impact** — Picking a tag can discard an existing saved query and its conditions.
+- **closes** — Pass the field-absence condition through the shared undoable PageWrites property update. Record undo history only for the accepted write.
+- **node** — `01M7XM3JDSQN8BK0RMQCD3HZM9`
+
 ### GAP: query print-roundtrip coverage quota depends on independent random samples
 
 - **expected** — Query round-trip coverage includes a guaranteed meaningful set of non-empty answers, independent of chance.
