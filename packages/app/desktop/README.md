@@ -25,7 +25,8 @@ The first build downloads Electrobun's macOS core (about 50 MB) from its
 GitHub release into `node_modules/electrobun`.
 
 **Which kb it runs.** The app does not include kb. At launch it tries
-these in order and runs the first that answers `kb --version`:
+these in order and runs the first whose `kb --version --json` names the
+wire protocol the app was built with:
 
 1. `"kb"` in `settings.json` (see below)
 2. `KB_DESKTOP_KB`
@@ -37,9 +38,14 @@ these in order and runs the first that answers `kb --version`:
    checkout's `bin/kb` first, then `kb` on the PATH. The build records the
    path of the checkout it was built from
 
-A kb that does not answer is passed over, never chosen. The ones passed
-over, and why, are logged and listed under the store list, which also names
-the kb in use. When none answers, the app says which it tried and quits. A
+A kb that does not answer is passed over, never chosen, and so is one that
+answers with another wire protocol: an older one is told to update kb, a
+newer one to update the app. A kb from before `--json` was asked prints its
+version alone and is passed over as older. The protocol is the one a page
+and its server must agree on (DESIGN-UI.md → Delivery); it covers
+`capture.submit` and `capture.pair`, so a kb that is chosen has the capture
+calls this app makes. The ones passed over, and why, are logged and listed
+under the store list, which also names the kb in use. When none answers, the app says which it tried and quits. A
 kb you named (1 or 2) that is missing is reported the same way, rather than
 skipped in silence.
 
@@ -65,11 +71,11 @@ If the store list says it could not list your stores, its message names the
 kb that ran. Set `"kb"` in `settings.json` to the full path of a kb that
 runs (`command -v kb` in a terminal prints one) and reopen the app.
 
-Quick capture needs a kb that has `capture.submit`, which is on
-`feat/raw-capture-host` until it merges. A kb without it refuses the
-capture with "update kb" and keeps your text. Against a host built from that
-branch (`b7e3c540`), the desktop's envelope was accepted, and a retry with
-the same `captureId` returned the same receipt. Multi-line text arrived
+Quick capture sends to the store's host, which need not be the kb the app
+runs: a `kb ui` already serving the root, or a remote store. A host without
+`capture.submit` refuses the capture with "update kb" and keeps your text.
+Against a host with it, the desktop's envelope was accepted, and a retry
+with the same `captureId` returned the same receipt. Multi-line text arrived
 intact, and URL text became a link node.
 
 When the app runs from the checkout's kb, `kb ui` builds the UI on its first
@@ -152,9 +158,7 @@ offset), source: {app: "kb desktop"}, text}`. The host maps the text to
   kb on the build's Bun. The tray, `open-url`, dock reopen and focus return
   are not run there yet.
 - **Which kb runs.** It is resolved once, at launch
-  (GAP `01M7WV5D06HSMA1JFBBRGE0B13`). The probe proves a kb runs, not that
-  it serves `capture.submit` (GAP `01M7WV5DBWNMEWS2QG6M4VP3QY`). The
-  checkout and Bun paths a build records are those of the build machine
+  (GAP `01M7WV5D06HSMA1JFBBRGE0B13`). The checkout and Bun paths a build records are those of the build machine
   (GAP `01M7WV5DQDNMQMR9QYJN839TNJ`).
 - **The capture wire is declared twice.** The capture envelope and the
   `capture.pair` answer are written out in `src/core/capture.ts`, matching

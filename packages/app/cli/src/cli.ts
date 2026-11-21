@@ -3,7 +3,13 @@ import { Command, CommanderError } from "commander";
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
-import { UI_DEFAULT_PORT, type KbContext, type ActionReceipt, onWire } from "@kb/contracts";
+import {
+  UI_DEFAULT_PORT,
+  WIRE_PROTOCOL,
+  type KbContext,
+  type ActionReceipt,
+  onWire,
+} from "@kb/contracts";
 import {
   kbRuntimeLayer,
   openKbScoped,
@@ -31,7 +37,7 @@ import {
 } from "@kb/model";
 import { exampleSeedNodes, isPristine } from "./example.ts";
 import { KB_SDK_VERSION } from "@kb/ext-sdk";
-import { VERSION_FLAGS } from "./version-option.ts";
+import { VERSION_FLAGS, versionJson } from "./version-option.ts";
 import { bundledSeed } from "@kb/bundled";
 import {
   EXIT_USAGE,
@@ -272,12 +278,13 @@ interface MvOpts extends ForceOpts {
   rootParent?: boolean;
 }
 
-function buildProgram(): Command {
+/** The command table; `json` is whether the call asked for `--json`, read before commander parses (`main`). */
+function buildProgram(json: boolean): Command {
   const program = new Command();
   program
     .name("kb")
     .description("Repo-native outliner datastore")
-    .version(KB_SDK_VERSION, VERSION_FLAGS)
+    .version(json ? versionJson(WIRE_PROTOCOL) : KB_SDK_VERSION, VERSION_FLAGS)
     .option("--json", "machine-readable JSON output", false)
     .option("--root <path>", "repo root containing .kb/")
     .option(
@@ -830,11 +837,14 @@ function buildProgram(): Command {
  * uses.
  */
 export function main(argv: string[] = process.argv): Promise<number> {
-  return buildProgram()
+  // Commander acts on `--version` as it reads it, so a `--json` after it is
+  // read here, as a usage error's form is.
+  const json = argv.includes("--json");
+  return buildProgram(json)
     .parseAsync(argv)
     .then(() => (typeof process.exitCode === "number" ? process.exitCode : EXIT_OK))
     .catch((err: unknown) => {
-      const code = handleCliError(err, argv.includes("--json"));
+      const code = handleCliError(err, json);
       process.exitCode = code;
       return code;
     });

@@ -325,6 +325,9 @@ be kept, never how it is sent.
     someone checks compatibility in both directions. Record the fingerprint
     when both builds can still work together. Bump the protocol when either
     side would read a message differently.
+    A program that runs kb rather than serving its page keeps the same
+    rule: kb desktop reads the protocol from `kb --version --json` and runs
+    only a kb of its own protocol.
     Changing the meaning of an action across builds requires a protocol bump,
     even when the action's new input is optional. An older server would drop a
     conditional text edit's precondition

@@ -10,6 +10,7 @@ import { existsSync, realpathSync } from "node:fs";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { Effect, Option, Schema } from "effect";
 import { childProcessEnv } from "@kb/child-process";
+import { KbVersionSchema, WIRE_PROTOCOL } from "@kb/contracts";
 
 /** What the program path is made from: the inherited PATH, whose home it is, and the runtimes kb may need. */
 export interface ProgramPlaces {
@@ -227,21 +228,54 @@ function tailOf(finished: Finished): string {
   return (finished.stderr.trim() || finished.stdout.trim()).slice(-600) || "no output";
 }
 
+/** What the probe asks a kb: which kb it is (`KbVersionSchema`). */
+const VERSION_REQUEST = ["--version", "--json"] as const;
+const ASKED = `\`kb ${VERSION_REQUEST.join(" ")}\``;
+
+/** `text` read as JSON, or undefined when it is not. */
+function parsedJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
 /**
- * The probe over real processes: a kb runs when `kb --version` answers in
- * `env` within `timeoutMs`. That is the step an app opened from Finder
- * fails at (a launcher that cannot find its runtime); kb answers it before
- * it loads its runtime, so it costs a fraction of a second.
+ * Whether a kb that answered `kb --version --json` with `stdout` speaks
+ * this app's wire protocol (`WIRE_PROTOCOL`, which the app was built
+ * with): null when it does, else why not and which side to update. The
+ * rule is the page's (DESIGN-UI.md → Delivery, "A build is not a
+ * protocol"): the same protocol works whatever either build is, and another
+ * one, older or newer, does not. A kb from before this question printed its
+ * version alone.
  */
-// GAP [[01M7WV5DBWNMEWS2QG6M4VP3QY]]: proves the kb runs, not that it serves the capture contract.
+function protocolMismatch(stdout: string): string | null {
+  const parsed = KbVersionSchema.safeParse(parsedJson(stdout));
+  if (!parsed.success)
+    return `${ASKED} printed ${JSON.stringify(stdout.trim().slice(0, 80))}, not the wire protocol it speaks: it predates wire protocol ${WIRE_PROTOCOL}, which this app speaks; update kb`;
+  const { version, protocol } = parsed.data;
+  if (protocol === WIRE_PROTOCOL) return null;
+  const update = protocol < WIRE_PROTOCOL ? "kb" : "kb desktop";
+  return `kb ${version} speaks wire protocol ${protocol}, and this app speaks ${WIRE_PROTOCOL}: update ${update}`;
+}
+
+/**
+ * The probe over real processes: a kb runs when `kb --version --json`
+ * answers in `env` within `timeoutMs`, and it is one the desktop can use
+ * when that answer names this app's wire protocol (`protocolMismatch`).
+ * Answering is the step an app opened from Finder fails at (a launcher that
+ * cannot find its runtime); kb answers it before it loads its runtime, so
+ * it costs a fraction of a second.
+ */
 export function processProbe(env: Readonly<Record<string, string>>, timeoutMs = 5_000): KbProbe {
   return (kb) =>
     existsSync(kb.file)
-      ? runToEnd([kb.file, "--version"], env, timeoutMs).pipe(
+      ? runToEnd([kb.file, ...VERSION_REQUEST], env, timeoutMs).pipe(
           Effect.map((finished) => {
-            if (finished.timedOut) return `\`kb --version\` did not answer within ${timeoutMs} ms`;
-            if (finished.code === 0 && finished.stdout.trim() !== "") return null;
-            return `\`kb --version\` exited ${finished.code}: ${tailOf(finished)}`;
+            if (finished.timedOut) return `${ASKED} did not answer within ${timeoutMs} ms`;
+            if (finished.code !== 0) return `${ASKED} exited ${finished.code}: ${tailOf(finished)}`;
+            return protocolMismatch(finished.stdout);
           }),
           Effect.catch((why: string) => Effect.succeed(`it could not start: ${why}`)),
         )

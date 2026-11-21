@@ -26,6 +26,15 @@ import { ScreenAckSchema, ScreenCommandSchema, ScreenStateSchema } from "./scree
  */
 export const WIRE_PROTOCOL = 13;
 
+/**
+ * Which kb this is, as `kb --version --json` prints it: its version, and the
+ * {@link WIRE_PROTOCOL} it serves. A program that runs kb rather than
+ * linking it (kb desktop) reads it to run only a kb that speaks its own
+ * protocol, as a page reads `hello`.
+ */
+export const KbVersionSchema = z.object({ version: z.string(), protocol: z.number().int() });
+export type KbVersion = z.infer<typeof KbVersionSchema>;
+
 /** A prop value as the wire carries it. */
 export const PropValueSchema = z.union([
   z.object({ t: z.literal("str"), v: z.string() }),

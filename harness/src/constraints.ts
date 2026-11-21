@@ -610,7 +610,9 @@ export interface LazyFence {
  * The launcher every `kb` process runs first (`main.ts`), and the only
  * modules loading it may parse: the launch check and the version it
  * answers itself. Everything else (the command table, the runtime, any
- * host) sits behind its one `import()` of the CLI fence's entry.
+ * host) sits behind its `import()` of the CLI fence's entry, and the wire
+ * protocol `kb --version --json` names behind its `import()` of
+ * `@kb/contracts`.
  */
 export const CLI_LAUNCHER = {
   entry: "packages/app/cli/src/main.ts",

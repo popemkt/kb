@@ -5747,7 +5747,7 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
 
 ## Surfaces
 
-- **CLI** (`commander`, `#!/usr/bin/env bun`): human commands + `kb action-invoke <json>`; `--json` everywhere. Internal command orchestration is Effect (`resolveRootEffect` → `openKbEffect` → `runPlanEffect` / `invokeReceiptEffect`) with an `Effect.runPromise` + exit-code boundary at each Commander surface action (not a claim that the whole process has a single runPromise). Commander itself stays the argv contract.
+- **CLI** (`commander`, `#!/usr/bin/env bun`): human commands + `kb action-invoke <json>`; `--json` everywhere. `kb --version --json` says which kb this is (`KbVersionSchema` in `@kb/contracts`: its version and the [wire protocol](DESIGN-UI.md#delivery) it serves), and the launcher answers it without loading the command table. Internal command orchestration is Effect (`resolveRootEffect` → `openKbEffect` → `runPlanEffect` / `invokeReceiptEffect`) with an `Effect.runPromise` + exit-code boundary at each Commander surface action (not a claim that the whole process has a single runPromise). Commander itself stays the argv contract.
 - **MCP** (`kb mcp`, `@modelcontextprotocol/sdk` stdio): `kb.manifest` as an
   agent, read at each `tools/list` → one tool per action it may call → Effect
   handler (`callToolEffect` / resource Effects via `reloadEffect` + `invokeReceiptEffect`); tool hints from the mode ([Action registry](#action-registry)). SDK request handlers remain Promise-returning; CallTool maps Fail/Die to `isError`, resource Fail/Die to JSON-RPC `-32603`.
@@ -5898,6 +5898,11 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
   Forget removes a remote from settings after its credential is erased.
   If erasure fails, the app shows the error and keeps the store listed
   for another attempt.
+  The app runs only a kb whose `kb --version --json` names the wire
+  protocol the app was built with, by the page's rule (DESIGN-UI.md →
+  Delivery); one that names another, or predates the question, is passed
+  over with which side to update (`packages/app/desktop/README.md` →
+  Which kb it runs).
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
 
