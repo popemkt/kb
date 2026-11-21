@@ -102,10 +102,24 @@ export function nodesOfKind<N extends Pick<NodeLike, "props">>(
  * field it inherits, so every node of a tag has its ancestors' fields.
  */
 export function templateFieldsOf(tags: readonly NodeId[], nodeOf: NodeLookup): NodeId[] {
+  return [...templateSourcesOf(tags, nodeOf).keys()];
+}
+
+/**
+ * The same fields as {@link templateFieldsOf}, in its order, each with the
+ * tag of `tags` that brings it: the first tag whose chain templates it, the
+ * tag itself when the field is an ancestor's. It is the tag a person sees on
+ * the node, the chip, so a surface can say which chip a field came with.
+ */
+export function templateSourcesOf(
+  tags: readonly NodeId[],
+  nodeOf: NodeLookup,
+): ReadonlyMap<NodeId, NodeId> {
   const { ancestors } = tagChains(nodeOf);
-  const fields = new Set<NodeId>();
+  const sources = new Map<NodeId, NodeId>();
   for (const tag of tags)
     for (const kind of ancestors(tag))
-      for (const field of refValuesOf(nodeOf(kind), SYSTEM_IDS.fieldsField)) fields.add(field);
-  return [...fields];
+      for (const field of refValuesOf(nodeOf(kind), SYSTEM_IDS.fieldsField))
+        if (!sources.has(field)) sources.set(field, tag);
+  return sources;
 }

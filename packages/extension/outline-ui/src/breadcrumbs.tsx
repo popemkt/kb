@@ -1,4 +1,4 @@
-import { useContext, useMemo } from "react";
+import { useContext, useLayoutEffect, useMemo, useRef } from "react";
 import { CaretRightIcon, HouseIcon } from "@phosphor-icons/react";
 import {
   browserHost,
@@ -8,13 +8,24 @@ import {
   useSchema,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
-import { crumbsTo } from "./crumbs";
+import { CRUMB, type Crumb, crumbsTo } from "./crumbs";
+import { FoldedCrumbs } from "./folded-crumbs";
 import { useOutlineStore, useOutlineNodes } from "./outline.store";
+
+const SEPARATOR = (
+  <CaretRightIcon size={10} weight="bold" className="shrink-0 text-foreground/40" aria-hidden />
+);
 
 /**
  * Where the outline is: home, then each node down to its root. The zoomed
  * outline's crumbs zoom; a rooted outline's open the crumb in its pane
  * (`OpenNodeContext`).
+ *
+ * The row never scrolls sideways (DESIGN-UI.md → Node pages): Home and the
+ * node the page stands at always show, and the crumbs between fold into
+ * "…", the oldest first, as many as the row's width needs, before the
+ * current node's name is cut with an ellipsis. "…" names what it holds on
+ * hover and opens it as a menu on click or from the keyboard.
  */
 export function Breadcrumbs({ root }: { readonly root?: string | undefined }) {
   const zoomRoot = usePageGraph((s) => s.rootNodeId);
@@ -38,16 +49,21 @@ export function Breadcrumbs({ root }: { readonly root?: string | undefined }) {
   const zoomHome = open === null ? zoomHomeInStore : () => open(WORKSPACE_ROOT_ID);
   const isAtRoot = rootNodeId === WORKSPACE_ROOT_ID;
 
+  const last = crumbs.at(-1);
+  const current = last !== undefined && last.id === rootNodeId ? last : null;
+  const between = current === null ? crumbs : crumbs.slice(0, -1);
+  const nav = useRef<HTMLElement>(null);
+  useCrumbFolding(nav, crumbs);
+
   return (
-    <nav className="breadcrumbs flex h-11 items-center gap-1 px-1 text-ui" aria-label="Breadcrumb">
+    <nav
+      ref={nav}
+      className="breadcrumbs flex h-11 min-w-0 items-center gap-1 overflow-hidden px-1 text-ui"
+      aria-label="Breadcrumb"
+    >
       <button
         type="button"
-        className={cn(
-          "flex items-center gap-1 rounded-sm px-1.5 py-0.5",
-          "text-foreground/65 hover:text-foreground hover:bg-foreground/5",
-          "transition-colors duration-100",
-          isAtRoot && "text-foreground",
-        )}
+        className={cn(CRUMB, "flex shrink-0 items-center gap-1", isAtRoot && "text-foreground")}
         onClick={() => zoomHome()}
         aria-current={isAtRoot ? "page" : undefined}
       >
@@ -55,25 +71,88 @@ export function Breadcrumbs({ root }: { readonly root?: string | undefined }) {
         <span>Home</span>
       </button>
 
-      {crumbs.map((item) => (
-        <div key={item.id} className="flex items-center gap-1">
-          <CaretRightIcon size={10} weight="bold" className="text-foreground/40" />
+      {between.length > 0 ? (
+        <div className="flex shrink-0 items-center gap-1" data-crumb-fold="">
+          {SEPARATOR}
+          <FoldedCrumbs
+            folded={() => between.filter((_, at) => foldedAt(nav.current, at))}
+            onOpen={zoomTo}
+          />
+        </div>
+      ) : null}
+
+      {between.map((item) => (
+        <div key={item.id} className="flex shrink-0 items-center gap-1" data-crumb-between="">
+          {SEPARATOR}
           <button
             type="button"
             title={item.text}
-            className={cn(
-              "max-w-[12rem] truncate rounded-sm px-1.5 py-0.5",
-              "text-foreground/65 hover:text-foreground hover:bg-foreground/5",
-              "transition-colors duration-100",
-              item.id === rootNodeId && "text-foreground font-medium",
-            )}
+            className={cn(CRUMB, "max-w-[12rem] truncate")}
             onClick={() => zoomTo(item.id)}
-            aria-current={item.id === rootNodeId ? "page" : undefined}
           >
             {item.text}
           </button>
         </div>
       ))}
+
+      {current !== null ? (
+        <div className="flex min-w-0 items-center gap-1">
+          {SEPARATOR}
+          <button
+            type="button"
+            title={current.text}
+            className={cn(CRUMB, "min-w-0 truncate font-medium text-foreground")}
+            onClick={() => zoomTo(current.id)}
+            aria-current="page"
+            data-crumb-current=""
+          >
+            {current.text}
+          </button>
+        </div>
+      ) : null}
     </nav>
   );
+}
+
+/** Whether the `at`th crumb between Home and the current node is folded in `row`. */
+function foldedAt(row: HTMLElement | null, at: number): boolean {
+  return row?.querySelectorAll<HTMLElement>("[data-crumb-between]")[at]?.hidden === true;
+}
+
+/**
+ * Fold `row`'s crumbs between Home and the current node, the oldest first,
+ * while the row would scroll or the current node's name is cut and a crumb
+ * is left to fold; "…" shows while any is folded. Measured and written
+ * straight to the elements before the frame is painted, as the path or the
+ * room changes (the row sits in a box fitted to it, the page head's halo,
+ * so the room it has is the outline column's): nothing renders again.
+ */
+function useCrumbFolding(nav: React.RefObject<HTMLElement | null>, crumbs: readonly Crumb[]) {
+  useLayoutEffect(() => {
+    const row = nav.current;
+    // A path of one node has nothing between Home and it to fold.
+    if (row === null || crumbs.length < 2) return undefined;
+    const fold = (): void => {
+      const between = [...row.querySelectorAll<HTMLElement>("[data-crumb-between]")];
+      const ellipsis = row.querySelector<HTMLElement>("[data-crumb-fold]");
+      const current = row.querySelector<HTMLElement>("[data-crumb-current]");
+      const over = () =>
+        row.scrollWidth > row.clientWidth ||
+        (current !== null && current.scrollWidth > current.clientWidth);
+      for (const crumb of between) crumb.hidden = false;
+      if (ellipsis !== null) ellipsis.hidden = true;
+      for (const crumb of between) {
+        if (!over()) break;
+        crumb.hidden = true;
+        if (ellipsis !== null) ellipsis.hidden = false;
+      }
+    };
+    fold();
+    // A host with no ResizeObserver (a DOM without layout) folds once, as drawn.
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const room = row.closest<HTMLElement>(".outline-editor") ?? row;
+    const observer = new ResizeObserver(fold);
+    observer.observe(room);
+    return () => observer.disconnect();
+  }, [nav, crumbs]);
 }

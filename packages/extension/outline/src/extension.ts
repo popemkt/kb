@@ -114,6 +114,9 @@ export const outlineExtension = defineExtension({
   roles: [FIELD_EDITOR_ROLE],
   defaultView: OutlineView,
   familyDefaultViews: { [OutlineListView.family]: OutlineListView },
+  // Rows no longer draw a reference count (DESIGN-UI.md → References), so
+  // the setting that hid it has nothing to hide.
+  retires: [{ from: "sys.f.outline.hide-reference-counts" }],
   declaredOptions: [
     {
       kind: VIEW_FAMILY_OPTIONS,
@@ -135,11 +138,8 @@ export const outlineExtension = defineExtension({
       one: true,
       props: CONFIGURES_OUTLINE,
     }),
-    seededField(OUTLINE_IDS.hideReferenceCountsField, "hide reference counts", "checkbox", at, {
-      one: true,
-      props: CONFIGURES_OUTLINE,
-    }),
     ...copySeed(at),
+    seededCommand(OUTLINE_IDS.describeCommand, "Edit description", at),
   ],
 });
 

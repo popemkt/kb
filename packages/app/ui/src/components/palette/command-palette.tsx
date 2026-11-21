@@ -5,10 +5,10 @@ import {
   cn,
   type CommandContext,
   isCompositionKey,
-  isSysPrefixed,
   menuAnchorOf,
+  navigate,
+  outlineHostOfPane,
   pageTitleInstanceKey,
-  schemaZoomKind,
   rowName,
   schemaOf,
   textOr,
@@ -23,10 +23,17 @@ import {
   withoutEntries,
   type PaletteHit,
 } from "@/lib/palette-index";
-import { pageProjection, shownNodes, useGraphStore } from "@/stores/graph.store";
+import { nodePath } from "@kb/views";
+import { shownNodes, useGraphStore } from "@/stores/graph.store";
 import { pageCommandApi, pageCommandContext, pageCommandTarget } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
 import { useUiStore } from "@/stores/ui.store";
+import { currentWorkspace } from "@/stores/workspace.store";
+
+/** The outline host of the focused pane, the one the palette's navigations move. */
+function focusedOutlineHost(): string {
+  return outlineHostOfPane(currentWorkspace().focused);
+}
 
 /**
  * Where the node menu would open on `nodeId`: the instance it is selected
@@ -38,7 +45,7 @@ function menuInstanceOf(nodeId: string): string | null {
   const key =
     editor.selectedNodeId === nodeId && editor.selectedInstanceKey !== null
       ? editor.selectedInstanceKey
-      : pageTitleInstanceKey(nodeId);
+      : pageTitleInstanceKey(nodeId, focusedOutlineHost());
   return menuAnchorOf(key) === null ? null : key;
 }
 
@@ -168,14 +175,17 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         await runCommand(hit.id, commandContext(onClose));
         return;
       }
-      const node = shownNodes().get(hit.id);
-      if (schemaZoomKind(node) || isSysPrefixed(hit.id)) {
-        zoomTo(hit.id);
-        return;
-      }
-      pageProjection().reveal(hit.id);
+      // A node found is opened at its page, as any node is opened
+      // (DESIGN-UI.md → Node pages): the focused pane moves to it, wherever
+      // it lives, rather than the outline revealing it from home.
+      navigate(nodePath(hit.id));
+      // And it is the node the keyboard is on: its page's title in the pane
+      // it opened in, the focused one, selected (another pane may show it too).
+      pageEditor()
+        .getState()
+        .selectNode(hit.id, pageTitleInstanceKey(hit.id, focusedOutlineHost()));
     },
-    [onClose, zoomTo, nodeCommands],
+    [onClose, nodeCommands],
   );
 
   const onKeyDown = useCallback(
@@ -308,8 +318,20 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                       <span className="h-1.5 w-1.5 rounded-full bg-foreground/25" />
                     )}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-ui text-foreground/85">
-                    {hit.text || "(empty)"}
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-ui text-foreground/85">
+                      {hit.text || "(empty)"}
+                    </span>
+                    {/* Its description, a pointer's hint: one line, whole in its title. */}
+                    {hit.hint !== undefined && (
+                      <span
+                        className="truncate text-meta text-foreground/70"
+                        title={hit.hint}
+                        data-palette-hint="true"
+                      >
+                        {hit.hint}
+                      </span>
+                    )}
                   </span>
                   {/* A shade of the row's own ink, so it holds AA on the active row's accent too. */}
                   <span className="shrink-0 font-mono text-caption text-foreground/70">

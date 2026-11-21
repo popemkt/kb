@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   cn,
   useFollow,
@@ -24,12 +24,15 @@ import {
 } from "@kb/ui-sdk";
 import { isQueryNode } from "@kb/model";
 import { projectsRows, type FrameViewKey } from "@kb/views";
+import { DescriptionLine } from "./description-line";
+import { useDescriptionShown } from "./description-state";
 import { FieldsSection } from "./fields-section";
 import { ViewToolbar } from "./view-toolbar";
 import { NodeContent } from "./node-content";
 import { useOutlineStore } from "./outline.store";
 import { createFirstChild } from "./editing-writes";
 import { takesRows } from "./takes-rows";
+import { useOutlineHost } from "./outline-host";
 
 /**
  * D13: everything is a node — the zoomed page title edits in place with
@@ -57,7 +60,7 @@ function EditableTitle({
   // Its edit is the page editor's, as a row's is: activated under its own
   // instance, so the page (and every backdrop reading `editing()`) knows the
   // owner is typing, and ended when that instance stops being the active one.
-  const key = pageTitleInstanceKey(node.id);
+  const key = pageTitleInstanceKey(node.id, useOutlineHost());
   const editing = useOutlineStore((s) => s.activeInstanceKey === key);
   const startEditing = useCallback(() => {
     const store = useOutlineStore.getState();
@@ -68,6 +71,18 @@ function EditableTitle({
     const store = useOutlineStore.getState();
     if (store.activeInstanceKey === key) store.deactivateNode();
   }, [key]);
+
+  // The title selected is the page's node selected, in this pane: it holds
+  // the keyboard, so Enter edits it and the page's keys act from it. Opening
+  // a node from ⌘K selects it in the pane it opened in, and the title takes
+  // the keyboard as that pane draws it (DESIGN-UI.md → Node pages).
+  const selected = useOutlineStore(
+    (s) => s.selectedInstanceKey === key && s.activeInstanceKey === null,
+  );
+  const restingTitle = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selected) restingTitle.current?.focus({ preventScroll: true });
+  }, [selected]);
 
   if (readOnly) {
     return (
@@ -108,6 +123,7 @@ function EditableTitle({
 
   return (
     <div
+      ref={restingTitle}
       role="button"
       tabIndex={0}
       onClick={(e) => {
@@ -201,6 +217,8 @@ export function ZoomedRootHeader({
   // A query page's control holds its query, one click away: never behind the gear.
   const tucked = isList && !isQueryNode(node);
   const owner = useOwner(node.id);
+  const titleKey = pageTitleInstanceKey(node.id, useOutlineHost());
+  const described = useDescriptionShown(node.id, titleKey);
 
   return (
     <div
@@ -217,8 +235,17 @@ export function ZoomedRootHeader({
             onEnter={takesRows(node, view) ? () => void createFirstChild(node.id) : undefined}
           />
         }
-        {...menuAnchor(pageTitleInstanceKey(node.id))}
+        {...menuAnchor(titleKey)}
       />
+
+      {/* Its description, under the title: no line when it has none. */}
+      {described && (
+        <OutlineLine
+          depth={0}
+          className="pb-1"
+          text={<DescriptionLine rowId={node.id} nodeId={node.id} instanceKey={titleKey} />}
+        />
+      )}
 
       {/* Its tags and its owner: no line when it has neither. */}
       {(node.tags.length > 0 || owner !== null) && (
@@ -266,7 +293,9 @@ export function ZoomedRootHeader({
         }
       />
 
-      <FieldsSection nodeId={node.id} depth={-1} instanceKey={`title/${node.id}`} />
+      {/* The page's fields are the title instance's, so the keyboard leaving
+          the title, or its description, finds them, and leaves them for it. */}
+      <FieldsSection nodeId={node.id} depth={-1} instanceKey={titleKey} />
     </div>
   );
 }

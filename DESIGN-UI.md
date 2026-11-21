@@ -1237,6 +1237,59 @@ the node zoomed within an ontology. At the workspace root or in a pane
 with no subject node, the [capture destination](./DESIGN.md#provider-roles)
 decides where it goes.
 
+**A node's description.** A node's description (DESIGN.md → Data model →
+descriptions, `sys.f.description`) is drawn under its name, as Tana draws
+one, in three places, and in each it is the same value of the same field:
+
+- **On its row**, under the row's text, on the row's text column
+  (`NodeRow`'s `subtitle`, `DescriptionLine` in
+  `outline-ui/src/description-line.tsx`), inside the row's box, so it is
+  selected and dragged with the row and a tag's box moves it as it moves
+  the text. A contextual reference shows its target's.
+- **On the page it heads**, as a line of its own under the title and above
+  its tags (Outline layout → the page's title).
+- **Beside its name where it is offered**: as the one-line hint under the
+  name in every picker (`PickerCandidate.hint`, drawn by `PickerList`: the
+  tag and field pickers, `#`, `[[` and `@`, a ref field's values, the
+  palette's steps) and under a result in global search. A tag's or a
+  field's description is how a person tells two like-named ones apart
+  there.
+
+It is content on a row and a page, so it wraps where a row's text wraps
+([Long text](#long-text)); in a picker or a result it is a pointer's hint,
+clamped to one line, its whole text in a tooltip. It is set a step smaller
+than the row's text (the `meta` step: the `.kb-description` role sets the
+text role it holds at that step) and in a text value's
+ink, so it reads as the row's second line, not as another row. A node with
+no description draws nothing: no empty line, no placeholder.
+
+It is the field's value slot (`ValueSlot`), not an editor of its own, so
+it edits as a text value does: a click, Enter or F2 on it opens it, Enter
+keeps it, Escape puts it back, and an emptied description is a value taken
+out, so clearing it removes it. It shows trimmed, as every surface does,
+and an edit replaces, and a removal takes out, the value as stored. Where
+the keyboard goes after an edit is the slot's, by the key that ended it
+([Field values](#field-values-one-slot-grammar)): an edit that ends because focus went
+elsewhere leaves focus there, an emptied description included, and Tab
+goes on to the row's first field value, else the next row. Enter or
+Escape on an emptied description, Escape at rest, and leaving its editor
+with the arrows hand the keyboard back to the row: Escape selects the row,
+↑ edits the row's text at its end, and ↓ goes on to the row's first field
+value, else the next row. Under a page's title the next row is the page's
+first row, since the title stands before them, and with nothing to go on
+to, Tab and ↓ go back to the text, never to nothing. The outline's own
+arrows pass it by: it is reached by pointer, by ⌘K, or by its key. ⌘K and the node menu offer **Add
+description** on a node with none and **Edit description** on one that has
+one (`sys.cmd.outline.describe`, the outline's command), and Mod-Shift-E
+runs it: a page key, so it reaches a row being edited, a selected row and,
+with neither, the page's title. It opens the description where the command's
+node is drawn in the focused pane (`describe`): the row selected or edited
+on it there, else that pane's title; a selection left in another pane is
+not where the person is (`mayBeInHost`). On a node with none it opens an empty slot there, editing,
+which leaves nothing behind when it is left empty. A description no one
+may write without force (a system node's) is drawn as words, and the
+command is not offered there.
+
 ### Outline layout
 
 The outline lays every line out on one grid, whatever the line is: a node
@@ -1316,14 +1369,16 @@ any, take that depth's columns.
 
 #### The page's title
 
-The page's head stacks three lines at depth 0, each with an empty glyph
+The page's head stacks four lines at depth 0, each with an empty glyph
 column, so each starts on the text column the page's rows start on:
 
 1. **The title**, which owns its whole line. It wraps only where the
    column ends, and keeps its box while it is edited
    ([Long text](#long-text)).
-2. **Its tags and owner**, a line drawn only when it has either.
-3. **Its view control**, on a line of its own.
+2. **Its description**, a line drawn only when it has one or one is being
+   added ([A node's description](#outline-editor-i1)).
+3. **Its tags and owner**, a line drawn only when it has either.
+4. **Its view control**, on a line of its own.
    - On a list page it is the one quiet gear, shown on hover or keyboard
      focus of the head.
    - On a projected view or a query page it is the whole toolbar. The view
@@ -1379,6 +1434,22 @@ for every node: a day, a tag, a person's note. Under the page head come
 its title, tags and fields, its children in its view, and then what
 reaches it from elsewhere: for a tag or field, what carries it (Schema),
 then its References.
+
+- **The crumbs never scroll sideways.** The head's crumb row (Home, then
+  each node down to the page's) keeps Home and the page's own node on
+  screen at any width. When the row would not fit, the crumbs between fold
+  into one "…", the oldest first and only as many as the width needs; the
+  page's own name is cut with an ellipsis only once nothing is left to
+  fold. "…" names the folded crumbs on hover and opens them as a menu on
+  click or Enter, its first row focused, each row opening its node as a
+  crumb does. A wider pane unfolds them again.
+- **The title selected holds the keyboard.** The page's title is its
+  node's own instance in its pane (`pageTitleInstanceKey`, under the pane's
+  outline host, as a row's key is): selected, it takes the keyboard focus,
+  so Enter edits it, its caret at the end. A gesture that opens a node for
+  the keyboard (⌘K's Enter) selects it in the focused pane, where it opens,
+  so another pane showing the same node keeps its title unselected; a page
+  loaded or opened by pointer selects nothing.
 
 - **A page that takes rows** (a list, not a projected view or a query;
   `takesRows`) offers two ways to its rows, the same on every node's page:
@@ -1564,19 +1635,73 @@ opens a sibling, where an expanded ordinary row opens its first child, because
 reference needs both a host row and a target, and the global palette has no
 two-step for that.
 
-On a zoomed node, **References** lists the other nodes with a
-`:node/mentions` edge to it. Each referrer has a clickable ancestor path
-above it. Its chevron reveals the shown node’s children visible in the current
-outline as ordinary rows. For a contextual reference, those are its target’s
-children. The referrer stays in place.
+### References
 
-**Unlinked mentions** follows References. It finds a case-insensitive
-whole-word or phrase match for the displayed title in plain-text segments.
+On a zoomed node, **References** lists the other nodes with a
+`:node/mentions` edge to it, then its **Unlinked mentions**. It is drawn
+as the page's outline is drawn, with the same lines, bullets, rhythm and
+type, and it discloses a step at a time, so a node referenced from
+hundreds of places costs one line until the reader asks for more
+(`references-section.tsx`).
+
+- **Closed by default, one line.** Its heading is a section heading
+  whose caret sits in the glyph column, where a row's bullet is, and says
+  how many: "References (44 · 15 unlinked)". The whole line opens and
+  closes it. Which parts are open is the reader's, held by the section for
+  as long as the page shows the node, and never stored.
+- **Grouped by place.** A reference's place is its parent: the node whose
+  page shows it in context (`groupByPlace`, `reference-groups.ts`). Each
+  place is drawn as its own row, and its references are drawn under it one
+  level in, so References reads as that place's outline does. The place
+  written in most recently comes first, and its references keep the
+  place's own order. A reference at the top level has no place and stands
+  at depth 0. The compact path above a place is drawn once, on one line
+  that shortens its crumbs rather than wrap, and only where it differs
+  from the path of the place before. Each crumb opens its node.
+- **A few at a time.** The first 5 places are shown, then "Show 10 more
+  places"; each place shows its first 3 references, then "Show N more",
+  which reveals more of that place only. A place's bullet folds it as an
+  outline row's bullet folds its children (`bulletClickIntent`: a click
+  toggles, ⌘/Ctrl-click opens, Shift-click opens beside), and a folded
+  place carries the halo. A click on a place's or a reference's words
+  opens that node. These rows have no outline keymap, so a bullet that
+  folds is their keyboard way to do it: it takes Tab, says whether it is
+  open (`aria-expanded`), and Enter or Space toggles it (`Bullet`'s
+  `focusable`). An outline row's bullet folds by the outline's keys and
+  stays out of the tab order.
+- **A reference's own children** fold by its bullet in the same way. Open,
+  they are the shown node's children that are visible in the current
+  outline, drawn as ordinary rows one level further in; for a contextual
+  reference, they are its target's children. The referrer stays in place.
+- **Unlinked mentions wait behind their own line**, a second disclosure
+  heading inside the open section, closed by default and grouped and
+  paged as references are.
+
+**Row actions take no width.** An action a row offers, such as Link on an
+unlinked mention, is drawn over the right end of the row's words, before
+its tags, while the row is hovered or holds focus (`NodeLinkRow`'s
+`action`). It never covers a tag chip, so both stay reachable. It sits on
+the page's own ground, faded in from the left, so the words under it stay
+legible up to it. It takes no width, so showing it never moves or rewraps
+a word of the row. Only the action itself takes the pointer, and only
+while shown: the fade never does, so a click or tap beside it still
+reaches the row. It is a button, so Tab reaches it and focus shows it.
+Where nothing hovers (`hover: none`), it is always shown. The alternatives
+we rejected:
+
+- an inline button: it pushed the row's words aside;
+- a reserved actions gutter: it shortens every row to keep space for an
+  action that most rows never show;
+- the row's menu only (⌘K or the bullet's menu): it is a reach for the
+  one thing a reader comes to Unlinked mentions to do;
+- keyboard only: it hides the action from the pointer.
+
+**Unlinked mentions** finds a case-insensitive whole-word or phrase match
+for the displayed title in plain-text segments.
 The inline parser must read the replacement as a reference at that span.
 Titles must have at least three characters.
 The node, its ancestors and descendants, system and schema nodes, and
-rows with a mention edge are excluded. The section shows up to 50 rows at
-first and reveals another 50 with **Show more**. **Link** replaces the
+rows with a mention edge are excluded. **Link** replaces the
 first matched span with an inline reference using the matched wording.
 It is one text write and one undo step. The write requires the source text
 the match was read from ([Conditional text edits](DESIGN.md#conditional-text-edits)),
@@ -1584,12 +1709,12 @@ so the server may refuse what the replica took; its undo step is recorded
 once the server takes it, as every text write on a reading is
 (`planUpdateText`), and a refused Link leaves none.
 
-An outline row with incoming mentions has a count at its right edge.
-Clicking the count opens the node in the same pane and scrolls to
-References. A single query groups the mention relation by target for all
-mounted counters in the replica. Each row subscribes to its own count.
-Counts appear by default. The outline family's **hide reference counts**
-checkbox turns them off.
+An outline row draws no reference count. A count at the end of a row
+sits in its text's flow, so every referenced row reads as a row with a
+number after it, and a row's reading should be its words. How many
+references a node has is said once, on its own page, in the References
+heading. The outline family's former **hide reference counts** setting is
+retired (`retires`), since there is no count to hide.
 
 A References row names each field its referrer points here through
 (`NodeIndex.referenceFields`, read by the carriers that made the
@@ -1622,6 +1747,17 @@ surface that draws and edits its values. None of the surfaces has a click or
 key handler of its own. A new type is one more kind, never a component
 deciding its own clicks.
 
+**Where the keyboard goes after an edit is the key's that ended it.** A key
+that closes an editor (Enter, Escape, Tab, an arrow off the text) leaves
+with the edit where it goes next, and the edit, once it lands, says how it
+ended: kept, changed, or the value taken out (nothing typed into a new one,
+or a typed one emptied). The key's destination holds in every case. Enter
+and Escape stay on the value, or, when it was taken out, go where taking a
+value out goes: its neighbour, else the row. Tab and the arrows go on from
+it either way. An edit that ends because focus went elsewhere carries no
+destination, so focus stays where it went. A line break (Shift+Enter) ends
+nothing.
+
 **A type's kind is a contribution.** `ui.value-kinds` is keyed by the
 type's option node, a child of `sys.f.fieldType` (DESIGN.md → Field types).
 The outline contributes the kinds of the eight built-in types
@@ -1652,6 +1788,21 @@ stands for no field node (a preference) draws the glyph inert. `FieldRow` is
 the row's anatomy, a primitive of `@kb/ui-sdk` that prefs renders too
 (`PrefFieldRow`); it is handed its glyph. A field's glyph is its kind's
 (`useSlotKind`), so the glyph and the editor come from one kind.
+
+**A field wears its tag's colour.** A field that a tag of the node brings
+draws its glyph in that tag's colour, on its row and on its chip in the
+hidden fields line, so a node with fields from two tags shows which field
+came with which chip. The tag is the one the node carries whose chain
+templates the field first (`templateSourcesOf`, `@kb/model`): an ancestor's
+field wears the colour of the chip that brought it, and a field two tags
+bring wears the first's. The colour is the chip's (`TagBadge.color`: the
+tag's `sys.f.color`, else its palette slot), inked as a chip's text is
+(`fieldInkOn`, `lib/tag-color.ts`), so it holds the chip's contrast in every
+design system (`lib/design-systems.test.ts`). A field no tag of the node
+brings, one a kind brings (`sys.tag`, `sys.field`, which are no chip), and
+a row with no field node keep the neutral glyph. Only the glyph takes the
+colour: the name keeps the label's ink, so a row of fields still reads as
+one column.
 
 **Three verbs, the same on every kind.**
 
@@ -3357,7 +3508,7 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | Group | What it holds | Its rows today |
 | --- | --- | --- |
 | `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
-| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference… (Change reference target… on a reference), Add field, Add value…, Set field…, Make supertag, Type this reference…, Remove reference… |
+| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference… (Change reference target… on a reference), Add field, Add / Edit description, Add value…, Set field…, Make supertag, Type this reference…, Remove reference… |
 | `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: …, Copy node ID |
 | `arrange` | where it sits | Indent, Outdent, Move to…, Move and leave reference… |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
@@ -3374,7 +3525,12 @@ the one menu builder (`listNodeCommands`) reads the place from the
 command: no list position means anything, and no row is the shell's by
 being listed first.
 
-⌘K with no row anchored is the page's search (`CommandPalette`), and it
+⌘K with no row anchored is the page's search (`CommandPalette`). A node
+it finds opens at its page (`/node/<id>`, [Node pages](#node-pages)) in the
+focused pane, wherever the node lives, by click or by Enter: the outline
+is not moved home to reveal it. The page's title is then selected, so the
+keyboard is on the node: Enter edits its title and the node menu's
+commands act on it. It
 finds the node menu's commands too: those `listNodeCommands` offers the
 node it acts on — the selected row, else the node the page stands at, the
 one its focused pane is shown for (`paneSubjectAt`: a zoom, or a node
@@ -4169,8 +4325,11 @@ until "Save workspace".
   that dockview reports back into a kb tree. The kb tree is canonical, and
   dockview's JSON is never kept: projecting a tree and reading it back is
   the identity (a property test). A tree changed from outside is shown to
-  dockview again. dockview (MIT) and kb's theme (`dockview-theme.css`, every
-  value a design-system token) load in the grid's own chunk, only when a
+  dockview again; a pane that only moved to another place keeps its panel,
+  which is told its new path: rebuilding the grid would take every pane's
+  body off the page and back, and drop the keyboard on the way. dockview
+  (MIT) and kb's theme (`dockview-theme.css`, every value a design-system
+  token) load in the grid's own chunk, only when a
   second pane opens or a dashboard is shown. Floating and pop-out windows
   are off (GAP [[01M3Q5DP9TQF0E9DZMHAKHMGWD]]).
 - **Panels first, then splits and tabs, on the one tree.** A Shift-click on
@@ -4211,9 +4370,10 @@ until "Save workspace".
   row: the chip of that tag, which already says why the node is special,
   grows a ↗ segment behind a hairline (`TagChip`'s `action`), "Open in
   Canvas", the same step as the menu's row. The chip's name still goes to
-  the tag. On a pointer that hovers the segment shows while the row is
-  hovered or holds focus; on touch (`hover: none`) it is always there. It
-  is a button, so Tab reaches it. A click on the bullet stays as resolved.
+  the tag. The segment is always there, faint until the row is hovered or
+  holds focus, so the chip is as wide at rest as under the pointer and the
+  row's words never rewrap when it shows ("Row actions take no width",
+  References). It is a button, so Tab reaches it. A click on the bullet stays as resolved.
 - **The bullet's menu.** A right click on a row's bullet, or a finger held
   on it for `LONG_PRESS_MS` (`useMenuGesture`, `@kb/ui-sdk`), selects the
   row and opens the node menu on it, as ⌘K does on a selected row. A long
@@ -5678,12 +5838,17 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   families' plugins are first in (`landOnce`), so switching days on later,
   or reloading a plugin, never moves the page. The shell asks only while
   the page is at `/` with nothing in its URL, and moves only if the page
-  has not moved by the time the answer comes. The move replaces the root's
-  history entry, so Back leaves the page. The landing has no clock: days
-  answers once today's node is in the page's replica, which on a slow
-  machine or connection is when the live connection brings it. If days
-  fails (the action refused today's node), the page stays home and a toast
-  says "Stayed home:" and why.
+  has not moved by the time the answer comes. Until the answer settles the
+  workspace shows its neutral "Opening your workspace…" state, never the
+  root, so a load that opens on today paints today first; a navigation
+  while it is asked (a sidebar row, Back) ends the wait where the person
+  went. The move replaces the root's
+  history entry, so Back leaves the page. Days answers once today's node
+  is in the page's replica, which on a slow machine or connection is when
+  the live connection brings it. The wait is bounded by one deadline over
+  the whole election, about 4 s: if days fails (the action refused today's node) or has not
+  answered by then, the page stays home, drawn at once, and a toast says
+  "Stayed home:" and why ("the landing did not answer in time").
 - **The capture target's replacement** answers today's node through
   `ext.days.today`, with the page's local day, unless the family's
   `captures` setting says the top level. ⌘K "Add node" with nothing

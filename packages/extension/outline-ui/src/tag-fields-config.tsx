@@ -80,7 +80,7 @@ export function TagFieldsConfigView({
   // Adding a field is the one node picker over the fields not yet here, with
   // a create row for a name none of them has.
   const candidates = useMemo(
-    () => suggestions.map((f) => ({ id: f.id, label: f.name })),
+    () => suggestions.map((f) => ({ id: f.id, label: f.name, hint: f.hint ?? null })),
     [suggestions],
   );
   const rows = useMemo(

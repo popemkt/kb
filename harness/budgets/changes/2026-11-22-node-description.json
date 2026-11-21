@@ -1,0 +1,14 @@
+{
+  "reason": "A node may carry a description (DESIGN.md → Data model, descriptions): @kb/model exports descriptionOf, the one reader of it, which the outline's row and page head, the pickers' hints and the palette's search all read. The row's and the page head's description line, its slot's gesture state, the outline's Add/Edit description command with its icon, and its key, take the page's eager set from 2079148 to 2084924 bytes, measured from a short checkout against the branch before it. Its reader is a module of its own (description.ts), which the CLI's eager graph takes with @kb/model.",
+  "raise": {
+    "surface": {
+      "@kb/model": 1
+    },
+    "page-eager": {
+      "bytes": 5776
+    },
+    "cli-closure": {
+      "modules": 1
+    }
+  }
+}

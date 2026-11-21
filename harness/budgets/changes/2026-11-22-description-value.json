@@ -1,0 +1,6 @@
+{
+  "reason": "A description is taken out as it is stored (DESIGN.md → Data model, descriptions): @kb/model exports descriptionValueOf, the stored value descriptionOf trims, which the outline's description line replaces and removes.",
+  "raise": {
+    "surface": { "@kb/model": 1 }
+  }
+}

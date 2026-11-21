@@ -21,6 +21,7 @@ import {
   tagAncestors,
   tagChains,
   templateFieldsOf,
+  templateSourcesOf,
   tagViewsOf,
 } from "@kb/model";
 
@@ -92,6 +93,20 @@ describe("a node of a tag that extends another", () => {
       "repeat",
       "status",
     ]);
+  });
+
+  test("names the carried tag that brings each field, the first one that templates it", () => {
+    // An ancestor's field is the carried tag's; a field two tags bring is the first's.
+    expect([...templateSourcesOf(["task", "habit"], nodeOf)]).toEqual([
+      ["status", "task"],
+      ["streak", "habit"],
+      ["at", "habit"],
+      ["remind", "habit"],
+      ["repeat", "habit"],
+    ]);
+    expect([...templateSourcesOf(["habit"], nodeOf).keys()]).toEqual(
+      templateFieldsOf(["habit"], nodeOf),
+    );
   });
 
   test("opens in its own tag's view, else the nearest ancestor's", () => {

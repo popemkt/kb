@@ -296,12 +296,14 @@ export function App() {
         await loadManifest(manifest);
         await extensionsSettled();
       }
-      setStatus("ready");
       ensureLiveConnection();
       // Where a page that loads at the root opens is the landing role's
       // answer, asked once per page load, now that the graph and the
-      // families' plugins are in (DESIGN.md → Provider roles).
-      void landOnce();
+      // families' plugins are in (DESIGN.md → Provider roles). The
+      // workspace is drawn only once it settles, so a page that lands
+      // elsewhere never shows the root on the way.
+      await landOnce();
+      setStatus("ready");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setStatus("error");

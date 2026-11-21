@@ -1,0 +1,6 @@
+{
+  "reason": "Add/Edit description opens in the focused pane (DESIGN-UI.md → Outline editor, \"A node's description\"): @kb/ui-sdk exports mayBeInHost, the instance key's one answer to whether an instance may be drawn by an outline host, so a selection left in another pane is passed over.",
+  "raise": {
+    "surface": { "@kb/ui-sdk": 1 }
+  }
+}
