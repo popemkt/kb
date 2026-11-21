@@ -1880,6 +1880,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A CI job on a runner with systemd >= 256 and user credentials (or a container with systemd as PID 1) that runs the runtime suite, so hostSeals is true there and the skip goes.
 - **node** — `01M6XSXADG90BAMC22ZXWGV57D`
 
+### GAP: the tag page draws its Fields and Tagged instances blocks beside ui.node-sections, not through it
+
+- **expected** — A tag page's template field list and its tagged instances are sections contributed to ui.node-sections (DESIGN-UI.md → Node pages), like every other region of a node's page below or beside its outline, so their place, title and order are read the way every section's are.
+- **current** — outline-editor.tsx draws SchemaSection (TagFieldsConfig plus Tagged instances, packages/extension/outline-ui/src/schema-section.tsx) directly between the outline and References, then NodeSections. The point that exists for per-kind page regions is bypassed for the one kind kb itself uses most.
+- **impact** — Two mechanisms for one concept (a titled region of a node page per kind): a family cannot add to or order around the tag config, and the supertag config sections proposed in docs/research/2026-11-22-supertag-surface.md have nothing to plug into until it is one point.
+- **closes** — WP-1 of docs/research/2026-11-22-supertag-surface.md: contribute the two blocks to ui.node-sections for sys.tag (and sys.field), with section order read from data; outline-editor draws NodeSections only.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M7ZKJGQ06YDE93NSCCP49VR0`
+
 ### GAP: the view filter is stored in its legacy map syntax, and its text-anywhere row has no datalog form
 
 - **expected** — sys.f.view.filter holds a view's narrowing as the printed :where of its conditions (printEdn), the form sys.f.query holds, so any condition the query placement can hold the narrowing can too, and both lift and lower through one IR
