@@ -32,8 +32,8 @@ describe("touchedIn", () => {
         props: { [DAYS_IDS.keyField]: [{ t: "str", v: "2026-11-10" }] },
         createdAt: "2026-11-10T01:00:00.000Z",
       }),
-      node("tag", {
-        props: { [SYSTEM_IDS.typeField]: ref(SYSTEM_IDS.tag) },
+      node("field", {
+        props: { [SYSTEM_IDS.typeField]: ref(SYSTEM_IDS.field) },
         children: ["option"],
         createdAt: "2026-11-10T01:00:00.000Z",
       }),
@@ -59,8 +59,18 @@ describe("touchedIn", () => {
     expect(touchedIn(nodes, "2025", "UTC")).toEqual([]);
   });
 
-  test("period nodes, schema, options and sys nodes are never what a day made", () => {
+  test("period nodes, fields, their options and sys nodes are never what a day made", () => {
     const listed = touchedIn(nodes, "2026-11-10", "UTC");
-    for (const id of ["day", "tag", "option", "sys.thing"]) expect(listed).not.toContain(id);
+    for (const id of ["day", "field", "option", "sys.thing"]) expect(listed).not.toContain(id);
+  });
+
+  test("a tag made on the day is what the day made, as any node is", () => {
+    const tag = node("tag", {
+      props: { [SYSTEM_IDS.typeField]: ref(SYSTEM_IDS.tag) },
+      createdAt: "2026-11-10T02:00:00.000Z",
+      updatedAt: "2026-11-10T02:00:00.000Z",
+    });
+    const withTag = new Map([...nodes, [tag.id, tag]]);
+    expect(touchedIn(withTag, "2026-11-10", "UTC")).toEqual(["edited", "made", "tag"]);
   });
 });

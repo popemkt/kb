@@ -60,9 +60,10 @@ describe("unlinkedMentionRows", () => {
     });
   });
 
-  it("requires the title at word boundaries and excludes the target tree, existing edges and schema", () => {
+  it("requires the title at word boundaries and excludes the target tree, existing edges and scaffolding", () => {
+    // A field is scaffolding, and no mention is offered in it; a tag is a node like any.
     const schemaNode = row("n.schema", "Write spec");
-    schemaNode.props[SYSTEM_IDS.typeField] = [{ t: "ref", v: SYSTEM_IDS.tag }];
+    schemaNode.props[SYSTEM_IDS.typeField] = [{ t: "ref", v: SYSTEM_IDS.field }];
     const wireNodes = [
       row("n.ancestor", "Write spec planning", ["n.parent"]),
       row("n.parent", "Write spec [[n.spec]]", ["n.spec"]),
@@ -95,5 +96,18 @@ describe("unlinkedMentionRows", () => {
       "n.proto-match",
     ]);
     expect(unlinkedMentionRows(run, schema, "n.short")).toEqual([]);
+  });
+
+  it("offers a mention in a tag as in any node", () => {
+    const tag = row("n.tag", "Things to write spec for");
+    tag.props[SYSTEM_IDS.typeField] = [{ t: "ref", v: SYSTEM_IDS.tag }];
+    const wireNodes = [row("n.spec", "Write spec"), tag];
+    const db = new DatascriptIndex(wireNodes, { derived: derivedWith({}) });
+    const matches = unlinkedMentionRows(
+      (edn: string) => db.runDatalog(edn),
+      schemaOf({ wireNodes }),
+      "n.spec",
+    );
+    expect(matches.map(({ node }) => node.id)).toEqual(["n.tag"]);
   });
 });

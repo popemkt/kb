@@ -56,6 +56,15 @@ export function typeRefsOf(node: Pick<NodeLike, "props"> | undefined): NodeId[] 
 }
 
 /**
+ * Whether `node` defines a kind: it is a tag or a field, which other nodes
+ * point at (by `sys.f.type`, or as a prop's key), so it is vocabulary they
+ * are written in, not one more node to rewrite or merge away.
+ */
+export function definesKind(node: Pick<NodeLike, "props"> | undefined): boolean {
+  return typeRefsOf(node).some((kind) => kind === SYSTEM_IDS.tag || kind === SYSTEM_IDS.field);
+}
+
+/**
  * DISPLAY: the tags a node's `#tag` chips show, by id — its kind slot
  * ({@link typeRefsOf}) less the kinds themselves (`sys.tag`, `sys.field`),
  * and only refs to a tag. A chip saying "#tag" on a tag's own page would be
