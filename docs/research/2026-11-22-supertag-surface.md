@@ -16,6 +16,20 @@ nothing is decided until the owner says so. If the proposal is taken, its
 statements move into DESIGN.md → Data model → tag behaviours and DESIGN-UI.md
 → Node pages, and this file stays as the record.
 
+> **Superseded in part (2026-11-22)** by
+> [resolvable values](2026-11-22-resolvable-values.md), which makes a
+> template's dynamic value, an extension setting's value and a placement
+> one kind (a handler node in a resolvable ref field, or bound to a field in
+> a template):
+> - §4.2's point `tag.resolvers` becomes `value.resolvers`;
+> - a resolver answers `{values, upserts}`, or `unresolved`, instead of
+>   `PropValue[]`;
+> - §6.5's failure rule is replaced by that doc's §2.4 (a stored value that
+>   cannot resolve reads as empty and is reported; an explicit one fails).
+>
+> An initializer is that doc's handler with an `init.field` binding.
+> Everything else here stands.
+
 ## 0. Verdict
 
 1. **Most of this is already in kb.** A tag's settings are already fields on

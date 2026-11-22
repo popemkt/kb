@@ -2,6 +2,20 @@
 
 Status: **design, for the owner.** Nothing here changes code.
 
+> **Superseded in part (2026-11-22)** by
+> [resolvable values](2026-11-22-resolvable-values.md), after the owner's
+> correction that a destination is an infrastructural value, not a tag
+> setting:
+> - §6.1's `PlacementResolver`, `fill` and `PlacementPoint` become the one
+>   `value.resolvers` point, whose clock travels with the call;
+> - §6.3's `#placement` tag and its text id field become resolver tags and
+>   handler nodes in resolvable ref fields;
+> - §6.6's failure rule and §11's decisions are replaced by that doc's §2.4
+>   and §6.
+>
+> The order (§6.4), the script rules (§6.5), deterministic ids and the
+> migration of creators (§8) stand.
+
 Date: 2026-11-17.
 Inputs:
 - kb `main` at `e4383f17`;
