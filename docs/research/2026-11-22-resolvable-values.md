@@ -438,6 +438,21 @@ changes an action's input.
    - the events family's `new events go into` setting, seeded as
      `⚡ Top level`;
    - `addRoutine` sends `placeFrom` and goes through page history;
+   - **`asPlaced` must not override `placeFrom`.** Today, when the tab
+     falls back to the capture target, `asPlaced` injects an explicit
+     `parent` on push (`ui/src/session/runtime.ts`, around line 541). That
+     parent wins over `placeFrom`, so the server would skip the setting and
+     lose its `unresolved` report. P1 retires `asPlaced` for adds that
+     carry `placeFrom`, or bypasses it for them, so `placeFrom` reaches the
+     server unchanged;
+   - **the `placeFrom` lookup is read in the caller's scope.** The
+     setting's holder and field are read through the caller's readable
+     view. A setting the caller cannot read is empty: reported, then the
+     add falls through;
+   - **clock eligibility is checked against the effective caller**, after
+     relay narrowing. Only a call whose effective wire is the page's may
+     supply a sample, so a call a program relays through the page cannot
+     supply one;
    - the picker's Handlers group, "Ready" only;
    - `unresolved` on `node.add`'s receipt.
    - *Tests:*
@@ -461,6 +476,14 @@ changes an action's input.
        - `createdAt` is the server's;
        - a conditional-commit retry across midnight lands in the page's
          day;
+     - a real tab-to-server call: an event made in a tab whose own capture
+       target falls back still reaches the server with `placeFrom` and no
+       injected `parent`, and the receipt carries the setting's
+       `unresolved` report;
+     - a narrowed caller whose `placeFrom` names a setting it cannot read
+       gets the setting read as empty and reported, never its value;
+     - a call relayed through the page with a narrowed caller kind cannot
+       supply a clock sample;
      - bare nodes: a narrowed caller's resolver sees no text, order or
        timestamps of an unreadable node, and canvas's tests stay green;
      - a component test of the picker group;
