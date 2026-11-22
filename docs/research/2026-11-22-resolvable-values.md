@@ -178,10 +178,22 @@ interface ResolveContext {
 
   Anything with I/O (AI, the network, a calendar API) is not a resolver.
   It is a command run after the write.
-- **Caller-scoped reads** (supertag doc §4.2, unchanged). `ctx.nodes` is
-  `readableNodes(invocation, staged)`. `ctx.answers` is evaluated over an
-  index of that scoped graph, never filtered afterwards. Bare nodes must
-  not carry timestamps (supertag doc §10).
+- **Caller-scoped reads, one bare projection.** `ctx.nodes` is the staged
+  graph as the caller may read it. `ctx.answers` is evaluated over an index
+  of that scoped graph, never filtered afterwards.
+  - **What a node the caller cannot read looks like.** It is projected by
+    one function, `bareNode(id)`: the id, empty text, no props, no children,
+    and **no `order`, `createdAt` or `updatedAt`**. Today's `readableNodes`
+    keeps the sibling rank and both timestamps, so P1 moves it onto
+    `bareNode` for every caller. Canvas's readers are the current ones, and
+    their tests have to stay green.
+  - **What is scoped before anything runs.** Before a native resolver runs,
+    and before anything is serialized for QuickJS:
+    - the handler's **arguments** are decoded from the scoped view of the
+      handler node, so a handler beyond the caller's reach has no arguments
+      and is `unresolved`;
+    - the **subject** carries only the caller's own planned write (its id,
+      planned props and parent id), never the parent's contents.
 - **Third-party resolvers** (supertag doc §4.3, unchanged). A resolver tag
   may name a `#script` instead of a declared implementation. It is evaluated
   in QuickJS as a pure function, with inputs serialized from the scoped
@@ -195,9 +207,18 @@ interface ResolveContext {
   - `node.add`'s placement (`placeOf`);
   - a template's instantiation (`planNodeAdd` / `planNodeUpdate`).
 
-  Its `upserts` join the same transaction. Guards, approval and the commit's
-  checks see the whole write, and a conflicting commit replans and
-  re-resolves. This is how `placeOf` already makes a missing day for a
+  **A result is validated before anything is staged.** It must have the
+  right number of values for its consumer (one ref, or none for a
+  placement), conform to the field's type and targets, and point only at
+  nodes that exist or are among its own upserts. For a narrowed caller,
+  every upsert's parent must also be within its reach (the placement doc's
+  §6.5). A result that fails is `unresolved`, and none of its upserts are
+  staged. A result that passes has its `upserts` staged **as the resolver
+  returned them**: new nodes, and the existing nodes they update, such as
+  a week that now files a new day, or days' `journal` setting when the
+  first day makes "Daily notes". All of it joins the same transaction.
+  Guards, approval and the commit's checks see the whole write, and a
+  conflicting commit replans and re-resolves. This is how `placeOf` already makes a missing day for a
   capture today (`operations/src/place.ts`, `days/src/capture.ts`).
 - **Never cached into the config.** The setting keeps the handler.
   Settings readers (`decodeNodeConfig`, `settingsOf`) return the stored
@@ -213,18 +234,38 @@ interface ResolveContext {
 ### 2.3 Whose clock
 
 The placement doc split each resolver into `fill` (ambient → args) and
-`plan`. That split is gone. The **clock sample travels with the call**: the
-page attaches its own `ClockSample` (instant and zone) to the invocation,
-as it already passes its day to `ext.days.today`. The server resolves with
-that sample. Without one (the CLI, MCP), the sample is the process's clock
-in the store's zone (days' `time zone` setting, else the process's). So
-the page and the server plan the same day, and a capture just after the
-person's midnight lands in the person's today (D4).
+`plan`. That split is gone. Instead, one `ClockSample` (an instant and a
+zone) is fixed per call:
+
+- **Who may supply one.** Only the page's wire (`PAGE_WIRE`, a person's
+  tab) may attach a sample. A call on any other wire (CLI, MCP, HTTP)
+  attaches none, and the server takes its own clock in the store's zone
+  (days' `time zone` setting, else the process's).
+- **How it is checked.** On arrival, the server accepts the page's sample
+  only if:
+  - its zone is a valid IANA name;
+  - its instant is within a bounded skew of the server's clock (for
+    example ±10 minutes; the exact bound is an open item for P1).
+
+  A sample that fails is replaced by the server's own, and the receipt
+  says so. The call itself is not refused.
+- **What it controls.** Only resolution: which day "today" is, and what
+  `#now` or a relative date reads. Stored timestamps (`createdAt`,
+  `updatedAt`) stay the committing process's clock, because they record
+  when the store was written. This replaces the supertag doc's rule that
+  `createdAt` and every clock resolver read the same instant.
+- **Fixed for the call's life.** The same accepted sample is used for the
+  page's local plan, the server's plan and every retry of the conditional
+  commit. A retry that happens after midnight still lands in the day the
+  page showed (D4).
 
 ### 2.4 Failure, one rule
 
-A value is either **stored** (read from a setting or a template) or
-**explicit** (a call names it as `parent`).
+A value is either **stored** or **explicit**:
+
+- **stored**: read by the planner from a setting or a template, including
+  a setting the call only names by reference (`placeFrom`, §3.1);
+- **explicit**: the call itself carries the handler as `parent`.
 
 | Case | Stored value | Explicit value |
 | --- | --- | --- |
@@ -251,21 +292,38 @@ Events (sys.extension.routines)
   new events go into:: ⚡ Today            (sys.f.routines.goesInto, resolvable ref, one)
 ```
 
+The family seeds the setting holding `⚡ Top level`, which keeps today's
+behaviour (a new event goes to the top level) until the person changes it.
+
 How an event lands under today:
 
 1. The person makes an event in the routines editor. Today `addRoutine`
    (`routines/src/calendar-edits.ts`) builds a `node.add` with
-   `parent: null`.
-2. It now passes the setting's **stored value** as `parent`:
-   `parent: sys.resolver.days.today`. The family's reader returns the
-   value, never a resolution. If the setting is empty, or holds a handler
-   whose family is off, it passes `null` as before (the stored-value rule).
-3. `node.add`'s plan calls `placeOf(parent, …)`, which sees a handler and
-   calls `resolveValue`. `days.today` answers `{values: [ref days.2026-11-22],
-   upserts: [year, week, day]}`, keeping only the upserts that are not
-   already in the store.
-4. One conditional commit writes the day (if it is new) and the event under
-   it. One ⌘Z removes both. The receipt names the parent.
+   `parent: null`, called directly, with no page undo entry.
+2. Instead, `addRoutine` names **where the place is configured**, not the
+   value: `placeFrom: {node: sys.extension.routines, field:
+   sys.f.routines.goesInto}`, a new optional input of `node.add`. The
+   planner reads the setting itself, inside the attempt, so the value keeps
+   its **stored** provenance (§2.4):
+   - if it is empty, dangling or `unresolved`, the add falls through the
+     placement order (the store's capture setting, then the top level) and
+     reports why;
+   - it is never refused.
+
+   An explicit `parent` still wins over `placeFrom`.
+3. `placeOf` calls `resolveValue`. `days.today` runs the **day planner**,
+   `planToday(nodes, key)` (`days/src/today-plan.ts`), which P1 separates
+   from `captureToday` so that the `captures` setting does not gate it. An
+   event can use Today while captures go to the top level. It answers
+   `{values: [ref days.2026-11-22], upserts}`, where the upserts are the
+   missing periods plus the existing nodes that file them (the week gains
+   the day, and the journal setting is set when "Daily notes" is made).
+   The result is validated, then staged (§2.2).
+4. One conditional commit writes all of it and the event. The editor makes
+   the call through the **page's history**, so one Undo:
+   - removes the event and any newly made periods;
+   - restores the week's children and any changed journal setting;
+   - leaves periods that already existed.
 5. Tomorrow the same setting answers tomorrow.
 
 The other forms work through the same path:
@@ -349,9 +407,6 @@ Meeting template                        (P, the tag's sys.f.tag.template)
 - **A template's dynamic value** is offered from the same Handlers group in
   the Content template section's "Add dynamic value…" step (supertag doc
   WP‑3). The binding is written for the person.
-- **CLI and MCP** need nothing new: a handler is a node, and `kb set` or
-  `node.update` writes the ref. `kb get` shows the ref, and `kb backlinks
-  sys.resolver.days.today` lists every setting that uses it.
 
 ## 5. Build plan
 
@@ -363,19 +418,26 @@ changes an action's input.
 **P1. The owner's example, end to end.**
 
 1. *Restructure (behaviour-preserving):* add the `value.resolvers` point
-   and `Resolution`, and `resolveValue` in `@kb/model`. Days' `captureToday`
-   becomes the `sys.resolver.days.today` contribution, and the registry
-   half of `ui.capture-target` calls it through the point. `placeOf` asks
-   `resolveValue` only when no parent is given.
+   and `Resolution`, and `resolveValue` in `@kb/model`. Days' day planner
+   (`planToday`) becomes the `sys.resolver.days.today` contribution.
+   `captureToday` keeps its `captures` gate and calls it through the point,
+   so the registry half of `ui.capture-target` answers as before.
    - *Tests:* the existing `place`, capture and days tests pass unchanged.
 2. *Add:*
    - the `sys.resolver` tag, the `sys.f.resolvable` flag (seeded on
      `sys.field`'s template) and `#today`, with id
      `sys.resolver.days.today`;
-   - `node.add`'s `parent` accepts a handler ref, resolved in `placeOf`;
-   - the call carries the page's `ClockSample`;
-   - the events family's `new events go into` setting;
-   - `addRoutine` passes the stored value as `parent`;
+   - `node.add`'s `parent` accepts a handler ref (explicit), and a new
+     `placeFrom: {node, field}` input reads a setting (stored), both
+     resolved in `placeOf`, with the result validated before staging;
+   - `bareNode`, the one id-only projection, in `readableNodes`, with the
+     arguments and subject scoped first;
+   - the page's `ClockSample` (page wire only, skew-checked, used for
+     resolution only), fixed for the call across local planning, server
+     planning and retries;
+   - the events family's `new events go into` setting, seeded as
+     `⚡ Top level`;
+   - `addRoutine` sends `placeFrom` and goes through page history;
    - the picker's Handlers group, "Ready" only;
    - `unresolved` on `node.add`'s receipt.
    - *Tests:*
@@ -384,9 +446,23 @@ changes an action's input.
        store with no today makes year, week, day and node in one
        transaction, and one undo removes all four;
      - the same through the CLI and MCP;
-     - days off: the stored setting reads empty and the event goes to the
-       top level, reported; an explicit `--parent` fails `unresolvable`;
-     - a midnight-boundary test: the page's sample wins;
+     - provenance: days off, the stored setting is reported and the event
+       falls through the order and is never refused, while an explicit
+       `--parent` fails `unresolvable`;
+     - attaching: a store whose week exists but whose day does not commits
+       the new day and the updated week together;
+     - captures set to the top level, and the events setting set to Today:
+       the event lands in today;
+     - page undo: one Undo removes the event and any new periods, restores
+       the week and the journal setting, and keeps existing periods;
+     - the clock:
+       - a sample from a non-page wire is ignored;
+       - a skewed sample is replaced and reported;
+       - `createdAt` is the server's;
+       - a conditional-commit retry across midnight lands in the page's
+         day;
+     - bare nodes: a narrowed caller's resolver sees no text, order or
+       timestamps of an unreadable node, and canvas's tests stay green;
      - a component test of the picker group;
      - a browser check on a scratch store: set the setting, make an event
        in the routines editor, and see it under today.
@@ -436,8 +512,8 @@ Spec homes, written in the PR that builds each part:
    empty and is reported; an explicit value fails the call. This replaces
    the placement doc's D3.
 4. **The page's clock travels with the call**, so the person's today wins
-   over the server's. Recommended: yes. It replaces the placement doc's
-   `fill`.
+   over the server's. Recommended: yes, as specified in §2.3. It replaces
+   the placement doc's `fill`.
 5. **Where a handler with arguments lives.** Recommended: under the node
    whose setting first used it, reusable from anywhere by ref.
 6. **Per-tag "goes into".** Recommended: defer it until a consumer asks.
@@ -445,14 +521,15 @@ Spec homes, written in the PR that builds each part:
 
 ## 7. Not verified
 
-- Whether `ConfigSlots` and `settingsOf` need a change to show
-  `resolvable` in Settings, or draw it already as a ref setting. They read
-  the field node's type, so they probably need none.
-- Whether the routines editor's `addRoutine` runs on the page replica as an
-  isomorphic `node.add`. If it does, the event shows under today before the
-  receipt, and if not, after it. Both are correct.
+- Whether `settingsOf` draws a resolvable ref setting with no change. It
+  reads the field's type, so it probably does.
 - The cost of passing a `ClockSample` on every call, and whether
   `asFilled` is the right carrier or a new envelope field is.
+- **Open for P1:**
+  - how the page's history records a server-planned write: whether its
+    undo entry is built from the commit's before and after images, which
+    would cover resolver upserts with no extra work;
+  - the skew bound for a page's clock sample.
 - `planToday`'s fallback ids (`freshId`, `MOST_MADE` in
   `days/src/today-plan.ts`) are minted, not derived. P1's `resolverContract`
   will fail on them until they move to the placement doc's derived

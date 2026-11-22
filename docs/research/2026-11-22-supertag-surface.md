@@ -25,7 +25,11 @@ statements move into DESIGN.md → Data model → tag behaviours and DESIGN-UI.m
 > - a resolver answers `{values, upserts}`, or `unresolved`, instead of
 >   `PropValue[]`;
 > - §6.5's failure rule is replaced by that doc's §2.4 (a stored value that
->   cannot resolve reads as empty and is reported; an explicit one fails).
+>   cannot resolve reads as empty and is reported; an explicit one fails);
+> - §6.6's rule that `createdAt` and every clock resolver read the same
+>   instant is replaced by that doc's §2.3: the accepted clock sample
+>   controls resolution only, and stored timestamps stay the committing
+>   process's.
 >
 > An initializer is that doc's handler with an `init.field` binding.
 > Everything else here stands.
