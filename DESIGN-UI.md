@@ -6602,6 +6602,7 @@ A PR for a backdrop reports a score against each criterion.
   - `backdrops.roost` is a house with a long overhang and bats hanging under
     its eave, with the sun or moon behind them: asleep by day, stirring and
     flying at night;
+  - `backdrops.rain-relay` is a harbour switchboard calling the night watch. Two glass valves flash, the lamp on the far bank answers, and its light catches in the canal;
   - `backdrops.lens` is a dark star drifting through a nebula and bending its
     light, a new nebula each load (see **GPU scenes** below);
   - `backdrops.black-hole` is a black hole in one of two looks, its
