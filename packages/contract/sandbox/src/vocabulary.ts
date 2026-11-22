@@ -1,8 +1,11 @@
-import { SYSTEM_IDS, isSysPrefixed, type KbNode, type NodeId, typeRefsOf } from "@kb/model";
-
-/** Whether `node` defines a tag or a field. */
-const definesKind = (node: Pick<KbNode, "props"> | undefined): boolean =>
-  typeRefsOf(node).some((kind) => kind === SYSTEM_IDS.tag || kind === SYSTEM_IDS.field);
+import {
+  SYSTEM_IDS,
+  definesKind,
+  isSysPrefixed,
+  type KbNode,
+  type NodeId,
+  typeRefsOf,
+} from "@kb/model";
 
 /**
  * Whether `id` is of the vocabulary nodes are written in, rather than a node
