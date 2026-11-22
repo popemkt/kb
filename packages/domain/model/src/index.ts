@@ -133,6 +133,7 @@ export {
 } from "./ontology.ts";
 export type { MemberReason, OntologyResolution } from "./ontology.ts";
 export { chipTagsOf, refValuesOf, strValueOf, typeRefsOf, type NodeLike } from "./node-like.ts";
+export { isScaffolding } from "./scaffolding.ts";
 export {
   contextualTargetOf,
   isContextualRef,

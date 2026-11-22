@@ -1,10 +1,10 @@
 /**
  * What a period made or edited (DESIGN-UI.md → Days): the nodes whose
  * created or updated instant falls within a day, week or year in the
- * page's zone, without schema or scaffolding.
+ * page's zone, without the store's scaffolding.
  */
 import { DAYS_IDS, dayKeyAt, isDayKey, weekKey, yearKey } from "@kb/days";
-import { SYSTEM_IDS, typeRefsOf, type NodeLike } from "@kb/model";
+import { isScaffolding, type NodeLike } from "@kb/model";
 
 /** The most "made or edited" rows a period's page lists. */
 const MOST_TOUCHED = 30;
@@ -31,14 +31,16 @@ function within(iso: string | undefined, key: string, zone: string): boolean {
   return day !== null && periodOf(day, key) === key;
 }
 
-/** Schema and scaffolding a day did not make: `sys.*`, tags, fields and their options, period nodes. */
+/**
+ * What a day did not make: the store's scaffolding (`isScaffolding`) and
+ * what it holds, such as a field's options, and the period nodes.
+ */
 function scaffoldIds(nodes: ReadonlyMap<string, NodeLike>): ReadonlySet<string> {
   const out = new Set<string>();
   for (const node of nodes.values()) {
-    const types = typeRefsOf(node);
-    const schema = types.includes(SYSTEM_IDS.tag) || types.includes(SYSTEM_IDS.field);
-    if (node.id.startsWith("sys.") || schema || keyOf(node) !== null) out.add(node.id);
-    if (schema || node.id.startsWith("sys.")) for (const child of node.children) out.add(child);
+    const scaffolding = isScaffolding(node);
+    if (scaffolding || keyOf(node) !== null) out.add(node.id);
+    if (scaffolding) for (const child of node.children) out.add(child);
   }
   return out;
 }

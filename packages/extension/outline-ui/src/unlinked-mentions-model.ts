@@ -1,11 +1,9 @@
 import {
   inlineSpanSource,
   type InlineSpan,
-  isSysPrefixed,
+  isScaffolding,
   isViewNode,
   parseInlineSource,
-  refValuesOf,
-  SYSTEM_IDS,
 } from "@kb/model";
 import {
   type EdnRunner,
@@ -22,12 +20,6 @@ export interface UnlinkedMentionRow {
 }
 
 const graphemes = new Intl.Segmenter();
-
-const SCHEMA_TAG_IDS: ReadonlySet<string> = new Set([
-  SYSTEM_IDS.tag,
-  SYSTEM_IDS.field,
-  SYSTEM_IDS.command,
-]);
 
 /** Search for the displayed title as a whole word or phrase, including Unicode letters. */
 function titlePattern(title: string): RegExp {
@@ -69,12 +61,9 @@ function linkedTextFor(text: string, pattern: RegExp, targetId: string): string 
   return null;
 }
 
-function isSchemaOrSystemNode(node: OutlineNode): boolean {
-  return (
-    isSysPrefixed(node.id) ||
-    isViewNode(node) ||
-    refValuesOf(node, SYSTEM_IDS.typeField).some((id) => SCHEMA_TAG_IDS.has(id))
-  );
+/** A node no mention is offered in: the store's scaffolding, or a view. */
+function isScaffoldingOrView(node: OutlineNode): boolean {
+  return isScaffolding(node) || isViewNode(node);
 }
 
 /** The target and the tree around it, walking through any already-linked rows. */
@@ -106,7 +95,7 @@ export function unlinkedMentionRows(
 
   const rows: UnlinkedMentionRow[] = [];
   for (const node of schema.values()) {
-    if (excluded.has(node.id) || isSchemaOrSystemNode(node) || node.text.length < title.length) {
+    if (excluded.has(node.id) || isScaffoldingOrView(node) || node.text.length < title.length) {
       continue;
     }
     const linkedText = linkedTextFor(node.text, pattern, nodeId);
