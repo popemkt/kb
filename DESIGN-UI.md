@@ -512,7 +512,12 @@ such as a tag's box or a hidden field's chip) is that control's, so Tab
 moves focus on and Enter or Space presses it (`ownsItsKeys`). Chrome the
 keyboard skips, such as the bullet, leaves its keys to the selection. Focus hand-offs are specified per operation (split → new
 node at 0; indent/outdent → same offset; merge → the join boundary; delete →
-neighbour) and tested.
+neighbour) and tested. A merge (Backspace at a row's start, Delete at the
+end of the row above) joins two rows that both join (`joins`): each shows
+its own text and neither defines a kind (`@kb/model`'s `definesKind`). A tag
+or a field is pointed at by other nodes, so a merge that took it away
+would leave them pointing at nothing, and one into it would rename it.
+Either key on either side of one is claimed and does nothing.
 
 **Keybindings.** Each mode is a _context_, a contribution to
 `ui.key-contexts` (`KeyContextPoint`) by the plugin that reads it, which owns
