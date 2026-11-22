@@ -1,4 +1,4 @@
-/** What the graph draws: everything but the scaffolding (`@kb/model`'s `isScaffolding`). */
+/** What the graph draws: everything but the scaffolding (`@kb/model`'s `isScaffolding`), tags included. */
 import { describe, expect, test } from "bun:test";
 import { visibleNodes } from "../src/index.ts";
 import { node } from "./fixtures.ts";
@@ -16,8 +16,8 @@ describe("visibleNodes", () => {
     node({ id: "b", text: "B" }),
   ];
 
-  test("leaves out system nodes, commands, tags and fields", () => {
-    expect(visibleNodes(nodes).map((n) => n.id)).toEqual(["a", "b"]);
+  test("draws a tag as it draws any node, and leaves out system nodes, commands and fields", () => {
+    expect(visibleNodes(nodes).map((n) => n.id)).toEqual(["t", "a", "b"]);
   });
 
   test("draws everything when asked for the scaffolding", () => {

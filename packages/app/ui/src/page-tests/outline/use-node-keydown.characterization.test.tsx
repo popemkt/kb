@@ -472,7 +472,7 @@ describe("outline editing keymap (characterization)", () => {
     });
 
     it("at end of the last visible row is left to the browser", async () => {
-      expect(await press(mount("n.root-c", endOf("n.root-c"), false), "Delete")).toBe(false);
+      expect(await press(mount("tag.todo", endOf("tag.todo"), false), "Delete")).toBe(false);
     });
   });
 
@@ -619,7 +619,7 @@ describe("outline editing keymap (characterization)", () => {
     });
 
     it("bare ArrowDown at the document edge is left to the browser", async () => {
-      expect(await press(mount("n.root-c", 4, false), "ArrowDown")).toBe(false);
+      expect(await press(mount("tag.todo", 4, false), "ArrowDown")).toBe(false);
     });
   });
 

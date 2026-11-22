@@ -454,6 +454,18 @@ removal. Pre-existing nodes remain ineligible for this cleanup.
 
 ### Outline editor (i1)
 
+**The home outline holds every top-level node but the scaffolding.** Its
+rows are the nodes nested under no other node (`forestRootIds`), less the
+store's scaffolding, which every content surface leaves out (`@kb/model`'s
+`isScaffolding`): a `sys.*` node, a command and, for now, a field. A tag is
+content, a node like any other: a top-level tag is a row in its own order,
+with its bullet, its children, its page and its drag, and a new tag, which
+is made at the top level, appears there. The graph, a day's touched
+nodes, a canvas's node picker and unlinked mentions read the same
+predicate, and search, ⌘K and the `[[` picker leave out only `sys.*`
+nodes, so a tag is found wherever a node is. Showing fields too is taking
+the field kind out of `isScaffolding`'s kinds, in one line.
+
 **Transient nodes replace ghost rows.** There is no permanent phantom bullet at
 the end of a list: `GhostNodeRow`, with its async character buffering and
 `beforeinput` interception, is deleted outright. Tana semantics instead —

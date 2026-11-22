@@ -34,7 +34,11 @@ function childIdSet(nodes: WireNode[]): Set<string> {
   return kids;
 }
 
-/** Top-level outline roots: the nodes nested under no other node, but the store's scaffolding (`isScaffolding`). */
+/**
+ * Top-level outline roots: the nodes nested under no other node, but the
+ * store's scaffolding (`isScaffolding`), so a top-level tag is a root as any
+ * node is (DESIGN-UI.md → Outline editor, "The home outline").
+ */
 export function forestRootIds(nodes: WireNode[]): string[] {
   const kids = childIdSet(nodes);
   return nodes

@@ -27,8 +27,8 @@ export function NodePicker({ onPick, onClose }: NodePickerProps) {
   const candidates = useMemo(() => {
     const out: PickerCandidate[] = [];
     for (const n of nodes.values()) {
-      // DISPLAY: a free-form canvas card picker offers content, not the
-      // store's scaffolding. Nothing here decides validity.
+      // DISPLAY: a free-form canvas card picker offers content, a tag as any
+      // node, not the store's scaffolding. Nothing here decides validity.
       if (isScaffolding(n)) continue;
       out.push({
         id: n.id,

@@ -61,7 +61,7 @@ function linkedTextFor(text: string, pattern: RegExp, targetId: string): string 
   return null;
 }
 
-/** A node no mention is offered in: the store's scaffolding, or a view. */
+/** A node no mention is offered in: the store's scaffolding, or a view. A tag is content, as any node is. */
 function isScaffoldingOrView(node: OutlineNode): boolean {
   return isScaffolding(node) || isViewNode(node);
 }

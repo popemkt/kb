@@ -33,7 +33,8 @@ function within(iso: string | undefined, key: string, zone: string): boolean {
 
 /**
  * What a day did not make: the store's scaffolding (`isScaffolding`) and
- * what it holds, such as a field's options, and the period nodes.
+ * what it holds, such as a field's options, and the period nodes. A tag is
+ * content, as any node is.
  */
 function scaffoldIds(nodes: ReadonlyMap<string, NodeLike>): ReadonlySet<string> {
   const out = new Set<string>();

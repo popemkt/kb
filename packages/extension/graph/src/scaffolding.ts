@@ -1,6 +1,6 @@
 /**
  * The nodes the graph draws: every node but the store's scaffolding
- * (`@kb/model`'s `isScaffolding`). The
+ * (`@kb/model`'s `isScaffolding`), a tag included as any node is. The
  * renderers' node set and every read over the projection take their nodes
  * from `visibleNodes`, so what a picture leaves out a trace never routes
  * through, and no degree counts it.

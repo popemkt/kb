@@ -98,6 +98,12 @@ function baseGraph(): WireNode[] {
       id: "n.c",
       text: "Gamma orphan",
     }),
+    // A field is scaffolding: the graph elides it, so a trace may start at one the graph does not draw.
+    node({
+      id: "field.depends",
+      text: "Depends on [[n.c|Gamma]]",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
     node({
       id: GRAPH_IDS.lensAllMentions,
       text: "All mentions",
@@ -187,13 +193,14 @@ describe("extractLensGraph", () => {
     });
   });
 
-  it("smart-elides sys/command/schema by default; toggle re-includes", () => {
+  it("smart-elides sys, commands and fields by default, draws a tag as any node; toggle re-includes", () => {
     const run = runOver(nodes);
     const elided = extractLensGraph(run, nodes, perspective());
     const elidedIds = new Set(elided.nodes.map((n) => n.id));
     expect(elidedIds.has("sys.field")).toBe(false);
     expect(elidedIds.has("sys.f.type")).toBe(false);
-    expect(elidedIds.has("tag.todo")).toBe(false);
+    expect(elidedIds.has("field.depends")).toBe(false);
+    expect(elidedIds.has("tag.todo")).toBe(true);
     expect(elidedIds.has("n.a")).toBe(true);
     expect(elidedIds.has("n.b")).toBe(true);
 
@@ -202,7 +209,7 @@ describe("extractLensGraph", () => {
     });
     const fullIds = new Set(full.nodes.map((n) => n.id));
     expect(fullIds.has("sys.field")).toBe(true);
-    expect(fullIds.has("tag.todo")).toBe(true);
+    expect(fullIds.has("field.depends")).toBe(true);
     expect(full.nodes.length).toBeGreaterThan(elided.nodes.length);
   });
 
@@ -217,8 +224,8 @@ describe("extractLensGraph", () => {
         traceTo: "n.c",
       }),
     );
-    // n.a1 ← n.a → n.b → n.c: the one path, ends included; the tags it carries are scaffolding.
-    expect(traced.nodes.map((n) => n.id)).toEqual(["n.a", "n.a1", "n.b", "n.c"]);
+    // n.a1 ← n.a → n.b → n.c, ends included, and the tag n.a and n.b carry: a node like any.
+    expect(traced.nodes.map((n) => n.id)).toEqual(["n.a", "n.a1", "n.b", "n.c", "tag.todo"]);
     const none = extractLensGraph(run, nodes, perspective({ traceFrom: "n.a", traceTo: "n.c" }));
     // Under mentions and children alone nothing reaches n.c: no path, no nodes.
     expect(none.nodes).toEqual([]);
@@ -230,11 +237,11 @@ describe("extractLensGraph", () => {
     const traced = extractLensGraph(
       run,
       nodes,
-      perspective({ edgeKinds: [...kinds], traceFrom: "tag.todo", traceTo: "n.c" }),
+      perspective({ edgeKinds: [...kinds], traceFrom: "field.depends", traceTo: "n.c" }),
     );
     // The server's graph.trace: the visible nodes, and the ends it is asked for.
     const server = traceOf(nodes, {
-      from: "tag.todo",
+      from: "field.depends",
       to: "n.c",
       kinds,
       within: new Set(visibleNodes(nodes).map((n) => n.id)),
@@ -243,7 +250,7 @@ describe("extractLensGraph", () => {
     expect(new Set(traced.nodes.map((n) => n.id))).toEqual(
       new Set(server.paths.flatMap((path) => path.nodes)),
     );
-    expect(traced.nodes.map((n) => n.id)).toContain("tag.todo");
+    expect(traced.nodes.map((n) => n.id)).toContain("field.depends");
   });
 
   it("selects only ref-prop edges when configured", () => {
