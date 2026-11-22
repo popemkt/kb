@@ -1,0 +1,7 @@
+{
+  "reason": "The store's scaffolding is named once (DESIGN-UI.md → Outline editor, \"The home outline\"): @kb/model exports isScaffolding, the one predicate the home outline, the graph, a canvas's node picker, a day's touched nodes and unlinked mentions read, in place of a copy each (@kb/graph no longer exports its own). It is a module of its own (scaffolding.ts), which the CLI's eager graph takes with @kb/model.",
+  "raise": {
+    "surface": { "@kb/model": 1 },
+    "cli-closure": { "modules": 1 }
+  }
+}

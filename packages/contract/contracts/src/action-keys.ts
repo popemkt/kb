@@ -174,7 +174,7 @@ export const includeSystem = z
   .boolean()
   .optional()
   .describe(
-    "Walk through scaffolding (sys.* nodes, commands, tags and fields) too; by default the graph elides it",
+    "Walk through scaffolding (sys.* nodes, commands and fields) too; by default the graph elides it",
   );
 
 const edgesInput = z.object({

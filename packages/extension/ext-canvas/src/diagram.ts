@@ -59,7 +59,7 @@ const diagramInput = z
       .boolean()
       .optional()
       .describe(
-        "For a query: draw scaffolding (sys.* nodes, tags, fields) too; the graph elides it",
+        "For a query: draw scaffolding (sys.* nodes, commands, fields) too; the graph elides it",
       ),
     flow: z
       .enum(DIAGRAM_FLOWS)

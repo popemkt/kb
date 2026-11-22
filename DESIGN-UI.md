@@ -454,6 +454,18 @@ removal. Pre-existing nodes remain ineligible for this cleanup.
 
 ### Outline editor (i1)
 
+**The home outline holds every top-level node but the scaffolding.** Its
+rows are the nodes nested under no other node (`forestRootIds`), less the
+store's scaffolding, which every content surface leaves out (`@kb/model`'s
+`isScaffolding`): a `sys.*` node, a command and, for now, a field. A tag is
+content, a node like any other: a top-level tag is a row in its own order,
+with its bullet, its children, its page and its drag, and a new tag, which
+is made at the top level, appears there. The graph, a day's touched
+nodes, a canvas's node picker and unlinked mentions read the same
+predicate, and search, ⌘K and the `[[` picker leave out only `sys.*`
+nodes, so a tag is found wherever a node is. Showing fields too is taking
+the field kind out of `isScaffolding`'s kinds, in one line.
+
 **Transient nodes replace ghost rows.** There is no permanent phantom bullet at
 the end of a list: `GhostNodeRow`, with its async character buffering and
 `beforeinput` interception, is deleted outright. Tana semantics instead —
@@ -500,7 +512,12 @@ such as a tag's box or a hidden field's chip) is that control's, so Tab
 moves focus on and Enter or Space presses it (`ownsItsKeys`). Chrome the
 keyboard skips, such as the bullet, leaves its keys to the selection. Focus hand-offs are specified per operation (split → new
 node at 0; indent/outdent → same offset; merge → the join boundary; delete →
-neighbour) and tested.
+neighbour) and tested. A merge (Backspace at a row's start, Delete at the
+end of the row above) joins two rows that both join (`joins`): each shows
+its own text and neither defines a kind (`@kb/model`'s `definesKind`). A tag
+or a field is pointed at by other nodes, so a merge that took it away
+would leave them pointing at nothing, and one into it would rename it.
+Either key on either side of one is claimed and does nothing.
 
 **Keybindings.** Each mode is a _context_, a contribution to
 `ui.key-contexts` (`KeyContextPoint`) by the plugin that reads it, which owns
