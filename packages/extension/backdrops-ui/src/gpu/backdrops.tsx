@@ -70,3 +70,7 @@ export function LightTrailsBackdrop(props: BackdropProps) {
 export function AstralBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="astral" backdrop={props} />;
 }
+
+export function RainRelayBackdrop(props: BackdropProps) {
+  return <GpuBackdropHost scene="rainRelay" backdrop={props} />;
+}
