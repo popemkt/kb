@@ -324,7 +324,13 @@ export const backdropsUiPlugin = definePlugin({
         ctx.contribute(
           BackdropPoint,
           provideBackdrop(RAIN_RELAY_BACKDROP, {
-            presentation: { ...sceneFrame, space: 166, height: 300 },
+            presentation: {
+              ...sceneFrame,
+              span: { reach: "region" },
+              space: 302,
+              minSpace: 270,
+              height: 326,
+            },
             budget: BACKDROP_BUDGETS.gpu,
             interactions: [
               {
