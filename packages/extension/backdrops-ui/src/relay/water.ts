@@ -19,7 +19,7 @@ import {
 import type { TslNode } from "@kb/scene-gpu";
 import { flat } from "./finishes";
 type Scalar = TslNode<"float">;
-export function water(time: Scalar) {
+export function water(time: Scalar, daylight: Scalar) {
   const mirror = reflector({ resolutionScale: 0.5, generateMipmaps: true, bounces: false });
   const p = positionWorld.xz;
   const swell = mx_noise_float(vec3(p.x.mul(2.4), p.y.mul(7.2), time.mul(0.46)));
@@ -63,7 +63,7 @@ export function water(time: Scalar) {
   const highlight = smoothstep(0.15, 0.9, mirror.rgb.dot(vec3(0.213, 0.715, 0.072)));
   const body = mix(vec3(0.012, 0.073, 0.083), vec3(0.021, 0.14, 0.14), swell.mul(0.45).add(0.5));
   const mat = flat(
-    mix(body, mirror.rgb, highlight.mul(0.38).add(0.55))
+    mix(mix(body, vec3(0.1, 0.27, 0.3), daylight), mirror.rgb, highlight.mul(0.38).add(0.55))
       .add(slope.max(0).mul(0.018))
       .add(vec3(0.22, 0.52, 0.5).mul(glints).mul(0.45)),
   );

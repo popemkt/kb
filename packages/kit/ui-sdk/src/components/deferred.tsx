@@ -17,16 +17,31 @@ interface DeferredOptions {
  */
 export function deferred<P extends object>(
   load: () => Promise<ComponentType<P>>,
-  { fallback = null, frame }: DeferredOptions = {},
+  { frame, fallback = null }: DeferredOptions = {},
 ): ComponentType<P> {
   const Loaded = lazy(() => load().then((Component) => ({ default: Component })));
   function Deferred(props: P) {
-    const drawn = (
-      <Suspense fallback={fallback}>
-        <Loaded {...props} />
+    return (
+      <Suspense
+        fallback={
+          frame === undefined ? (
+            fallback
+          ) : (
+            <div className={frame} data-deferred-pending="">
+              {fallback}
+            </div>
+          )
+        }
+      >
+        {frame === undefined ? (
+          <Loaded {...props} />
+        ) : (
+          <div className={frame}>
+            <Loaded {...props} />
+          </div>
+        )}
       </Suspense>
     );
-    return frame === undefined ? drawn : <div className={frame}>{drawn}</div>;
   }
   return Deferred;
 }

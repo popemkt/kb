@@ -178,7 +178,14 @@ export function PageBackdrop({
       className={cn("kb-page-head-space relative", className)}
       data-page-head-space="true"
       style={
-        presentation === undefined ? undefined : { minHeight: `min(${presentation.space}px, 24vw)` }
+        presentation === undefined
+          ? undefined
+          : {
+              minHeight:
+                presentation.minSpace === undefined
+                  ? `min(${presentation.space}px, 24vw)`
+                  : `clamp(${presentation.minSpace}px, 24vw, ${presentation.space}px)`,
+            }
       }
     >
       {children === undefined ? null : (

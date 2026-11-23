@@ -1,9 +1,10 @@
+import { dayWeather } from "./day-weather";
+import { instruments } from "./instruments";
 import { water } from "./water";
 import { quayInput } from "./quay-input";
 import type { SceneStage, TslNode } from "@kb/scene-gpu";
 import {
   AdditiveBlending,
-  Box3,
   Vector2,
   BufferGeometry,
   Float32BufferAttribute,
@@ -32,11 +33,9 @@ import {
 import { seededRng } from "../scene/rng";
 import { finishes, flat } from "./finishes";
 import { buildHarbour, EAVE_LAMPS } from "./harbour";
-import { buildSwitchboard } from "./switchboard";
 
 import { mountBackdrop, type GpuBackdropInit, type BackdropParts } from "../gpu/gpu-scene";
 import { seaMist, lampShaft } from "./sea-mist";
-import { windsock } from "./windsock";
 
 const FOCUS = { distance: 7.4, depth: 1.45, falloff: 5, radius: 2.3 };
 
@@ -89,38 +88,48 @@ function exchange(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const time = uniform(0),
     ring = uniform(0),
     answer = uniform(0);
-  const f = finishes(stage, ring, answer);
+  const daylight = uniform(init.dark ? 0 : 1);
+  const f = finishes(stage, ring, answer, daylight);
   const root = new Group();
   stage.scene.add(root);
   buildHarbour(root, f);
-  const { bank, lever, needle } = buildSwitchboard(root, f);
-  const fabric = windsock(root);
-  const neonAir = lightMist(vec3(0.7, 0.86, 0.12), uniform(0.28), [6.4, 2.1]);
+  const weather = dayWeather(root, init.seed);
+  const equipment = instruments(root, f);
+  const neonAir = lightMist(vec3(0.7, 0.86, 0.12), daylight.mul(-0.25).add(0.28), [6.4, 2.1]);
   neonAir.position.set(-3.3, 2.8, -2.05);
   const amberAir = lightMist(vec3(1.0, 0.36, 0.07), ring.mul(0.44), [2.4, 2.1]);
   amberAir.position.set(1.33, 2.53, 0.61);
   root.add(neonAir, amberAir);
-  const canal = water(time);
-  const input = quayInput(new Box3().setFromObject(bank), canal.splash);
+  const canal = water(time, daylight);
+  const input = quayInput(equipment.bounds, canal.splash);
   const viewport = new Vector2(1, 1);
   let callStart = 0;
   const rain = rainfall(time, init.seed);
   root.add(canal.surface, rain, seaMist(time, answer, -5.5), seaMist(time, answer, -1.95));
   for (const x of EAVE_LAMPS) root.add(lampShaft(x, time));
-  const mist = mix(vec3(0.038, 0.072, 0.092), stage.colors.ground, 0.054);
+  const mist = mix(
+    mix(vec3(0.038, 0.072, 0.092), stage.colors.ground, 0.054),
+    vec3(0.45, 0.63, 0.69),
+    daylight,
+  );
   const cloud = mx_noise_float(vec3(screenUV.mul(vec2(4.7, 2.1)), time.mul(0.027)));
-  stage.scene.backgroundNode = mix(vec3(0.008, 0.018, 0.045), mist, screenUV.y)
+  stage.scene.backgroundNode = mix(
+    mix(vec3(0.008, 0.018, 0.045), vec3(0.21, 0.48, 0.65), daylight),
+    mist,
+    screenUV.y,
+  )
     .add(
       vec3(0.25, 0.255, 0.061).mul(
         exp(length(screenUV.sub(vec2(0.22, 0.61)).mul(vec2(1.35, 1))).mul(-3.4)),
       ),
     )
-    .add(vec3(0.06, 0.084, 0.094).mul(cloud));
-  stage.scene.fogNode = fog(mist, rangeFogFactor(8, 21));
+    .add(mix(vec3(0.06, 0.084, 0.094), vec3(0.29, 0.28, 0.25), daylight).mul(cloud));
+  stage.scene.fogNode = fog(mist, rangeFogFactor(daylight.mul(-1).add(8), daylight.mul(5).add(21)));
   let elapsed = 0;
   return {
-    panel: { x: 0.31, y: 0.47, scale: 0.7, presence: 1 },
-    wide: { x: 0.42, y: 0.47, scale: 1, presence: 1 },
+    ready: equipment.ready,
+    panel: { x: 0.2, y: 0.47, scale: 0.62, presence: 1 },
+    wide: { x: 0.42, y: 0.46, scale: 0.91, presence: 1 },
     layout({ anchor, quality, width, height }) {
       viewport.set(width, height);
       const depth = 7.25 / anchor.scale;
@@ -135,7 +144,10 @@ function exchange(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       return anchor;
     },
     setLook(look) {
-      stage.setBloom(look.dark ? 0.31 : 0.22);
+      daylight.value = look.dark ? 0 : 1;
+      equipment.setDaylight(!look.dark);
+      weather.setDaylight(!look.dark);
+      stage.setBloom(look.dark ? 0.31 : 0.1);
     },
     frame(dt, reactions) {
       elapsed += dt;
@@ -143,13 +155,20 @@ function exchange(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       if (input(reactions.pointer, stage.camera, viewport, t, dt)) callStart = t - 0.64;
       const beat = stage.reduced() ? 4.9 : (t - callStart) % 9;
       time.value = t;
-      fabric(t);
       ring.value = cue(beat, 1.0, 1.66, 0.13) + cue(beat, 2.06, 2.96, 0.17);
       answer.value = cue(beat, 3.65, 7.5, 0.53);
-      lever.rotation.z = -0.58 + cue(beat, 0.65, 3.22, 0.39) * 0.99;
-      needle.rotation.z = 0.88 - ring.value * 1.46 - answer.value * 0.74 - reactions.stir * 0.24;
+      equipment.pose(
+        t,
+        -0.58 + cue(beat, 0.65, 3.22, 0.39) * 0.99,
+        0.88 - ring.value * 1.46 - answer.value * 0.74 - reactions.stir * 0.24,
+        ring.value,
+        weather.update(elapsed, stage.reduced()),
+      );
     },
-    dispose: canal.dispose,
+    dispose() {
+      equipment.dispose();
+      canal.dispose();
+    },
   };
 }
 export function mountRelay(host: HTMLElement, init: GpuBackdropInit) {

@@ -101,7 +101,7 @@ function valveGlass(rim: Scalar, ice: Pigment, lime: Pigment) {
 
 /** The sign at the left and the cyan sky at camera right pick out opposite
  * contours. All surface masks are evaluated on the actual mesh normals. */
-export function finishes(stage: SceneStage, ring: Scalar, answer: Scalar) {
+export function finishes(stage: SceneStage, ring: Scalar, answer: Scalar, daylight: Scalar) {
   const p = positionWorld;
   const normal = normalWorld;
   const lamp = vec3(-2, 3.0, -2).sub(p);
@@ -133,7 +133,7 @@ export function finishes(stage: SceneStage, ring: Scalar, answer: Scalar) {
       .clamp(0, 1)
       .pow(27);
     const lit = worn
-      .mul(bands)
+      .mul(bands.add(daylight.mul(0.65)))
       .mul(grain.mul(0.085).add(streak.mul(0.17)).add(1))
       .add(warm.add(cold).mul(polish))
       .add(damp.mul(polish).mul(vec3(0.18, 0.26, 0.25)))
@@ -179,7 +179,7 @@ export function finishes(stage: SceneStage, ring: Scalar, answer: Scalar) {
   const stone = enamel(vec3(0.115, 0.14, 0.14).mul(contact.mul(-0.53).add(1)), 0.52, 0.33);
   const gold = enamel(vec3(0.56, 0.36, 0.115), 0.36, 0.85);
   const paper = enamel(vec3(0.6, 0.55, 0.35), 0.15, 0.45);
-  const sign = flat(lime.mul(2.15));
+  const sign = flat(mix(lime.mul(2.15), vec3(0.87, 0.85, 0.62), daylight));
   const workLight = flat(vec3(1.9, 1.15, 0.46));
   const tungsten = flat(vec3(1, 0.34, 0.058).mul(ring.mul(3.7).add(0.37)));
   const farWindow = flat(replyLight(answer));
@@ -191,7 +191,7 @@ export function finishes(stage: SceneStage, ring: Scalar, answer: Scalar) {
     ),
   );
   const glass = valveGlass(rim, ice, lime);
-  const masonry = stationFinishes(bands, streak, grain);
+  const masonry = stationFinishes(bands.add(daylight.mul(0.55)), streak, grain);
   return {
     copper,
     violet,
