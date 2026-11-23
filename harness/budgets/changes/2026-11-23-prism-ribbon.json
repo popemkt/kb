@@ -1,0 +1,7 @@
+{
+  "reason": "The shared backdrops declaration exports Prism ribbon and its three live knobs (hue, code overlay, prism shift). Its WebGPU/TSL shader and SDF atlas load lazily on demand.",
+  "raise": {
+    "cli-closure": { "bytes": 600, "modules": 1 },
+    "surface": { "@kb/backdrops": 5 }
+  }
+}

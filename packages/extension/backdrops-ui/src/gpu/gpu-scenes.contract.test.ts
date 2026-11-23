@@ -79,6 +79,8 @@ const mounts: Record<string, () => Promise<GpuBackdropMount>> = {
     ]),
   ),
   "disc field": () => import("../disc-field/disc-field-scene").then((m) => m.mountDiscField),
+  "prism ribbon": () =>
+    import("../prism-ribbon/prism-ribbon-scene").then((m) => m.mountPrismRibbon),
 };
 
 sceneContract(

@@ -34,6 +34,7 @@ import { SKY_KNOBS } from "./knobs/sky.ts";
 import { ROOST_KNOBS } from "./knobs/roost.ts";
 import { BLACK_HOLE_KNOBS, GARGANTUA_KNOBS, WARP_KNOBS } from "./knobs/black-hole.ts";
 import { ASTRAL_KNOBS } from "./knobs/astral.ts";
+import { PRISM_RIBBON_KNOBS } from "./knobs/prism-ribbon.ts";
 
 /** The Unicorn Studio scene over the tag/accent wash: the one a head shows while none is chosen. */
 export const UNICORN_BACKDROP: SeedBackdrop = { id: "backdrops.unicorn", label: "Unicorn" };
@@ -152,6 +153,13 @@ export const DISC_FIELD_BACKDROP: SeedBackdrop = {
   knobs: [...MOVING_KNOBS, ...DISC_FIELD_KNOBS],
 };
 
+/** A glossy twisted 3D ribbon floating over a navy-and-plum field, traced with blueprint grids and curved shader code. */
+export const PRISM_RIBBON_BACKDROP: SeedBackdrop = {
+  id: "backdrops.prism-ribbon",
+  label: "Prism ribbon",
+  knobs: [...MOVING_KNOBS, ...PRISM_RIBBON_KNOBS],
+};
+
 /** Every backdrop the family declares, in the order its options are listed. */
 const BACKDROPS: readonly SeedBackdrop[] = [
   UNICORN_BACKDROP,
@@ -169,6 +177,7 @@ const BACKDROPS: readonly SeedBackdrop[] = [
   LIGHT_TRAILS_BACKDROP,
   ASTRAL_BACKDROP,
   DISC_FIELD_BACKDROP,
+  PRISM_RIBBON_BACKDROP,
 ];
 
 export const backdropsExtension = defineExtension({

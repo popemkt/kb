@@ -76,6 +76,7 @@ const GPU_BACKDROPS = new Set([
   "backdrops.light-trails",
   "backdrops.astral",
   "backdrops.disc-field",
+  "backdrops.prism-ribbon",
 ]);
 
 /** The browser entries of the families on in a store with no switch written, as the page loads them. */

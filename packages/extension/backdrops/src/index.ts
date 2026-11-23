@@ -13,6 +13,7 @@ export {
   LIGHT_TRAILS_BACKDROP,
   ASTRAL_BACKDROP,
   LENS_BACKDROP,
+  PRISM_RIBBON_BACKDROP,
   ROOST_BACKDROP,
   RAIN_RELAY_BACKDROP,
   SILK_BACKDROP,
@@ -80,4 +81,10 @@ export {
   ASTRAL_STARS_KNOB,
   ASTRAL_KNOBS,
 } from "./knobs/astral.ts";
+export {
+  PRISM_RIBBON_HUE_KNOB,
+  PRISM_RIBBON_CODE_KNOB,
+  PRISM_RIBBON_PRISM_KNOB,
+  PRISM_RIBBON_KNOBS,
+} from "./knobs/prism-ribbon.ts";
 export { BackdropStudioParams, BackdropStudioView } from "./view.ts";
