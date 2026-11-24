@@ -72,7 +72,7 @@ and, from the review, expose only the sign-in routes.
 
 | Option | (a) | (b) | (c) | (d) | What runs | Verdict |
 |---|---|---|---|---|---|---|
-| **Dex + oauth2-proxy** | oauth2-proxy `--authenticated-emails-file`. It applies to bearer tokens too, and a token without an email falls back to its subject, which fails the list (`oauthproxy.go:1191`, `providers/oidc.go:224-226`) | Dex `staticClients` with secrets. Redirects must match exactly (`server/authflow/request.go:88-98`). Approval screen | Dex serves OIDC discovery. Static PRM and RFC 8414 files are served by oauth2-proxy `file://` upstreams | `--skip-jwt-bearer-tokens` with `--extra-jwt-issuers <dex>=<client id>`; `--api-route` gives a 401, not a redirect; `unix://` upstream | Two Go binaries, `services.dex` (SQLite) and `services.oauth2-proxy` | **Recommended** |
+| **Dex + oauth2-proxy** | oauth2-proxy `--authenticated-emails-file`. It applies to bearer tokens too, and a token without an email falls back to its subject, which fails the list (`oauthproxy.go:1191`, `providers/oidc.go:224-226`) | Dex `staticClients` with secrets. Redirects must match exactly (`server/authflow/request.go:88-98`). Approval screen | Dex serves OIDC discovery. Static PRM and RFC 8414 files are served by oauth2-proxy `file://` upstreams | `--skip-jwt-bearer-tokens` with `--extra-jwt-issuers <dex>=<client id>`; `--api-route` gives a 401, not a redirect; `unix://` upstream | Two Go binaries, `services.dex` (SQLite) and `services.oauth2-proxy` | **Recommended, if it meets B3** (§6). Dex's ID and access tokens both carry `aud = client id` *(unverified)*. If it cannot issue resource-bound access tokens, phase 1 uses Keycloak |
 | Keycloak + oauth2-proxy | Native: registration off, only the linked user | Confidential clients; a trailing `*` redirect is allowed | Native | Still needs oauth2-proxy, since kb checks nothing | JVM + PostgreSQL + oauth2-proxy. The Admin API and master realm must be fenced off (expose only `/realms/<r>/` login, discovery and `/resources/`) | Fallback if Gemini's redirect is not one fixed URL |
 | Pomerium 0.34.1 (latest) | Yes | **No.** DCR can be turned off (`internal/mcp/handler_register_client.go:38`), but then clients come only from CIMD, which admits public clients (no secret) only (`handler_authorization.go:25`). No static clients, no consent | Yes | Yes | One binary | **Fails (b)** |
 | sigbit/mcp-auth-proxy 2.11.0 | Google with an allowed-users list | **No.** Open DCR only (`/.idp/register`). Its consent page shows the redirect, which for this attack is the vendor's real callback | Yes | Yes | One binary, not in nixpkgs *(unverified)* | **Fails (b)** |
@@ -114,6 +114,10 @@ it changes per connection, switch to Keycloak (§6, decision 1).
  │                      --listen unix:/run/kb-remote/mcp.sock   (mode 0600)     │
  └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+*The diagram's single Funnel mount and its route table are superseded by
+requirements B1–B5 in §6: the Funnel mount table is the public allow-list,
+and kb-remote and oauth2-proxy run as a dedicated identity, not the owner.*
 
 **Isolation, pure infra.** kb-remote and oauth2-proxy run as one account,
 so the 0600 socket admits only that account and root. "Bypassing the proxy"
@@ -194,6 +198,48 @@ One PR per row; the kb PR lands first, then dotfiles pins it.
 - Accepts: Claude lists tools. Claude's 401 discovery works without a `WWW-Authenticate` header (probing fallback), or the edge adds one *(unverified that oauth2-proxy can)*.
 - ChatGPT waits until its predefined client is shown to take a secret.
 
+**Phase-1 build requirements (review of 342cca2e).** Each is built in 1b and
+tested before 1c. **Funnel stays off until all pass**, together with a
+successful connector flow and a wrong-secret rejection. The broker is
+authorization-code only, with S256 PKCE, and no implicit or device grants.
+
+- **B1 — Dedicated identity for the edge-to-kb socket.**
+  - Requirement: kb-remote and oauth2-proxy run as a system user `kb-edge`, never as the owner. The socket lives in `/run/kb-edge` (0700, `kb-edge`), mode 0600. Store access is a group ACL with defaults on the personal root, so `app-kb` (owner) and kb-remote both read and write.
+  - Tests:
+    - an ordinary owner process (`sudo -u popemkt socat - UNIX-CONNECT:/run/kb-edge/mcp.sock`) is refused;
+    - writes from `app-kb` and kb-remote interleave, and each sees the other's;
+    - file modes stay group-writable after atomic renames.
+- **B2 — An explicit filesystem and IPC allow-list for kb-remote.**
+  - Requirement: no deny-list. `TemporaryFileSystem=/` with binds of `/nix/store` (read-only), the personal root (read-write), `/run/kb-edge` and its state directory, plus `PrivateNetwork`, `PrivateIPC`, `RestrictAddressFamilies=AF_UNIX`, an empty capability set and `NoNewPrivileges`. The same Nix attribute set defines the service and a `kb-remote-sandbox-check` oneshot, so the probes run under the unit's actual restrictions.
+  - Tests, as probes in that oneshot:
+    - `/` lists only the allow-listed paths;
+    - `/run/kb-popemkt/kb.sock`, `/run/kb-bytetum/`, `/run/tailscale/`, `/run/dbus/` and `/run/user/` are absent;
+    - TCP and abstract sockets fail;
+    - a write outside the store fails.
+- **B3 — A bearer access token bound to this MCP resource.**
+  - Requirement: `/mcp` accepts only an access token whose audience is the MCP resource (`https://<host>/mcp`), never an ID token (`aud` = client id) and never a cookie session. The owner's identity (`email`, `email_verified`, or a pinned `sub`) is checked on it. Dex must show it can issue such tokens; if it cannot, phase 1 uses Keycloak, with an audience mapper on access tokens only.
+  - Tests at `/mcp`, each refused:
+    - a valid ID token;
+    - an access token with a client-id or foreign audience;
+    - an oauth2-proxy session cookie;
+    - a token for another Google account.
+
+    A resource-bound owner token passes.
+- **B4 — The outer edge is the public allow-list.**
+  - Requirement: Funnel's path mounts, not oauth2-proxy's upstream table, decide what is public:
+    - `/mcp` and the two metadata files go to oauth2-proxy;
+    - the broker's login, discovery, token, keys and asset paths go to the broker;
+    - nothing else is mounted.
+
+    oauth2-proxy's own routes (`/oauth2/*`) are never mounted, and its login is disabled. Under Keycloak, `/admin` and the master realm are never mounted.
+  - Tests: from outside the tailnet, `/oauth2/sign_in`, `/oauth2/start`, `/oauth2/callback`, `/oauth2/auth`, `/oauth2/userinfo`, the broker's device, userinfo and health paths, and `/admin` are all 404.
+- **B5 — Local key path, public issuer.**
+  - Requirement: oauth2-proxy validates `iss = https://<host>` (the public issuer), but fetches keys locally: `--skip-oidc-discovery`, `--oidc-issuer-url=<public issuer>`, `--oidc-jwks-url=http://127.0.0.1:<broker>/keys` (or the realm's certs URL). The audience comes from the client-id/extra-audience setting, not `--extra-jwt-issuers`, whose discovery would need the public URL. Egress stays loopback-only.
+  - Tests:
+    - the unit starts with `IPAddressDeny=any`, `IPAddressAllow=localhost`;
+    - after a broker signing-key rotation, a token signed with the new key is accepted without restarting oauth2-proxy;
+    - a token from an issuer with the right keys but the wrong `iss` is refused.
+
 **Off switch.**
 
 - Declared: `remoteMcp.enable = false`, or removing the Funnel declaration (the reconcile runs `tailscale funnel reset`), then rebuild.
@@ -205,7 +251,7 @@ One PR per row; the kb PR lands first, then dotfiles pins it.
 | # | Decision | Recommendation |
 |---|---|---|
 | 1 | Broker: Dex + oauth2-proxy, or Keycloak + oauth2-proxy | **Dex + oauth2-proxy**, the least to run. Switch to Keycloak (fenced to its login and discovery routes) only if Gemini's redirect URL is not fixed |
-| 2 | Isolation: the owner's account in a sandbox, or a dedicated account | **Sandbox as the owner**: same protection from kb-work and other stores, no ownership change on a store `app-kb` also writes |
+| 2 | Isolation | *Settled by review (B1):* a dedicated identity `kb-edge`, with group ACLs on the personal store, so that no process of the owner's can bypass OAuth |
 | 3 | Secrets: the machine-state file pattern, or adopt sops-nix now | **Existing pattern** via `LoadCredential=` |
 | 4 | Drop the tailnet's wildcard grant (separate PR) | **Yes.** Not needed here (the sandbox has no network), but it makes the declared grants real |
 
@@ -273,3 +319,17 @@ Keycloak:
 - **The reviewer's exposed-path prerequisite** is applied to the chosen broker: one route table in oauth2-proxy, everything else 404, and Dex's gRPC API off. Under the Keycloak fallback, only `/realms/<r>/` login and discovery plus `/resources/` are exposed, never `/admin` or the master realm.
 - **Isolation is infra only:** a systemd sandbox without network that shows only the personal store, with the denials tested in 1b.
 - **Decisions** shrink to four; read-only, caps and the "From AI" subtree are gone. Gemini's Client ID / Client secret fields are confirmed by the owner.
+
+## Addendum: review of 342cca2e
+
+The core holds: a client secret plus exact redirects closes the
+shared-callback attack for the code flow. The five findings are folded in as
+phase-1 build requirements B1–B5 with tests (§6), and they gate Funnel:
+
+- B1: a dedicated `kb-edge` identity for the socket, which an owner process cannot connect to;
+- B2: an explicit filesystem and IPC allow-list, probed under the unit's own sandbox;
+- B3: resource-bound access tokens only, no ID tokens or cookies; Keycloak if Dex cannot;
+- B4: Funnel's mounts as the public allow-list, with `/oauth2/*` unreachable;
+- B5: local key fetch while validating the public issuer, with key rotation tested under the egress limit.
+
+Decision 2 is settled by B1.
