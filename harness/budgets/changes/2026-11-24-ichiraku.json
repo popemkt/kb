@@ -1,0 +1,8 @@
+{
+  "reason": "The shared backdrops declaration exports Ichiraku and its rain, neon and ink knobs (1 module, +527 bytes in cli-closure, +5 surface exports on @kb/backdrops) and registers its lazy backdrop entry (+773 bytes in page-eager). Its Three.js renderer and Blender GLB load lazily behind both UI dynamic boundaries.",
+  "raise": {
+    "cli-closure": { "bytes": 550, "modules": 1 },
+    "page-eager": { "bytes": 800 },
+    "surface": { "@kb/backdrops": 5 }
+  }
+}

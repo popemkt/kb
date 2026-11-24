@@ -7,6 +7,7 @@ import {
   FLOATING_GEOMETRY_BACKDROP,
   GRADIENT_BACKDROP,
   GRADIENT_ORBS_BACKDROP,
+  ICHIRAKU_BACKDROP,
   LIGHT_TRAILS_BACKDROP,
   LENS_BACKDROP,
   ROOST_BACKDROP,
@@ -43,6 +44,7 @@ import {
   DiscFieldBackdrop,
   FloatingGeometryBackdrop,
   GradientOrbsBackdrop,
+  IchirakuBackdrop,
   LensBackdrop,
   RainRelayBackdrop,
   LightTrailsBackdrop,
@@ -303,6 +305,24 @@ const discField: Omit<Backdrop, "key"> = {
 };
 
 /**
+ * Konoha cyber-ramen alley: sculpted Ichiraku stall, shinobi bike, Hokage
+ * Mountain and bioluminescent aquarium kiosk in stylized PBR + cel shading.
+ */
+const ichiraku: Omit<Backdrop, "key"> = {
+  presentation: { ...sceneFrame, span: { reach: "region" } },
+  budget: BACKDROP_BUDGETS.gpu,
+  interactions: [
+    { cue: "pointer", does: "the alley camera pans subtly toward the cursor" },
+    {
+      cue: "writes",
+      does: "lanterns, neon signs and bike core flare with a gust through the noren and leaves",
+    },
+    { cue: "navigation", does: "the lanterns sway and neon shimmers" },
+  ],
+  Component: IchirakuBackdrop,
+};
+
+/**
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
  * choice is made), Backdrop Studio's view and its route (`/backdrops`, the
@@ -355,6 +375,7 @@ export const backdropsUiPlugin = definePlugin({
         ctx.contribute(BackdropPoint, provideBackdrop(LIGHT_TRAILS_BACKDROP, lightTrails)),
         ctx.contribute(BackdropPoint, provideBackdrop(ASTRAL_BACKDROP, astral)),
         ctx.contribute(BackdropPoint, provideBackdrop(DISC_FIELD_BACKDROP, discField)),
+        ctx.contribute(BackdropPoint, provideBackdrop(ICHIRAKU_BACKDROP, ichiraku)),
         ctx.contribute(
           ViewPoint,
           provideView(BackdropStudioView, {
