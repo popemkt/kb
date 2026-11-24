@@ -48,6 +48,7 @@ const SCENES = {
   lightTrails: () => import("../light-trails/light-trails-scene").then((m) => m.mountLightTrails),
   astral: () => import("../astral/astral-scene").then((m) => m.mountAstral),
   discField: () => import("../disc-field/disc-field-scene").then((m) => m.mountDiscField),
+  ichiraku: () => import("../ichiraku/ichiraku-scene").then((m) => m.mountIchiraku),
 } satisfies Record<string, () => Promise<GpuBackdropMount>>;
 
 export type GpuSceneId = keyof typeof SCENES;

@@ -79,6 +79,7 @@ const mounts: Record<string, () => Promise<GpuBackdropMount>> = {
     ]),
   ),
   "disc field": () => import("../disc-field/disc-field-scene").then((m) => m.mountDiscField),
+  ichiraku: () => import("../ichiraku/ichiraku-scene").then((m) => m.mountIchiraku),
 };
 
 sceneContract(

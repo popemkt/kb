@@ -74,3 +74,8 @@ export function AstralBackdrop(props: BackdropProps) {
 export function RainRelayBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="rainRelay" backdrop={props} />;
 }
+
+/** Konoha cyber-ramen alley: Ichiraku stall, shinobi bike, Hokage Mountain and daytime sunbeams (`ichiraku/`). */
+export function IchirakuBackdrop(props: BackdropProps) {
+  return <GpuBackdropHost scene="ichiraku" backdrop={props} />;
+}

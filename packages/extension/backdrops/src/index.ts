@@ -10,6 +10,7 @@ export {
   FLOATING_GEOMETRY_BACKDROP,
   GRADIENT_BACKDROP,
   GRADIENT_ORBS_BACKDROP,
+  ICHIRAKU_BACKDROP,
   LIGHT_TRAILS_BACKDROP,
   ASTRAL_BACKDROP,
   LENS_BACKDROP,
@@ -80,4 +81,10 @@ export {
   ASTRAL_STARS_KNOB,
   ASTRAL_KNOBS,
 } from "./knobs/astral.ts";
+export {
+  ICHIRAKU_RAIN_KNOB,
+  ICHIRAKU_NEON_KNOB,
+  ICHIRAKU_INK_KNOB,
+  ICHIRAKU_KNOBS,
+} from "./knobs/ichiraku.ts";
 export { BackdropStudioParams, BackdropStudioView } from "./view.ts";
