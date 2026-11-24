@@ -5873,6 +5873,26 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
       name was rebound to the loopback address could call it. A socket
       takes any `Host`, since only its owner's processes (and the proxy
       they run) connect.
+    - A request that carries an `Origin` comes from a browser, and kb mcp
+      serves no page. So the only `Origin` taken is the listener's own
+      (on a TCP port, its names over `http`; on a socket, none), and any
+      other is answered 403 before the body is read. A request without
+      one passes. That covers any program, including an edge that
+      forwards a vendor's server-to-server call.
+    - Each request is bounded before it reaches the store:
+      - it carries one JSON-RPC message; a batch is a JSON-RPC
+        `-32600` and a body that is not JSON a `-32700`, both with 400;
+      - its body fits an `asset.upload` of the largest asset
+        (`ASSET_BYTES_INPUT_MAX` and 64 KiB for the rest of the call),
+        and Bun answers a larger one 413;
+      - at most 8 run at once, and one more is answered 503 with a
+        JSON-RPC `-32000`;
+      - its work is held by kb ui's `requestHealth` (`@kb/listener`): it
+        is answered 503 past a 35 s deadline, which covers a write's
+        15 s wait for the store's lock, and tracked until it settles.
+        `listen` binds every host with an idle timeout past that
+        deadline, so a connection is not dropped under a write that
+        then commits with no one to tell.
     - Whatever puts it in front of anyone else, such as a proxy that
       authenticates, belongs to the deployment and not to kb
       (`docs/research/2026-11-24-public-mcp.md`).

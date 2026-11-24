@@ -13,9 +13,21 @@ import { Effect, Scope } from "effect";
 import type { ServerListener } from "@kb/contracts";
 import { acquireFileWriteLockEffect, releaseFileWriteLock } from "@kb/file-write";
 import { type DomainError, domainError } from "@kb/model";
+import { HTTP_IDLE_TIMEOUT_SECONDS } from "./request-health.ts";
 
-/** What `Bun.serve` is told to bind. */
+/**
+ * What `Bun.serve` is told to bind, with the idle timeout every kb host's
+ * requests are held to (`HTTP_IDLE_TIMEOUT_SECONDS`), which covers their
+ * deadline.
+ */
 export type BindOptions = { hostname: string; port: number } | { unix: string };
+
+/** `where`, carrying the idle timeout. */
+function bindingOf(where: BindOptions): BindOptions {
+  // GAP [[01M7X56KZ3QCBQTZ4KMEE7PNGA]] Bun accepts the idle timeout on Unix
+  // listeners at runtime, but UnixServeOptions omits it (oven-sh/bun#43816).
+  return Object.assign({ idleTimeout: HTTP_IDLE_TIMEOUT_SECONDS }, where);
+}
 
 /** Owner read and write, nobody else: connecting to a socket needs write. */
 const SOCKET_MODE = 0o600;
@@ -153,7 +165,7 @@ const bindSocket = Effect.fn("kb.listen.bindSocket")(function* <
   const previous = process.umask(0o777 & ~SOCKET_MODE);
   let served: T;
   try {
-    served = serve({ unix: bound });
+    served = serve(bindingOf({ unix: bound }));
   } finally {
     process.umask(previous);
   }
@@ -209,7 +221,7 @@ export const listen = Effect.fn("kb.listen")(function* <
   lifetime: Scope.Closeable,
   serve: (where: BindOptions) => T,
 ): Effect.fn.Return<T, DomainError> {
-  if (at.kind === "tcp") return serve({ hostname: at.hostname, port: at.port });
+  if (at.kind === "tcp") return serve(bindingOf({ hostname: at.hostname, port: at.port }));
   const { path } = at;
   yield* ownedDirectory(dirname(path));
   const { served, made } = yield* underLock(

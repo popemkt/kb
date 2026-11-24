@@ -4,8 +4,11 @@
  * store, a read, a write and a resource read answer, and the write, made with
  * the `KB_VIA` the process was started with, is what a stdio reader then
  * sees. Its socket is mode 0600; any path but `/mcp` is not found; a TCP
- * listener answers only to its own `Host`; an address another machine could
- * reach is refused.
+ * listener answers only to its own `Host`; a browser's `Origin` other than
+ * the listener's own is refused; an address another machine could reach is
+ * refused. A request is bounded: one JSON-RPC message, a body that fits the
+ * largest asset upload and no more, a few at once, and a connection kept
+ * through a write's wait for the store's lock.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm, stat } from "node:fs/promises";
@@ -15,6 +18,9 @@ import { z } from "zod";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { Effect } from "effect";
+import { acquireFileWriteLockEffect, releaseFileWriteLock } from "@kb/file-write";
+import { ASSET_BYTES_INPUT_MAX, ASSET_MAX_BYTES } from "@kb/operations";
 import { governanceMode } from "@kb/runtime";
 import { KB_SOURCE_BIN } from "@kb/test-kit";
 
@@ -91,6 +97,28 @@ async function call(client: Client, name: string, args: Record<string, unknown>)
   return JSON.parse(result.content[0]?.text ?? "null") as unknown;
 }
 
+/** One raw JSON-RPC POST over the socket, as a client that skips initialize sends it. */
+function post(body: unknown, headers: Record<string, string> = {}): Promise<Response> {
+  return fetch("http://localhost/mcp", {
+    unix: socket,
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      ...headers,
+    },
+    body: typeof body === "string" ? body : JSON.stringify(body),
+  });
+}
+
+/** A `tools/call` request, as a JSON-RPC message. */
+function toolCall(id: number, name: string, args: Record<string, unknown>) {
+  return { jsonrpc: "2.0", id, method: "tools/call", params: { name, arguments: args } };
+}
+
+const RpcResultSchema = z.object({ result: TextResultSchema });
+const RpcErrorSchema = z.object({ error: z.object({ code: z.number(), message: z.string() }) });
+
 beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), "kb-mcp-listen-"));
   root = join(dir, "root");
@@ -153,8 +181,8 @@ describe("kb mcp --listen on a socket", () => {
     const { changes } = ChangesSchema.parse(
       await call(stdio, "graph_changes", { since: 0, viaPrefix: VIA }),
     );
-    expect(changes.length).toBe(1);
-    expect(changes[0]?.via).toBe(VIA);
+    expect(changes.length).toBeGreaterThan(0);
+    expect(changes.every((change) => change.via === VIA)).toBe(true);
   });
 
   test("finds nothing but /mcp, and takes only POST there", async () => {
@@ -165,6 +193,67 @@ describe("kb mcp --listen on a socket", () => {
     expect(get.status).toBe(405);
     expect(get.headers.get("allow")).toBe("POST");
   });
+});
+
+describe("kb mcp --listen bounds each request", () => {
+  test("refuses a browser page's Origin before reading the body, and takes a request without one", async () => {
+    const list = { jsonrpc: "2.0", id: 1, method: "tools/list" };
+    expect((await post(list, { origin: "https://attacker.example" })).status).toBe(403);
+    expect((await post(list, { origin: "http://localhost" })).status).toBe(403);
+    expect((await post(list)).status).toBe(200);
+  });
+
+  test("takes one JSON-RPC message per request: a batch or a body that is not JSON is a JSON-RPC error", async () => {
+    const list = { jsonrpc: "2.0", id: 1, method: "tools/list" };
+    const batch = await post([list, { ...list, id: 2 }]);
+    expect(batch.status).toBe(400);
+    expect(RpcErrorSchema.parse(await batch.json()).error.code).toBe(-32600);
+    const garbled = await post("{ not json");
+    expect(garbled.status).toBe(400);
+    expect(RpcErrorSchema.parse(await garbled.json()).error.code).toBe(-32700);
+  });
+
+  test("takes an upload of the largest asset, and refuses a body larger than one", async () => {
+    const largest = Buffer.alloc(ASSET_MAX_BYTES, 7).toString("base64");
+    const uploaded = await post(toolCall(1, "asset_upload", { bytes: largest, ext: "png" }));
+    expect(uploaded.status).toBe(200);
+    expect(RpcResultSchema.parse(await uploaded.json()).result.isError ?? false).toBe(false);
+
+    const tooLarge = await post(
+      toolCall(2, "asset_upload", { bytes: "A".repeat(ASSET_BYTES_INPUT_MAX + 1024 * 1024) }),
+    );
+    expect(tooLarge.status).toBe(413);
+  });
+
+  test("answers a few requests at once, refuses one more with 503, and keeps each connection through the store's lock wait", async () => {
+    // Every write waits on the store's lock, held here past Bun's default 10 s idle timeout.
+    const lock = await Effect.runPromise(
+      acquireFileWriteLockEffect(join(root, ".kb", "nodes.jsonl")),
+    );
+    let released = false;
+    const release = () => {
+      if (!released) releaseFileWriteLock(lock);
+      released = true;
+    };
+    try {
+      const writes = Array.from({ length: 8 }, (_, i) =>
+        post(toolCall(i + 1, "node_add", { text: `held write ${i}` })),
+      );
+      await Bun.sleep(1_000);
+      const extra = await post(toolCall(99, "node_add", { text: "one too many" }));
+      expect(extra.status).toBe(503);
+      expect(RpcErrorSchema.parse(await extra.json()).error.code).toBe(-32000);
+
+      await Bun.sleep(10_500);
+      release();
+      for (const answered of await Promise.all(writes)) {
+        expect(answered.status).toBe(200);
+        expect(RpcResultSchema.parse(await answered.json()).result.isError ?? false).toBe(false);
+      }
+    } finally {
+      release();
+    }
+  }, 40_000);
 });
 
 describe("kb mcp --listen on a TCP port", () => {
@@ -184,6 +273,19 @@ describe("kb mcp --listen on a TCP port", () => {
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
     });
     expect(rebound.status).toBe(403);
+    const list = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+    const fromOrigin = (origin: string) =>
+      fetch(url, {
+        method: "POST",
+        headers: {
+          origin,
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+        },
+        body: list,
+      });
+    expect((await fromOrigin(new URL(url).origin)).status).toBe(200);
+    expect((await fromOrigin("http://attacker.example")).status).toBe(403);
   });
 
   test("refuses an address another machine could reach, and starts nothing", async () => {

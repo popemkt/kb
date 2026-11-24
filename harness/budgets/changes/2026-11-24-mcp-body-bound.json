@@ -1,0 +1,6 @@
+{
+  "reason": "kb mcp --listen bounds a request's body so it still fits the largest asset upload (DESIGN.md → Surfaces → MCP): @kb/operations exports ASSET_BYTES_INPUT_MAX, the longest bytes input asset.upload takes, which the listener derives its limit from instead of restating the base64 arithmetic.",
+  "raise": {
+    "surface": { "@kb/operations": 1 }
+  }
+}

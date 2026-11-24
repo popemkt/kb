@@ -71,6 +71,10 @@ export function requestHealth(report: (line: string) => void, deadlineMs = REQUE
         pending.then((response) => (performance.now() >= due ? expire() : response)),
       ]).finally(() => timer.abort());
     },
+    /** How many requests' work is still running, an overrun one's included. */
+    inFlight() {
+      return requests.snapshot().inFlight;
+    },
     response() {
       return Response.json(
         {

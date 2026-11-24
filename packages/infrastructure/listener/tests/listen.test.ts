@@ -143,3 +143,23 @@ describe("listen on a socket", () => {
     expect(await refused(join(dir, "missing", "kb.sock"))).toBe(true);
   });
 });
+
+test("binds TCP and socket alike with an idle timeout past every request's deadline", async () => {
+  const told: Record<string, unknown>[] = [];
+  for (const at of [
+    { kind: "tcp", hostname: "127.0.0.1", port: 0 },
+    { kind: "socket", path },
+  ] satisfies ServerListener[]) {
+    const lifetime = Scope.makeUnsafe("sequential");
+    const served = await Effect.runPromise(
+      listen(at, lifetime, (where) => {
+        told.push({ ...where });
+        return Bun.serve({ ...where, fetch: () => new Response("ok") });
+      }),
+    );
+    await served.stop(true);
+    await Effect.runPromise(Scope.close(lifetime, Exit.void));
+  }
+  // requestHealth answers 503 at 35 s; Bun's default would be 10 s.
+  expect(told.map((where) => where["idleTimeout"])).toEqual([45, 45]);
+});

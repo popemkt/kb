@@ -54,13 +54,7 @@ import { recordBuild } from "./build-archive.ts";
 import { UI_DIST, UI_ROOT } from "./paths.ts";
 import { identifyBy, serverOwner } from "./auth.ts";
 import { requestGuard, type RequestGuard } from "./guard.ts";
-import {
-  HTTP_IDLE_TIMEOUT_SECONDS,
-  listen,
-  pendingRequests,
-  requestHealth,
-  type BindOptions,
-} from "@kb/listener";
+import { listen, pendingRequests, requestHealth, type BindOptions } from "@kb/listener";
 import { handleHttpRequest } from "./http.ts";
 import { channelsOf, loadServerPlugins, type HostedExtensions } from "./plugins.ts";
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
@@ -319,14 +313,8 @@ function serveUi(deps: {
   };
   // Built on the first request, once the listener knows its port (0 binds an ephemeral one).
   let guard: RequestGuard | null = null;
-  // GAP [[01M7X56KZ3QCBQTZ4KMEE7PNGA]] Bun accepts the idle timeout on Unix
-  // listeners at runtime, but UnixServeOptions omits it (oven-sh/bun#43816).
-  const binding: BindOptions = Object.assign(
-    { idleTimeout: HTTP_IDLE_TIMEOUT_SECONDS },
-    deps.where,
-  );
   return Bun.serve<WsData>({
-    ...binding,
+    ...deps.where,
     fetch(req, srv) {
       const url = new URL(req.url);
       const at = bound(deps.at, srv);
