@@ -2,6 +2,7 @@ package app.kb.capture
 
 import app.kb.capture.pairing.Pairing
 import app.kb.capture.shell.Back
+import app.kb.capture.shell.PairLink
 import app.kb.capture.shell.Pane
 import app.kb.capture.shell.Routes
 import org.junit.Assert.assertEquals
@@ -86,5 +87,58 @@ class RoutesTest {
     @Test
     fun `the offline view names the store and why, encoded for the fragment`() {
         assertEquals("https://localhost/#/queue?offline=Personal&why=net%3A%3AERR_ADDRESS_UNREACHABLE", Routes.offline(personal, "net::ERR_ADDRESS_UNREACHABLE"))
+    }
+
+    @Test
+    fun `pair links validate origin and 32-char hex code, allowing http only when enabled`() {
+        val code = "0123456789abcdef0123456789abcdef"
+        val upper = "0123456789ABCDEF0123456789ABCDEF"
+        assertEquals(
+            PairLink("https://kb.tail.ts.net", code),
+            Routes.parsePairLink("kb://pair?url=https%3A%2F%2FKB.Tail.ts.net%2F&code=$upper", allowHttp = false),
+        )
+        assertEquals(
+            PairLink("https://kb.tail.ts.net:8443", code),
+            Routes.parsePairLink("kb://pair?url=https%3A%2F%2Fkb.tail.ts.net%3A8443&code=$code", allowHttp = false),
+        )
+        assertNull(Routes.parsePairLink("kb://pair?url=http%3A%2F%2F127.0.0.1%3A4321&code=$code", allowHttp = false))
+        assertEquals(
+            PairLink("http://127.0.0.1:4321", code),
+            Routes.parsePairLink("kb://pair?url=http%3A%2F%2F127.0.0.1%3A4321&code=$code", allowHttp = true),
+        )
+        for (bad in listOf(
+            null,
+            "",
+            "https://kb.tail.ts.net/?url=https%3A%2F%2Fkb.tail.ts.net&code=$code",
+            "kb://stores?url=https%3A%2F%2Fkb.tail.ts.net&code=$code",
+            "kb://pair/extra?url=https%3A%2F%2Fkb.tail.ts.net&code=$code",
+            "kb://pair?url=https%3A%2F%2Fkb.tail.ts.net",
+            "kb://pair?code=$code",
+            "kb://pair?url=https%3A%2F%2Fkb.tail.ts.net&code=short",
+            "kb://pair?url=https%3A%2F%2Fkb.tail.ts.net&code=${code}0",
+            "kb://pair?url=https%3A%2F%2Fkb.tail.ts.net&code=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+            "kb://pair?url=javascript%3Aalert(1)&code=$code",
+            "kb://pair?url=https%3A%2F%2Fuser%3Apass%40kb.tail.ts.net&code=$code",
+            "kb://pair?url=https%3A%2F%2Fkb.tail.ts.net%2Fpath&code=$code",
+            "kb://pair?url=https%3A%2F%2Fkb.tail.ts.net%3Fx%3D1&code=$code",
+            "kb://pair?url=https%3A%2F%2Fkb.tail.ts.net%23frag&code=$code",
+        )) {
+            assertNull(bad ?: "null", Routes.parsePairLink(bad, allowHttp = true))
+        }
+    }
+
+    @Test
+    fun `valid pair links route to the shell's Stores view prefilled, invalid ones fall back to Stores`() {
+        val code = "0123456789abcdef0123456789abcdef"
+        val valid = Routes.forLink("kb://pair?url=https%3A%2F%2Fkb.tail.ts.net&code=$code", personal, allowHttp = false)
+        assertEquals("https://localhost/#/stores?url=https%3A%2F%2Fkb.tail.ts.net&code=$code", valid)
+        assertEquals(Pane.Shell, Routes.paneFor(valid, stores))
+        assertEquals(Back.Load(Routes.STORES), Routes.back(valid, null, stores))
+        assertEquals(Routes.STORES, Routes.forLink("kb://pair?url=http%3A%2F%2F127.0.0.1%3A4321&code=$code", personal, allowHttp = false))
+        assertEquals(
+            "https://localhost/#/stores?url=http%3A%2F%2F127.0.0.1%3A4321&code=$code",
+            Routes.forLink("kb://pair?url=http%3A%2F%2F127.0.0.1%3A4321&code=$code", personal, allowHttp = true),
+        )
+        assertEquals(Routes.STORES, Routes.forLink("kb://pair?url=https%3A%2F%2Fkb.tail.ts.net&code=not-hex", personal, allowHttp = true))
     }
 }

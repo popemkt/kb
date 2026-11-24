@@ -8,6 +8,7 @@ import android.view.View
 import android.webkit.WebResourceRequest
 import androidx.work.testing.WorkManagerTestInitHelper
 import app.kb.capture.pairing.Pairings
+import app.kb.capture.shell.PairLink
 import app.kb.capture.shell.Routes
 import app.kb.capture.shell.ShellActivity
 import java.io.File
@@ -128,6 +129,24 @@ class ShellActivityTest {
         activity.onBackPressedDispatcher.onBackPressed()
         assertEquals(View.VISIBLE, shell.visibility)
         assertEquals(Routes.STORES, shadowOf(shell).lastLoadedUrl)
+    }
+
+    @Test
+    fun `a kb pair deep link opens the prefilled Stores form in the shell without pairing silently`() {
+        val controller = launch()
+        val activity = controller.get()
+        val shell = activity.getBridge().webView
+        val code = "0123456789abcdef0123456789abcdef"
+
+        controller.newIntent(Intent(Intent.ACTION_VIEW, Uri.parse("kb://pair?url=https%3A%2F%2Fwork.tail.ts.net&code=$code")))
+        assertEquals(View.VISIBLE, shell.visibility)
+        assertEquals(Routes.pair(PairLink("https://work.tail.ts.net", code)), shadowOf(shell).lastLoadedUrl)
+        assertEquals(1, KbCapture.of(activity).pairings.all.value.size)
+
+        controller.newIntent(Intent(Intent.ACTION_VIEW, Uri.parse("kb://pair?url=https%3A%2F%2Fwork.tail.ts.net&code=invalid")))
+        assertEquals(View.VISIBLE, shell.visibility)
+        assertEquals(Routes.STORES, shadowOf(shell).lastLoadedUrl)
+        assertEquals(1, KbCapture.of(activity).pairings.all.value.size)
     }
 
     /**

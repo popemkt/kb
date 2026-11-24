@@ -3,6 +3,7 @@ package app.kb.capture.shell
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -122,12 +123,15 @@ class ShellActivity : BridgeActivity() {
         view.requestFocus()
     }
 
+    /** Debug builds accept plain HTTP origins, matching `debug/AndroidManifest.xml`; release builds are HTTPS only. */
+    private val allowHttp: Boolean get() = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+
     /** A launch, a `kb://` link, the widget and the tile all arrive here ([BridgeActivity] passes the first intent too). */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         val link = if (intent.action == Intent.ACTION_VIEW) intent.dataString else null
         if (intent.action == Intent.ACTION_MAIN && storeView.visibility == View.VISIBLE) return
-        show(Routes.forLink(link, app.pairings.current))
+        show(Routes.forLink(link, app.pairings.current, allowHttp))
     }
 
     /** Delivery tells the person about a refused capture or a paused store ([DeliveryNotices]); Android 13+ asks first. */
