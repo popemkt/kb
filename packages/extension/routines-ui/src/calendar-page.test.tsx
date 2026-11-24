@@ -862,6 +862,20 @@ describe("day view", () => {
     expect(scroller().scrollTop).toBe(18 * HOUR_PX);
   });
 
+  test("j on an empty day's focused scroller steps twice, the keyboard kept on the scroller", () => {
+    open("/calendar/day/2026-11-05", [CALENDAR]);
+    const scroller = $("[data-calendar-scroller]");
+    // Chromium lets Tab reach a scroller that scrolls; jsdom focuses only what says it may.
+    scroller.tabIndex = 0;
+    act(() => scroller.focus());
+    expect(document.activeElement).toBe(scroller);
+    press("j");
+    press("j");
+    expect(window.location.pathname).toBe("/calendar/day/2026-11-07");
+    expect(document.activeElement).toBe(scroller);
+    expect(scroller.isConnected).toBe(true);
+  });
+
   test("creates, moves, and edits events from day mode through the same write path", async () => {
     const dentist = routine("dentist", "Dentist", {
       [F.starts]: [str("2026-11-04")],

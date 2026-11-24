@@ -223,17 +223,25 @@ function AllDayRow({
 /**
  * One or seven days as a 24-hour time grid: a header of days and an all-day
  * row held at the top, then the hours inside one scroller so a scrollbar
- * narrows every row alike.
+ * narrows every row alike. Stepping days puts the scroll at that day's
+ * opening hour; stepping weeks keeps where the person scrolled, unless
+ * something earlier opens the week there. The scroller itself stays, so
+ * the keyboard on it stays on it as the calendar steps.
  */
-function TimeGridBody({ mode, ...layout }: LayoutProps & { readonly mode: TimeGridMode }) {
+export function TimeGrid({ mode, ...layout }: LayoutProps & { readonly mode: TimeGridMode }) {
   const scroller = useRef<HTMLDivElement>(null);
   const columns = GRID_COLUMNS[mode];
-  // Stepping to another week keeps where the person scrolled; something earlier opens it there.
   const opensAt = openHour(layout, mode);
+  // What the scroll is placed for: a day in Day mode, the mode itself in Week.
+  const place = mode === "day" ? layout.days[0] : mode;
+  const placedFor = useRef<string | null>(null);
   useLayoutEffect(() => {
-    if (scroller.current !== null)
-      scroller.current.scrollTop = Math.max(0, opensAt * HOUR_PX - LABEL_ROOM);
-  }, [opensAt]);
+    const box = scroller.current;
+    const at = `${place}@${opensAt}`;
+    if (box === null || placedFor.current === at) return;
+    placedFor.current = at;
+    box.scrollTop = Math.max(0, opensAt * HOUR_PX - LABEL_ROOM);
+  }, [place, opensAt]);
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-calendar-layout={mode}>
       <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto" data-calendar-scroller="">
@@ -272,14 +280,4 @@ function TimeGridBody({ mode, ...layout }: LayoutProps & { readonly mode: TimeGr
       </div>
     </div>
   );
-}
-
-/**
- * One or seven days as a 24-hour time grid: a header of days and an all-day
- * row held at the top, then the hours inside one scroller so a scrollbar
- * narrows every row alike. Stepping days resets the scroll to that day's
- * opening hour; stepping weeks keeps where the person scrolled.
- */
-export function TimeGrid(props: LayoutProps & { readonly mode: TimeGridMode }) {
-  return <TimeGridBody key={props.mode === "day" ? props.days[0] : props.mode} {...props} />;
 }
