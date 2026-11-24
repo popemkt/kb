@@ -1,8 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { SYSTEM_IDS, typeRefsOf, nodeName } from "@kb/model";
+import { isScaffolding, nodeName } from "@kb/model";
 import {
-  isSysPrefixed,
   PickerList,
   pickerRows,
   useNodes,
@@ -28,11 +27,9 @@ export function NodePicker({ onPick, onClose }: NodePickerProps) {
   const candidates = useMemo(() => {
     const out: PickerCandidate[] = [];
     for (const n of nodes.values()) {
-      // DISPLAY: a free-form canvas card picker offers content, not the
-      // seeded ontology or schema nodes. Nothing here decides validity.
-      if (isSysPrefixed(n.id)) continue;
-      const types = typeRefsOf(n);
-      if (types.includes(SYSTEM_IDS.tag) || types.includes(SYSTEM_IDS.field)) continue;
+      // DISPLAY: a free-form canvas card picker offers content, a tag as any
+      // node, not the store's scaffolding. Nothing here decides validity.
+      if (isScaffolding(n)) continue;
       out.push({
         id: n.id,
         label: nodeName(n.id, (id) => nodes.get(id)) || "∅",

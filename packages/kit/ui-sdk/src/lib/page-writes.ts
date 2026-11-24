@@ -209,10 +209,9 @@ export interface PageWrites {
    * Promote an existing node to a supertag.
    *
    * `sys.f.type` is the kind slot and it is multi-valued, so this appends the
-   * `sys.tag` kind and leaves any tags the node already carries alone. Note
-   * the consequence, which is the model's and not this function's: a tag node
-   * is schema, so `forestRootIds` stops listing it in the outline forest. The
-   * caller is responsible for taking the user to it.
+   * `sys.tag` kind and leaves any tags the node already carries alone. The
+   * node stays where it is: a tag is a node like any other, in the outline
+   * as before.
    */
   readonly makeSupertag: (nodeId: string) => Promise<boolean>;
   /**

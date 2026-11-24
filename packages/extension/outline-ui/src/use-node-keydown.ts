@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { definesKind } from "@kb/model";
 import {
   browserHost,
   currentKeymap,
@@ -21,6 +22,11 @@ import { useOutlineHost } from "./outline-host";
 export interface UseNodeKeyDownArgs {
   nodeId: string;
   instanceKey: string;
+}
+
+/** Whether row `id` shows its own text (a contextual reference shows its target's). */
+function ownsText(id: string): boolean {
+  return rowTextOf(outlineSource(), id).textNodeId === id;
 }
 
 /** The row as the keymap needs to see it, read from the store and the DOM. */
@@ -55,7 +61,8 @@ function readEditingContext(args: {
     previousInstance: store.getPreviousVisibleInstance(instanceKey),
     nextInstance: store.getNextVisibleInstance(instanceKey),
     textLengthOf: (id) => rowTextOf(outlineSource(), id).text.length,
-    ownsText: (id) => rowTextOf(outlineSource(), id).textNodeId === id,
+    ownsText,
+    joins: (id) => ownsText(id) && !definesKind(browserHost().schema().get(id)),
     readVerticalDecision: (key): VerticalNavDecision =>
       verticalArrowDecision({
         key: key === "ArrowUp" ? "ArrowUp" : "ArrowDown",

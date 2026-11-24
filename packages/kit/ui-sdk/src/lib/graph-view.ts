@@ -1,14 +1,7 @@
 import { Option, Schema } from "effect";
 import type { SchemaIndex } from "./schema";
 import type { WireNode } from "@kb/contracts";
-import {
-  chipTagsOf,
-  compareRootOrder,
-  hasQueryDef,
-  nodeName,
-  typeRefsOf,
-  SYSTEM_IDS,
-} from "@kb/model";
+import { chipTagsOf, compareRootOrder, hasQueryDef, isScaffolding, nodeName } from "@kb/model";
 import { nameIn } from "./contextual-ref";
 import { tagColorOf, tagPalette, type TagPalette } from "./tag-color";
 import { resolveVisibleProps, isFieldHidden, type ResolvePropsOptions } from "./field-visibility";
@@ -18,19 +11,10 @@ import {
   EXPANDED_STORAGE_KEY,
   EXPANSION_STORAGE_KEY,
   WORKSPACE_ROOT_ID,
-  isSysPrefixed,
   type OutlineNode,
   type ResolvedProp,
   type TagBadge,
 } from "./types.ts";
-
-function isTagNode(node: WireNode | OutlineNode | undefined): boolean {
-  return typeRefsOf(node).includes(SYSTEM_IDS.tag);
-}
-
-function isFieldNode(node: WireNode | OutlineNode | undefined): boolean {
-  return typeRefsOf(node).includes(SYSTEM_IDS.field);
-}
 
 /** DISPLAY: the `#tag` chips a row shows (`chipTagsOf`), each with its name and colour. */
 function resolveTags(wire: WireNode, byId: Map<string, WireNode>, palette: TagPalette): TagBadge[] {
@@ -50,15 +34,15 @@ function childIdSet(nodes: WireNode[]): Set<string> {
   return kids;
 }
 
-/** Top-level outline roots: non-system nodes not nested under another node. */
+/**
+ * Top-level outline roots: the nodes nested under no other node, but the
+ * store's scaffolding (`isScaffolding`), so a top-level tag is a root as any
+ * node is (DESIGN-UI.md → Outline editor, "The home outline").
+ */
 export function forestRootIds(nodes: WireNode[]): string[] {
   const kids = childIdSet(nodes);
   return nodes
-    .filter((n) => {
-      if (kids.has(n.id)) return false;
-      if (isSysPrefixed(n.id)) return false;
-      return !(isFieldNode(n) || isTagNode(n));
-    })
+    .filter((n) => !kids.has(n.id) && !isScaffolding(n))
     .toSorted(compareRootOrder)
     .map((n) => n.id);
 }

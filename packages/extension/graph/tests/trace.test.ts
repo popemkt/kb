@@ -280,7 +280,7 @@ describe("suggest", () => {
     ]);
   });
 
-  test("a tag node is scaffolding: no walk or suggestion over the visible nodes goes through it", () => {
+  test("a tag node is drawn as any node is: a walk over the visible nodes goes through it", () => {
     const nodes = [
       node({ id: "t", text: "t", props: { "sys.f.type": [{ t: "ref", v: "sys.tag" }] } }),
       node({ id: "a", text: "A", props: { "sys.f.type": [{ t: "ref", v: "t" }] } }),
@@ -296,10 +296,20 @@ describe("suggest", () => {
     const kinds = new Set(["child", "ref-prop"] as const);
     const shown = projectionOf(visibleNodes(nodes), kinds);
     const whole = projectionOf(nodes, kinds);
-    expect(suggest(shown, "a").map((s) => s.id)).toEqual(["d"]);
-    expect(suggest(whole, "a").map((s) => s.id)).toContain("b");
-    expect(trace(whole, "a", "b").paths[0]?.nodes).toEqual(["a", "t", "b"]);
-    expect(trace(shown, "a", "b").paths).toEqual([]);
+    expect(suggest(shown, "a").map((s) => s.id)).toContain("b");
+    expect(trace(shown, "a", "b").paths[0]?.nodes).toEqual(["a", "t", "b"]);
+    expect(shown).toEqual(whole);
+  });
+
+  test("a field node is scaffolding: no walk over the visible nodes goes through it", () => {
+    const nodes = [
+      node({ id: "f", text: "f", props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] } }),
+      node({ id: "a", text: "A", props: { p: [{ t: "ref", v: "f" }] } }),
+      node({ id: "b", text: "B", props: { p: [{ t: "ref", v: "f" }] } }),
+    ];
+    const kinds = new Set(["ref-prop"] as const);
+    expect(trace(projectionOf(nodes, kinds), "a", "b").paths[0]?.nodes).toEqual(["a", "f", "b"]);
+    expect(trace(projectionOf(visibleNodes(nodes), kinds), "a", "b").paths).toEqual([]);
   });
 
   test("the projection reads a node's tags apart from the kinds drawn", () => {
