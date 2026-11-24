@@ -246,6 +246,26 @@ jobs:
         with:
           install: false
 
+      # Gradle's dependency cache, Robolectric's framework jar among them
+      # (apps/android/app/build.gradle.kts, robolectricRuntime). A run whose
+      # Gradle files are unchanged fetches nothing from Maven Central, which
+      # throttles CI with 429s; the tests themselves never fetch anything.
+      # The key and its restore prefix carry the Gradle version the flake
+      # resolves: a cache entry is never replaced once written, and a Gradle
+      # that changed the cache's format must not restore an older one.
+      - name: Resolve the Gradle version
+        id: gradle
+        run: |
+          version=$(gradle --version | sed -n 's/^Gradle //p')
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Cache Gradle dependencies
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.gradle/caches/modules-2
+          key: gradle-${{ runner.os }}-${{ runner.arch }}-${{ steps.gradle.outputs.version }}-${{ hashFiles('apps/android/**/*.gradle.kts', 'apps/android/gradle/libs.versions.toml') }}
+          restore-keys: gradle-${{ runner.os }}-${{ runner.arch }}-${{ steps.gradle.outputs.version }}-
+
       - name: Unit tests and the debug APK
         run: gradle -p apps/android --no-daemon testDebugUnitTest assembleDebug
 

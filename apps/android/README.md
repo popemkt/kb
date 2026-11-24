@@ -216,6 +216,12 @@ The unit tests (`app/src/test`) run on the JVM, with no emulator. They cover:
   only in the WebView with no bridge, even where Capacitor falls back to an
   origin-wide interface.
 
+No test reaches the network. Robolectric's Android framework jar
+(`robolectricAndroidAll` in `gradle/libs.versions.toml`) is a Gradle
+dependency like the rest, fetched and cached when the build resolves, and
+the tests run Robolectric offline on it (`robolectricRuntime` in
+`app/build.gradle.kts`). A Robolectric upgrade names its new jar there.
+
 The page's JS is not typechecked or linted: the `android` job builds the
 APK and runs these tests, and neither parses it
 (GAP [[01M7YBRZ6F5DVBKD0EXA16XG73]]).

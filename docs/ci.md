@@ -38,6 +38,9 @@ the pre-commit hook and `packages.kb` use — are the flake's.
   builds with the JDK, Gradle and SDK a person builds with. On
   `ubuntu-24.04` only, and only when a change reaches the app (below). A
   failed run keeps its test report as the `android-test-report` artifact.
+  Gradle's dependency cache is kept in the Actions cache, keyed by the
+  Gradle files, and the tests fetch nothing while they run: Robolectric's
+  framework jar is a Gradle dependency it runs offline on.
 - **`validate`** — aggregate result of every selected gate; the single required check.
 
 ## Pre-commit: the same questions, one commit earlier
