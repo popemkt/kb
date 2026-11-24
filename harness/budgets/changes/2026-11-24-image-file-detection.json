@@ -1,0 +1,6 @@
+{
+  "reason": "The canvas and the row attachment handler share the browser image MIME predicate. Canvas uses it for file filtering and drag metadata, so @kb/ui-sdk exposes isImageFile to the canvas family.",
+  "raise": {
+    "surface": { "@kb/ui-sdk": 1 }
+  }
+}

@@ -26,6 +26,7 @@ import {
   selectedSpan,
   serializeEditable,
   setCaretSerializedOffset,
+  type RefLook,
 } from "../lib/md-edit.ts";
 import { nodeTarget, routePointerClick, type Follow } from "../lib/follow";
 import type { OpenTrigger, TextTrigger, TriggerPick } from "../lib/text-triggers";
@@ -150,6 +151,16 @@ function seatCaret(el: HTMLElement, at: CaretAt, length: number): number {
   return placed;
 }
 
+function rebuildEditor(
+  el: HTMLElement,
+  content: string,
+  refs: RefLook,
+  caret: number | null,
+): number | null {
+  renderInlineMarkdown(el, content, refs);
+  return caret === null ? null : seatCaret(el, Math.min(caret, content.length), content.length);
+}
+
 /** The text-history step a chord asks for: ⌘Z undoes, ⇧⌘Z redoes. */
 function historyChord(e: React.KeyboardEvent): "undo" | "redo" | null {
   if (!matchesChord(e, TEXT_HISTORY_CHORD)) return null;
@@ -240,6 +251,7 @@ export function NodeTextHost({
   const emit = useCallback(
     (text: string) => {
       if (text !== content) pendingEcho.current = text;
+      // GAP [[01M6HA0JJJDSFSJ3FPW8M8QC5K]] the write has no base for the server to detect concurrent text edits.
       onChange(text);
     },
     [content, onChange],
@@ -269,26 +281,28 @@ export function NodeTextHost({
   useLayoutEffect(() => {
     const intent =
       instanceKey !== undefined && pendingCaret?.instanceKey === instanceKey ? pendingCaret : null;
-    const localIntent =
-      !intent && isActive && !wasActive.current && initialCaret
-        ? { instanceKey: instanceKey ?? "local", at: initialCaret }
-        : null;
-    const placement = intent ?? localIntent;
     if (pendingEcho.current === content) pendingEcho.current = null;
-    if (editing && editorRef.current && placement) {
+    if (editing && editorRef.current) {
       const el = editorRef.current;
+      const placement = intent?.at ?? (!wasActive.current ? initialCaret : undefined);
 
-      // GAP [[01M6HA0JJJDSFSJ3FPW8M8QC5K]] text another tab wrote while this row is focused is not taken, and is overwritten by the next keystroke
-      // While editing, the DOM is the text. It is built from `content` when
-      // the editor mounts (empty), and again only when `content` moved on its
-      // own — a merge wrote this row — never from a `content` that has not
-      // caught up with this editor's own writes yet.
+      // Build from the current node on activation and whenever the graph
+      // changes it, such as when an attachment arrives. A pending local
+      // echo still owns the DOM until its text is reflected in the graph.
       const movedOnItsOwn = pendingEcho.current === null && serializeEditable(el) !== content;
-      if (!wasActive.current || movedOnItsOwn) renderInlineMarkdown(el, content, refs);
+      if (!wasActive.current || movedOnItsOwn) {
+        const previousCaret =
+          placement === undefined && el.ownerDocument.activeElement === el
+            ? getCaretSerializedOffset(el)
+            : null;
+        const caret = rebuildEditor(el, content, refs, previousCaret);
+        if (caret !== null) setCursor(caret);
+      }
       wasActive.current = true;
 
+      if (placement === undefined) return;
       el.focus();
-      const placedCursor = seatCaret(el, placement.at, content.length);
+      const placedCursor = seatCaret(el, placement, content.length);
       setCursor(placedCursor);
       if (intent) consumeCaret(intent.instanceKey);
       resumeTriggers();
@@ -298,7 +312,6 @@ export function NodeTextHost({
     }
   }, [
     editing,
-    isActive,
     content,
     initialCaret,
     instanceKey,

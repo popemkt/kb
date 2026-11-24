@@ -1,0 +1,6 @@
+{
+  "reason": "Image paste uses the row's eager paste and drop chain, retains an empty row during upload, and updates the active editor when the attachment arrives. The production eager set measures 2090627 bytes, up from 2090194 on main.",
+  "raise": {
+    "page-eager": { "bytes": 433 }
+  }
+}

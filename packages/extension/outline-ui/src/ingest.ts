@@ -3,7 +3,7 @@
  * `outline.ingest`, contributes its own handlers to it as any family does,
  * and binds each row's text host to the chain at that row: a pasted list
  * becomes nodes after it, as rows copied from kb do (`outline-paste`), a
- * dropped file is attached, and any other paste goes into the row as text,
+ * dropped file or pasted image is attached, and any other paste goes in as text,
  * kb's own copied text as its source.
  */
 import { useMemo } from "react";
@@ -19,11 +19,12 @@ import {
   type IngestPort,
 } from "@kb/ui-sdk";
 import { PASTE_KB_OUTLINE, PASTE_LIST } from "./outline-paste";
+import { useOutlineStore } from "./outline.store";
 
 /** The outline's paste and drop handlers, by the name its family's point definitions give it. */
 export const IngestPoint = PointName<IngestHandler>()(OUTLINE_POINT_DEFINITIONS.ingest.name);
 
-/** The outline's own handlers: kb's own rows and text pasted, a pasted list, a dropped file, and, last, any paste as text. */
+/** The outline's own handlers, from kb's clipboard formats to ordinary text. */
 export const OUTLINE_INGESTS: readonly ContributionEntry<IngestHandler>[] = [
   { id: "paste-kb-outline", value: PASTE_KB_OUTLINE },
   { id: "paste-kb-text", value: PASTE_KB_TEXT },
@@ -35,12 +36,14 @@ export const OUTLINE_INGESTS: readonly ContributionEntry<IngestHandler>[] = [
 /** The port a row's text host offers its pastes and drops to: the chain, at the node `nodeId` whose text is `text`. */
 export function useRowIngest(nodeId: string, text: string): IngestPort {
   const contributed = useContributions(IngestPoint);
+  const retainNode = useOutlineStore((state) => state.releaseTransient);
   return useMemo(
     () =>
       ingestPort(
         () => contributed.map(({ value }) => value),
         () => ({ nodeId, text }),
+        retainNode,
       ),
-    [contributed, nodeId, text],
+    [contributed, nodeId, text, retainNode],
   );
 }

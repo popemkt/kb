@@ -195,6 +195,8 @@ interface OutlineState {
   getBreadcrumbs: () => Crumb[];
   /** Register a session-minted transient node id (auto-prune candidate). */
   markTransient: (ids: string | string[]) => void;
+  /** Keep a transient row once the person attaches a file to it. */
+  releaseTransient: (id: string) => void;
 }
 
 /** Data half of `OutlineState` — every member that is not a function. */
@@ -857,6 +859,14 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       set((s) => {
         const next = new Set(s.transientIds);
         for (const id of list) next.add(id);
+        return { transientIds: next };
+      });
+    },
+    releaseTransient: (id) => {
+      if (!get().transientIds.has(id)) return;
+      set((s) => {
+        const next = new Set(s.transientIds);
+        next.delete(id);
         return { transientIds: next };
       });
     },

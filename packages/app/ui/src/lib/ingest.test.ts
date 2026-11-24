@@ -63,7 +63,7 @@ describe("a text host's port", () => {
     const port = ingestPort(() => [ATTACH_FILE], site);
     expect(port.accepts("drop", ["Files"])).toBe(true);
     expect(port.accepts("drop", ["text/plain"])).toBe(false);
-    expect(port.accepts("paste", ["Files"])).toBe(false);
+    expect(port.accepts("paste", ["Files"])).toBe(true);
   });
 
   /** A handler before the outline's own that takes every drop of files, and makes nothing of it. */
@@ -88,6 +88,16 @@ describe("a text host's port", () => {
 
   it("writes what the claim makes at the row: a dropped file, attached", async () => {
     expect(ingestPort(() => [ATTACH_FILE], site).offer(dropped, refuseText)).toBe(true);
+    await expect.poll(() => attached).toEqual([{ nodeId: "n.row", file }]);
+  });
+
+  it("attaches the first pasted image and leaves non-image pastes to the next handler", async () => {
+    const port = ingestPort(() => [ATTACH_FILE], site);
+    const document = new File(["x"], "report.pdf", { type: "application/pdf" });
+    expect(port.offer({ ...pasted, types: ["Files"], files: [document] }, refuseText)).toBe(false);
+    expect(port.offer({ ...pasted, types: ["Files"], files: [document, file] }, refuseText)).toBe(
+      true,
+    );
     await expect.poll(() => attached).toEqual([{ nodeId: "n.row", file }]);
   });
 

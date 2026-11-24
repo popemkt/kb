@@ -14,11 +14,12 @@
  *
  * A text host offers a gesture through its {@link IngestPort}, which the
  * surface that draws it binds: the outline's runs the chain at its row, and a
- * canvas card's keeps a dropped file and pastes text.
+ * canvas card's port handles attachments and text paste.
  */
 import type { ContributionEntry } from "@kb/plugin";
 import type { OutlineFormatId } from "@kb/outline-paste";
 import { browserHost } from "../host";
+import { isImageFile } from "./image-files";
 import { KB_TEXT_TYPE } from "./text-copy";
 import { toast } from "./toast";
 
@@ -264,20 +265,24 @@ async function commitIngest(
   outcome: IngestOutcome,
   site: IngestSite,
   insertText: InsertText,
+  retainNode: ((id: string) => void) | undefined,
 ): Promise<void> {
   if ("text" in outcome) return insertText(outcome.text);
   if ("tree" in outcome) return addTreeAt(outcome.tree, outcome.format, site);
+  retainNode?.(site.nodeId);
   await browserHost().writes.attachFileToNode(site.nodeId, outcome.attach);
 }
 
 /**
  * A text host's port onto `handlers`, at the row `site` names when a
  * gesture comes: the claim is decided at once, and what it makes is written
- * there after. A write that fails is told, and leaves nothing.
+ * there after. A surface with transient rows can retain the attachment's
+ * target as soon as the claim is made, before the upload awaits.
  */
 export function ingestPort(
   handlers: () => readonly IngestHandler[],
   site: () => IngestSite,
+  retainNode?: (id: string) => void,
 ): IngestPort {
   return {
     accepts: (gesture, types) => handlers().some(({ match }) => takes(match, gesture, types)),
@@ -285,7 +290,7 @@ export function ingestPort(
       const at = site();
       const claim = claimOf(handlers(), ingested, at);
       if (claim === null) return false;
-      void commitIngest(claim.outcome, at, insertText).catch((error: unknown) => {
+      void commitIngest(claim.outcome, at, insertText, retainNode).catch((error: unknown) => {
         toast(
           `Nothing was made of that ${ingested.gesture}: ${error instanceof Error ? error.message : String(error)}`,
         );
@@ -333,11 +338,14 @@ export function provideIngest(id: string, form: IngestForm): ContributionEntry<I
   };
 }
 
-/** A dropped file, kept as an asset and linked from the row's text: the first of a drop's files. */
+/** Attach the first file from a drop or the first image from a paste. */
 export const ATTACH_FILE: IngestHandler = {
-  match: { gestures: ["drop"], types: ["Files"] },
+  match: { gestures: ["drop", "paste"], types: ["Files"] },
   priority: 0,
-  ingest: ({ files }) => (files[0] === undefined ? null : { attach: files[0] }),
+  ingest: ({ gesture, files }) => {
+    const file = gesture === "paste" ? files.find(isImageFile) : files[0];
+    return file === undefined ? null : { attach: file };
+  },
 };
 
 /**
