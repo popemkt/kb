@@ -301,6 +301,8 @@ function degreeMap(nodeIds: Iterable<string>, edges: LensEdge[]): Map<string, nu
   return deg;
 }
 
+// The highest-degree nodes win, so with many tags drawn the cap keeps the tag
+// hubs and drops what they join. GAP [[01M80WQRH65A6A8JT5JQCMS76K]]
 function applyMaxNodesCap(
   nodeIds: string[],
   degrees: Map<string, number>,

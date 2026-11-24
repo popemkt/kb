@@ -1,0 +1,7 @@
+{
+  "reason": "A text merge never takes a tag or a field away (DESIGN-UI.md → Outline editor, Two keymaps): @kb/model exports definesKind, the one reader of whether a node is a tag or a field, which the outline's merge keys and the sandbox's vocabulary both read; the sandbox's private copy is gone. It sits in node-like.ts, which the CLI's eager graph already takes, so that graph grows by its 18 bytes.",
+  "raise": {
+    "surface": { "@kb/model": 1 },
+    "cli-closure": { "bytes": 18 }
+  }
+}

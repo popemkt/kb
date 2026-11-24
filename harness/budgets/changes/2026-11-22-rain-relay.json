@@ -1,0 +1,4 @@
+{
+  "reason": "The shared backdrops declaration exports Rain Relay and seeds its existing speed and seed controls. Its Three.js renderer loads on demand.",
+  "raise": { "cli-closure": { "bytes": 110 }, "surface": { "@kb/backdrops": 1 } }
+}
