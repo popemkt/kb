@@ -1,0 +1,7 @@
+{
+  "reason": "The shared backdrops declaration exports Gliding and its Sun warmth and Sea foam knobs. Its WebGPU/TSL painterly ocean renderer loads on demand.",
+  "raise": {
+    "cli-closure": { "bytes": 400, "modules": 1 },
+    "surface": { "@kb/backdrops": 4 }
+  }
+}

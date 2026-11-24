@@ -6628,7 +6628,10 @@ A PR for a backdrop reports a score against each criterion.
     deep blue field, lit from the upper right in violet, pink and cream;
   - `backdrops.wolf-medallion` is kb's own steel wolf medallion over smoke
     and rising embers, a faint circle of five glyphs turning behind it; its
-    eyes flare when something happens on the page.
+    eyes flare when something happens on the page;
+  - `backdrops.gliding` is a painterly gouache turquoise-to-marine ocean
+    gliding steadily beneath an aerial view, with diagonal sea-foam ribbons
+    and shallow caustic hatching.
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.

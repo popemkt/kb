@@ -74,3 +74,8 @@ export function AstralBackdrop(props: BackdropProps) {
 export function RainRelayBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="rainRelay" backdrop={props} />;
 }
+
+/** A painterly gouache turquoise-to-marine ocean gliding steadily beneath an aerial view (`gliding/`). */
+export function GlidingBackdrop(props: BackdropProps) {
+  return <GpuBackdropHost scene="gliding" backdrop={props} />;
+}
