@@ -213,6 +213,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/listener": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
         "@kb/plugin": "workspace:*",
@@ -1455,6 +1456,19 @@
         "@types/bun": "catalog:",
       },
     },
+    "packages/infrastructure/listener": {
+      "name": "@kb/listener",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "catalog:",
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/infrastructure/sandbox-quickjs": {
       "name": "@kb/sandbox-quickjs",
       "version": "0.0.0",
@@ -2124,6 +2138,8 @@
     "@kb/lab": ["@kb/lab@workspace:packages/extension/lab"],
 
     "@kb/lab-ui": ["@kb/lab-ui@workspace:packages/extension/lab-ui"],
+
+    "@kb/listener": ["@kb/listener@workspace:packages/infrastructure/listener"],
 
     "@kb/locations": ["@kb/locations@workspace:packages/extension/locations"],
 

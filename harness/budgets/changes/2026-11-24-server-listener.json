@@ -1,0 +1,6 @@
+{
+  "reason": "`kb mcp --listen` binds where `kb ui` does (DESIGN.md → Surfaces → MCP): @kb/contracts exports ServerListener, a TCP port or an owner-only socket, which `listen` in @kb/listener takes and of which UiListener is the derived form with a socket's public origin.",
+  "raise": {
+    "surface": { "@kb/contracts": 1 }
+  }
+}

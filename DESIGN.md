@@ -3551,7 +3551,7 @@ only where the proxy is the one way in, and `kb ui` takes it only with
 `--socket <path>` (`checkUiListen` in `app/cli/src/commands/ui-options.ts`): the
 server listens on a Unix socket instead of a TCP port, created with mode
 0600 under a matching umask, so only its owner and root can connect
-(`listen` in `app/server/src/listener.ts`). A socket is reached through its
+(`listen` in `@kb/listener`). A socket is reached through its
 proxy, so it needs `--public-origin`, which is where its page is, and takes
 no `--port` or `--dev`. A socket a stopped server left behind, which
 refuses a connection, is replaced; one anything accepts a connection on,

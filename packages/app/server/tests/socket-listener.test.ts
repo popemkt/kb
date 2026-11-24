@@ -1,5 +1,5 @@
 /**
- * `kb ui` on a Unix socket (`src/listener.ts`, DESIGN.md → Surfaces → Hosted
+ * `kb ui` on a Unix socket (`listen` in `@kb/listener`, DESIGN.md → Surfaces → Hosted
  * behind a proxy): the socket is created with mode 0600, so only its owner
  * (and root, as `tailscale serve` runs) can connect; a request through it
  * names `localhost`, as the proxy rewrites `Host`, and the page is the

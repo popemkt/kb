@@ -1,15 +1,15 @@
 /**
- * Binding a `kb ui` server where its `UiListener` says (DESIGN.md → Action
- * registry → Hosted behind a proxy): a TCP port on a host, or a Unix socket
- * only its owner can connect to. A socket is how a hosted deployment keeps
- * its proxy the one way in: the proxy (`tailscale serve`, run as root)
- * connects to it, and no other account's process can, so a header the proxy
- * sets is the proxy's.
+ * Binding a kb server where its `ServerListener` says: a TCP port on a host, or a
+ * Unix socket only its owner can connect to. A socket is how a hosted
+ * deployment keeps its proxy the one way in: the proxy (`tailscale serve`
+ * as root, or an edge running as the socket's account) connects to it, and
+ * no other account's process can (DESIGN.md → Action registry → Hosted
+ * behind a proxy; Surfaces → MCP).
  */
 import { createConnection } from "node:net";
 import { Effect, Scope } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import type { UiListener } from "@kb/contracts";
+import type { ServerListener } from "@kb/contracts";
 import { type DomainError, domainError } from "@kb/model";
 
 /** What `Bun.serve` is told to bind. */
@@ -55,7 +55,7 @@ function stale(path: string): Effect.Effect<boolean> {
 export const listen = Effect.fn("kb.listen")(function* <
   T extends { stop(force?: boolean): unknown },
 >(
-  at: UiListener,
+  at: ServerListener,
   lifetime: Scope.Closeable,
   serve: (where: BindOptions) => T,
 ): Effect.fn.Return<T, DomainError, FileSystem> {

@@ -55,7 +55,7 @@ import { recordBuild } from "./build-archive.ts";
 import { UI_DIST, UI_ROOT } from "./paths.ts";
 import { identifyBy, serverOwner } from "./auth.ts";
 import { requestGuard, type RequestGuard } from "./guard.ts";
-import { listen, type BindOptions } from "./listener.ts";
+import { listen, type BindOptions } from "@kb/listener";
 import { handleHttpRequest } from "./http.ts";
 import { HTTP_IDLE_TIMEOUT_SECONDS, requestHealth } from "./request-health.ts";
 import { channelsOf, loadServerPlugins, type HostedExtensions } from "./plugins.ts";
@@ -80,7 +80,7 @@ export interface UiServerOptions {
   hostname?: string;
   /**
    * Listen on a Unix socket at this path, created with mode 0600, instead
-   * of a TCP port (`listener.ts`). Its proxy is the way in, so it needs
+   * of a TCP port (`listen` in `@kb/listener`). Its proxy is the way in, so it needs
    * `publicOrigin`, and `port`, `hostname` and `uiPort` do not apply.
    */
   socket?: string;
