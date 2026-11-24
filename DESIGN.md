@@ -3553,10 +3553,15 @@ server listens on a Unix socket instead of a TCP port, created with mode
 0600 under a matching umask, so only its owner and root can connect
 (`listen` in `@kb/listener`). A socket is reached through its
 proxy, so it needs `--public-origin`, which is where its page is, and takes
-no `--port` or `--dev`. The socket's directory must be its owner's alone:
-a real directory, not a link, owned by the server's user and writable by
-no group or other. Then no other account can put a link or a socket of its
-own at the path while the server checks or binds it. The socket is bound
+no `--port` or `--dev`. The socket's path must be one no other account
+can change. Its directory is resolved once (`realpath`), and only the
+resolved path is used after that. Every directory from there up to `/`
+must be a real directory, not a link, that no group or other can write.
+The socket's own directory belongs to the server's user. A directory above
+it belongs to that user or to root, and may be root's and sticky, as `/tmp`
+is, since then no one else can rename what the user made in it. Then no
+other account can put a link or a socket of its own at the path while the
+server checks, binds or removes it. The socket is bound
 at a private name beside the path and renamed into place, under
 `<path>.lock` (flock(2)), so two starts never both win. A socket a stopped
 server left behind, which refuses a connection, is replaced by that

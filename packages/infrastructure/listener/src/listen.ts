@@ -6,9 +6,17 @@
  * no other account's process can (DESIGN.md → Action registry → Hosted
  * behind a proxy; Surfaces → MCP).
  */
-import { chmodSync, lstatSync, renameSync, rmSync, unlinkSync, type Stats } from "node:fs";
+import {
+  chmodSync,
+  lstatSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
+  type Stats,
+} from "node:fs";
 import { createConnection } from "node:net";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { Effect, Scope } from "effect";
 import type { ServerListener } from "@kb/contracts";
 import { acquireFileWriteLockEffect, releaseFileWriteLock } from "@kb/file-write";
@@ -49,34 +57,63 @@ function entryAt(path: string): Effect.Effect<Stats | null, DomainError> {
   });
 }
 
+/** A directory others may write in, but only remove their own entries from (`/tmp`). */
+const STICKY = 0o1000;
+
+/** Which part of the chain a directory is: the socket's own, or one above it. */
+type Place = "parent" | "ancestor";
+
 /**
- * The directory a socket is made in must be its owner's alone: a real
- * directory (not a link), owned by this process's user, and writable by
- * nobody else. Then no other account can put a link or a socket of its own
- * at the path between a check and the bind, the chmod or the removal.
+ * Why `dir` could let another account replace what the path names, or null.
+ * Every directory on the chain must be a real directory (not a link) that
+ * no group or other can write. The socket's own directory is this user's;
+ * one above it is this user's or root's, and may be root's and sticky, as
+ * `/tmp` is, since a sticky directory lets no one else rename or remove
+ * what this user made in it.
  */
-function notOwnersAlone(dir: string, info: Stats | null): DomainError | null {
-  if (info === null) return domainError("not_found", `${dir} does not exist`);
-  const why = info.isSymbolicLink()
-    ? "is a symbolic link"
-    : !info.isDirectory()
-      ? "is not a directory"
-      : info.uid !== (process.getuid?.() ?? info.uid)
-        ? "is another user's"
-        : (info.mode & OTHERS_WRITE) !== 0
-          ? "is writable by its group or others"
-          : null;
-  return why === null
-    ? null
-    : domainError(
-        "forbidden",
-        `a socket is made only in a directory its owner alone can change: ${dir} ${why}`,
-      );
+function whyNotSafe(info: Stats, place: Place): string | null {
+  const me = process.getuid?.() ?? info.uid;
+  if (info.isSymbolicLink()) return "is a symbolic link";
+  if (!info.isDirectory()) return "is not a directory";
+  if (place === "parent" && info.uid !== me) return "is another user's";
+  if (info.uid !== me && info.uid !== 0) return "is another user's, not root's";
+  const sharedSticky = place === "ancestor" && info.uid === 0 && (info.mode & STICKY) !== 0;
+  if ((info.mode & OTHERS_WRITE) !== 0 && !sharedSticky) {
+    return "is writable by its group or others";
+  }
+  return null;
 }
 
-const ownedDirectory = Effect.fn("kb.listen.ownedDirectory")(function* (dir: string) {
-  const refused = notOwnersAlone(dir, yield* entryAt(dir));
-  return yield* refused === null ? Effect.void : Effect.fail(refused);
+/**
+ * Where to make the socket `requested` names: its directory resolved once
+ * (`realpath`), with every directory from there up to `/` checked by
+ * `lstat` (`whyNotSafe`), and the socket's name in it. Nothing past this
+ * reads the requested path, so no link resolved later can redirect the
+ * lock, the bind, the chmod or the removal.
+ */
+const safeSocketPath = Effect.fn("kb.listen.safeSocketPath")(function* (requested: string) {
+  const asked = dirname(requested);
+  const real = yield* Effect.try({
+    try: () => realpathSync(asked),
+    catch: () => domainError("not_found", `${asked} does not exist`),
+  });
+  const chain: string[] = [];
+  for (let dir = real; ; dir = dirname(dir)) {
+    chain.push(dir);
+    if (dirname(dir) === dir) break;
+  }
+  for (const [index, dir] of chain.entries()) {
+    const info = yield* entryAt(dir);
+    const why =
+      info === null ? "does not exist" : whyNotSafe(info, index === 0 ? "parent" : "ancestor");
+    if (why !== null) {
+      return yield* domainError(
+        "forbidden",
+        `a socket is made only where no other account can change its path: ${dir} ${why}`,
+      );
+    }
+  }
+  return join(real, basename(requested));
 });
 
 /**
@@ -203,8 +240,9 @@ const removeOwn = Effect.fn("kb.listen.removeOwn")(function* (path: string, made
  * Bind `serve` where `at` says, for as long as `lifetime` is open. A TCP
  * bind is the port's. A socket:
  *
- * - is made only in a directory its owner alone can change
- *   (`ownedDirectory`);
+ * - is made only where no other account can change its path: its
+ *   directory resolved once, and every directory up to `/` checked
+ *   (`safeSocketPath`), and only the resolved path is used after;
  * - is claimed and bound under its lock, so two starts never race: one a
  *   stopped server left behind, which refuses a connection, is replaced;
  *   anything else there is refused (`claim`);
@@ -222,8 +260,7 @@ export const listen = Effect.fn("kb.listen")(function* <
   serve: (where: BindOptions) => T,
 ): Effect.fn.Return<T, DomainError> {
   if (at.kind === "tcp") return serve(bindingOf({ hostname: at.hostname, port: at.port }));
-  const { path } = at;
-  yield* ownedDirectory(dirname(path));
+  const path = yield* safeSocketPath(at.path);
   const { served, made } = yield* underLock(
     path,
     Effect.gen(function* () {

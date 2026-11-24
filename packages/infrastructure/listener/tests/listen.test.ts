@@ -1,6 +1,7 @@
 /**
  * `listen` (DESIGN.md → Action registry → Hosted behind a proxy): a socket
- * is made only in a directory its owner alone can change, exists only with
+ * is made only where no other account can change its path (its directory
+ * resolved once, every directory up to / checked), exists only with
  * mode 0600, replaces a stale one atomically under a lock so concurrent
  * starts never both win, refuses a live one, a link or a file that is no
  * socket, and is removed on close only while the path still holds the
@@ -8,7 +9,17 @@
  * both bind through it.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readdir,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Exit, Scope } from "effect";
@@ -115,16 +126,18 @@ describe("listen on a socket", () => {
     expect(await answer(path)).toBe("ok");
     await first.stop();
 
-    const target = join(dir, "target");
-    await writeFile(target, "not a socket");
+    // A link to a stale socket, which a binder that followed links would take as that socket.
+    const target = join(dir, "elsewhere.sock");
+    await staleSocketAt(target);
     await symlink(target, path);
     expect(await refused(path)).toBe(true);
+    expect((await lstat(path)).isSymbolicLink()).toBe(true);
+    expect((await stat(target)).isSocket()).toBe(true);
     await rm(path);
 
     await writeFile(path, "not a socket");
     expect(await refused(path)).toBe(true);
     expect(await Bun.file(path).text()).toBe("not a socket");
-    expect(await Bun.file(target).text()).toBe("not a socket");
   });
 
   test("is made only in a directory its owner alone can change", async () => {
@@ -135,12 +148,35 @@ describe("listen on a socket", () => {
     await chmod(shared, 0o770);
     expect(await refused(join(shared, "kb.sock"))).toBe(true);
     expect(await readdir(shared)).toEqual([]);
-
-    await mkdir(join(dir, "real"), { mode: 0o700 });
-    await symlink(join(dir, "real"), join(dir, "linked"));
-    expect(await refused(join(dir, "linked", "kb.sock"))).toBe(true);
-
     expect(await refused(join(dir, "missing", "kb.sock"))).toBe(true);
+  });
+
+  test("is made only where no directory above it can be changed by another account", async () => {
+    // A directory of the socket's own that would pass alone, under one another account could replace.
+    for (const mode of [0o777, 0o770, 0o1777]) {
+      const open = join(dir, `open-${mode.toString(8)}`);
+      await mkdir(join(open, "inner"), { recursive: true, mode: 0o700 });
+      await chmod(open, mode);
+      expect({
+        mode: mode.toString(8),
+        refused: await refused(join(open, "inner", "kb.sock")),
+      }).toEqual({
+        mode: mode.toString(8),
+        refused: true,
+      });
+      expect(await readdir(join(open, "inner"))).toEqual([]);
+    }
+  });
+
+  test("resolves a linked directory once and makes the socket in the real one", async () => {
+    const real = join(dir, "real");
+    await mkdir(real, { mode: 0o700 });
+    await symlink(real, join(dir, "linked"));
+    const { exit, stop } = await bind({ kind: "socket", path: join(dir, "linked", "kb.sock") });
+    expect(Exit.isSuccess(exit)).toBe(true);
+    expect((await lstat(join(real, "kb.sock"))).isSocket()).toBe(true);
+    await stop();
+    expect(await readdir(real)).toEqual([]);
   });
 });
 
