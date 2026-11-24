@@ -805,7 +805,11 @@ writes a gesture over several rows makes inside `PageWrites.together`
 back, and redoes it, in one step. A write inside `together` is planned
 against the graph as it stood when the gesture began, so a gesture whose
 parts depend on each other plans them as one write (the block moves), and
-what it makes is there once `together` returns. A gesture about one row
+what it makes is there once `together` returns. Only the writes made
+through the writes `together` hands the gesture are part of it: a page
+write made meanwhile (an edit in another row while a `/` command waits)
+is a write and an undo step of its own, and so is a write through the
+gesture's writes once it has ended. A gesture about one row
 is not gathered, its write being one write already, so a command that reads
 what its write made (Make your own tag opens the tag) reads it landed. Over a range, the node menu lists only the commands that act on many
 rows (`NodeCommand.many`): Add tag, Remove tag…, Add field, Set field…,

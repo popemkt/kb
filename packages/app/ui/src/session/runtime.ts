@@ -47,8 +47,10 @@ import {
   failureText,
 } from "@kb/ui-sdk";
 import { livePageCatalog } from "@/lib/view-catalog";
-import { BrowserStore } from "./browser-store";
+import { BrowserStore, type LocalCommitChange } from "./browser-store";
 import { BrowserReplica, type Hold, type ReplicaLink } from "./replica";
+
+export type { LocalCommitChange } from "./browser-store";
 
 /** How the graph store follows the session: local commits, server deltas, snapshots. */
 export interface BrowserSessionView {
@@ -360,13 +362,18 @@ export function resetPushLaneForTests(): void {
  * Browser action entry point. The shared invoker is wired here once its w5
  * prerequisite export lands; port-backed actions remain server-owned.
  */
-export function invokeLocal(invocation: ActionRequest): Promise<ActionReceipt> {
-  return runLocal(invocation, pageCapturePlanner);
+export async function invokeLocal(invocation: ActionRequest): Promise<ActionReceipt> {
+  return (await runLocal(invocation, pageCapturePlanner)).receipt;
 }
 
 /** {@link invokeLocal}, asking `capture` where a node made with no chosen place goes. */
-function runLocal(invocation: ActionRequest, capture: CapturePlanner): Promise<ActionReceipt> {
+function runLocal(
+  invocation: ActionRequest,
+  capture: CapturePlanner,
+): Promise<{ readonly receipt: ActionReceipt; readonly commits: LocalCommitChange[] }> {
   const current = requireSession();
+  const commits: LocalCommitChange[] = [];
+  const store = current.store.scoped((change) => commits.push(change));
   const call = invokeReceiptWith(
     localActions,
     current.ctx,
@@ -378,7 +385,9 @@ function runLocal(invocation: ActionRequest, capture: CapturePlanner): Promise<A
   );
   const screened =
     localScreens === null ? call : call.pipe(Effect.provideService(Screens, localScreens));
-  return Effect.runPromise(screened.pipe(Effect.provide(current.layer))).then((receipt) => {
+  return Effect.runPromise(
+    screened.pipe(Effect.provide(kbStoreLayer(store)), Effect.provide(current.layer)),
+  ).then((receipt) => {
     // Only a write commits; a read leaves the graph store nothing to follow.
     const writes = localActions.get(invocation.id)?.def.mode.kind === "write";
     if (writes && receipt.status === "succeeded") current.onLocalCommit();
@@ -388,32 +397,31 @@ function runLocal(invocation: ActionRequest, capture: CapturePlanner): Promise<A
         current.replica.receive({ op: "snapshot-required", head: current.replica.state.rev });
       }
     }
-    return receipt;
+    return { receipt, commits };
   });
 }
 
-/** Commit `invocation` to the replica; on success, the ids the commit touched. */
-async function commitLocal(invocation: ActionRequest): Promise<{
+/** Commit `invocation` to the replica; on success, the ids and before/after states it touched. */
+export async function commitLocal(invocation: ActionRequest): Promise<{
   receipt: ActionReceipt;
   touched: string[];
   /** Where the page's capture target placed a node the call made with no chosen place. */
   placed: Placed;
+  /** Each atomic store commit this call made, in order. */
+  commits: LocalCommitChange[];
 }> {
-  const current = requireSession();
-  const before = current.store.txTail.head();
   let placed: Placed = null;
   const recording: CapturePlanner = (nodes) =>
     pageCapturePlanner(nodes).pipe(
       Effect.tap(({ parent }) => Effect.sync(() => (placed = { parent }))),
     );
-  const receipt = await runLocal(invocation, recording);
-  if (receipt.status === "failed") return { receipt, touched: [], placed: null };
-  const touched = current.store.txTail
-    .entries()
-    .flatMap((tx) =>
-      tx.rev > before ? [...tx.ops.upserts.map((node) => node.id), ...tx.ops.deletes] : [],
-    );
-  return { receipt, touched, placed };
+  const { receipt, commits } = await runLocal(invocation, recording);
+  if (receipt.status === "failed") return { receipt, touched: [], placed: null, commits: [] };
+  const touched = commits.flatMap((commit) => [
+    ...commit.tx.upserts.map((node) => node.id),
+    ...commit.tx.deletes,
+  ]);
+  return { receipt, touched, placed, commits };
 }
 
 /**
@@ -451,6 +459,8 @@ export interface Invoked {
    * not reach the server settles as an `internal` failure.
    */
   readonly settled: Promise<ActionReceipt>;
+  /** Each atomic local store commit this call made, in order. */
+  readonly commits?: readonly LocalCommitChange[];
 }
 
 const done = (receipt: ActionReceipt): Invoked => ({
@@ -472,7 +482,7 @@ export async function invokeSettled(invocation: ActionRequest): Promise<Invoked>
   const local = localActions.get(id);
   if (local === undefined) return done(await pushInvocation(invocation));
   if (local.def.mode.kind === "read") return done(await invokeLocal(invocation));
-  const { receipt, touched, placed } = await commitLocal(invocation);
+  const { receipt, touched, placed, commits } = await commitLocal(invocation);
   if (receipt.status === "failed") return done(receipt);
   const hold = requireSession().replica.hold(touched);
   // What the local commit decided from this tab is pushed as given: what it
@@ -481,7 +491,7 @@ export async function invokeSettled(invocation: ActionRequest): Promise<Invoked>
   const { context } = receipt;
   const filled = asPlaced(asFilled(invocation, context), placed);
   const pushed = asMinted(filled, local.def.mints, receipt.output);
-  return { receipt, settled: settledOf(id, pushInvocation(pushed, hold), context) };
+  return { receipt, settled: settledOf(id, pushInvocation(pushed, hold), context), commits };
 }
 
 /**

@@ -1,7 +1,7 @@
 import type { ActionReceipt, ActionRequest } from "@kb/contracts";
 import type { PlannedMutation } from "@/actions/plan";
 import { toast, failureText } from "@kb/ui-sdk";
-import { invoke, invokeLocal, invokeSettled } from "@/session/runtime";
+import { commitLocal, invokeSettled, type LocalCommitChange } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 
 export type RunOptimisticResult = {
@@ -17,6 +17,8 @@ export type RunOptimisticResult = {
    * writes is one write (`oneWrite`), answering as one `node.batch`.
    */
   outputs?: unknown[];
+  /** Each atomic local store commit this plan made, in order. */
+  commits?: readonly LocalCommitChange[];
   /** The final result for a plan whose caller waits for server acceptance. */
   confirmed?: Promise<boolean>;
 };
@@ -67,11 +69,16 @@ export async function runOptimistic(
 ): Promise<RunOptimisticResult> {
   const skipRemote = opts?.skipRemote === true || useGraphStore.getState().loadSource !== "api";
   const replies: Promise<ActionReceipt>[] = [];
+  const commits: LocalCommitChange[] = [];
   const write = async (action: ActionRequest): Promise<ActionReceipt> => {
-    if (skipRemote) return invokeLocal(action);
-    if (plan.completion !== "confirmed") return invoke(action.id, action.input);
+    if (skipRemote) {
+      const committed = await commitLocal(action);
+      commits.push(...committed.commits);
+      return committed.receipt;
+    }
     const invoked = await invokeSettled(action);
-    replies.push(invoked.settled);
+    if (invoked.commits !== undefined) commits.push(...invoked.commits);
+    if (plan.completion === "confirmed") replies.push(invoked.settled);
     return invoked.receipt;
   };
 
@@ -99,6 +106,7 @@ export async function runOptimistic(
     focusCursor: plan.focusCursor,
     focusInstanceKey: plan.focusInstanceKey,
     outputs,
+    commits,
     confirmed,
   };
 }

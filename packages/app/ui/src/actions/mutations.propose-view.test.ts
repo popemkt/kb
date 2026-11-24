@@ -8,10 +8,16 @@ import { describe, expect, it, vi } from "vitest";
 import { LayoutView } from "@kb/views";
 
 const invoke = vi.fn();
-// A page write runs on the replica (`invokeLocal`) or through the push (`invoke`), as the page is loaded.
+// A page write runs on the replica (`commitLocal`) or through the push (`invokeSettled`), as the page is loaded.
 vi.mock("@/session/runtime", () => ({
   invoke: (id: string, input: unknown) => invoke(id, input),
   invokeLocal: ({ id, input }: { id: string; input: unknown }) => invoke(id, input),
+  commitLocal: async ({ id, input }: { id: string; input: unknown }) => ({
+    receipt: await invoke(id, input),
+    touched: [],
+    placed: null,
+    commits: [],
+  }),
   invokeCoalesced: () => Promise.reject(new Error("no text writes here")),
   invokeSettled: () => Promise.reject(new Error("no settled writes here")),
 }));
