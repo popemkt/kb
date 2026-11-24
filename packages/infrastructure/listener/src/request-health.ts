@@ -71,6 +71,8 @@ export function requestHealth(report: (line: string) => void, deadlineMs = REQUE
         pending.then((response) => (performance.now() >= due ? expire() : response)),
       ]).finally(() => timer.abort());
     },
+    /** How long a request may run before it is answered 503. */
+    deadlineMs,
     /** How many requests' work is still running, an overrun one's included. */
     inFlight() {
       return requests.snapshot().inFlight;

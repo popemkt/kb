@@ -19,9 +19,9 @@
  * authenticates) is the deployment's, not kb's.
  */
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { Effect, Exit, Scope } from "effect";
+import { Clock, Duration, Effect, Exit, Scope } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import type { ServerListener } from "@kb/contracts";
+import { type ServerListener, WRITE_LOCK_WAIT } from "@kb/contracts";
 import {
   type BindOptions,
   hostsOf,
@@ -38,6 +38,15 @@ import { type McpOptions, type McpSession, mcpServerOf, openMcpSession } from ".
 /** The one path the server answers on. */
 export const MCP_PATH = "/mcp";
 
+/**
+ * How `kb mcp --listen` serves: the session's options, and how long a
+ * request may run before it is answered 503 (kb ui's deadline when none is
+ * given).
+ */
+interface McpListenOptions extends McpOptions {
+  readonly deadlineMs?: number;
+}
+
 /** A running `kb mcp --listen`. */
 interface McpListening {
   /** Where it listens: a TCP port of 0 is the one it bound. */
@@ -48,6 +57,13 @@ interface McpListening {
 
 /** The most requests whose work runs at once; one more is answered 503 before it reaches the store. */
 const MAX_IN_FLIGHT = 8;
+
+/**
+ * What a request keeps of its deadline to commit and answer once its last
+ * chance to take a write lock has passed (`writesBy`). A write still waiting
+ * then fails, saying so, before the deadline, and never commits after a 503.
+ */
+const COMMIT_WINDOW_MS = 5_000;
 
 /** The largest body: an `asset.upload` of the largest asset, and room for the rest of the call. */
 const MAX_BODY_BYTES = ASSET_BYTES_INPUT_MAX + 64 * 1024;
@@ -125,10 +141,17 @@ function messageOf(body: string): { readonly message: unknown } | Response {
  * message, parsed here so a batch never reaches the SDK. A transport that
  * rejects is a defect, which the listener answers with a 500.
  */
-const answer = Effect.fn("kb.mcp.answer")(function* (session: McpSession, request: Request) {
+const answer = Effect.fn("kb.mcp.answer")(function* (
+  session: McpSession,
+  request: Request,
+  deadlineMs: number,
+) {
+  const now = yield* Clock.currentTimeMillis;
   const read = messageOf(yield* Effect.promise(() => request.text()));
   if (read instanceof Response) return read;
-  const server = mcpServerOf(session, Effect.void);
+  const writesBy =
+    now + Math.min(Duration.toMillis(WRITE_LOCK_WAIT), deadlineMs - COMMIT_WINDOW_MS);
+  const server = mcpServerOf(session, { release: Effect.void, writesBy });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
@@ -162,7 +185,7 @@ function bunServe(
     fetch: (request, server) =>
       refusalOf(request, gateOf(at, server.port), requests.inFlight()) ??
       requests.run(request, MCP_PATH, (signal) =>
-        Effect.runPromise(answer(session, request), { signal }),
+        Effect.runPromise(answer(session, request, requests.deadlineMs), { signal }),
       ),
   });
 }
@@ -171,7 +194,7 @@ function bunServe(
 const serveIn = Effect.fn("kb.mcp.serveIn")(function* (
   root: string,
   at: ServerListener,
-  options: McpOptions,
+  { deadlineMs, ...options }: McpListenOptions,
   lifetime: Scope.Closeable,
 ) {
   const session = yield* openMcpSession(root, options);
@@ -179,7 +202,7 @@ const serveIn = Effect.fn("kb.mcp.serveIn")(function* (
   // The sampler starts with the requests' holder, so it stops with the
   // lifetime even when the bind below fails; finalizers run last-first, so
   // the server stops before the requests settle.
-  const requests = requestHealth((line) => writeErr(`kb mcp: ${line}`));
+  const requests = requestHealth((line) => writeErr(`kb mcp: ${line}`), deadlineMs);
   yield* Scope.addFinalizer(
     lifetime,
     Effect.promise(() => requests.settle()),
@@ -201,7 +224,7 @@ const serveIn = Effect.fn("kb.mcp.serveIn")(function* (
 export const listenMcp = Effect.fn("kb.listenMcp")(function* (
   root: string,
   address: string,
-  options: McpOptions = {},
+  options: McpListenOptions = {},
 ): Effect.fn.Return<McpListening, DomainError, FileSystem> {
   const at = listenerOfAddress(address);
   if ("refused" in at) return yield* domainError("invalid_input", `--listen: ${at.refused}`);

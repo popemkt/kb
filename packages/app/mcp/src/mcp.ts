@@ -26,6 +26,7 @@ import {
   type SurfaceWire,
   sessionOfMeta,
   Screens,
+  WriteLockDeadline,
 } from "@kb/contracts";
 import { type DomainError, currentIso, domainError, ensureDomainError } from "@kb/model";
 import {
@@ -290,7 +291,7 @@ export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
   // oxlint-disable-next-line typescript/no-deprecated -- registry-built tool list; McpServer cannot express it (SDK docs)
 ): Effect.fn.Return<Server, DomainError> {
   const session = yield* openMcpSession(root, options);
-  return mcpServerOf(session, session.ctx.store.closeEffect);
+  return mcpServerOf(session, { release: session.ctx.store.closeEffect });
 });
 
 /**
@@ -367,14 +368,26 @@ class SessionServer extends Server {
 }
 
 /**
- * The MCP SDK boundary: a server answering for `session`, which runs
- * `release` once it closes and its requests settle. Every request handler
+ * What a server answering for a session is held to: `release`, run once it
+ * closes and its requests settle, and `writesBy`, the Effect-clock time
+ * after which none of its calls takes a write lock (`WriteLockDeadline`;
+ * none means each lock wait's default). A transport that answers within a
+ * deadline sets it, so a write either takes the lock in time to commit and
+ * answer, or fails saying so and never commits after the caller gave up.
+ */
+interface McpServerTerms {
+  readonly release: Effect.Effect<void>;
+  readonly writesBy?: number;
+}
+
+/**
+ * The MCP SDK boundary: a server answering for `session` on `terms`. Every request handler
  * must hand the SDK a promise, so this is where kb's Effects are run — a
  * plain function beside the builder, not inside it.
  */
 export function mcpServerOf(
   { ctx, tools: toolsCtx, options }: McpSession,
-  release: Effect.Effect<void>,
+  { release, writesBy }: McpServerTerms,
 ) {
   const server = new SessionServer(release);
 
@@ -400,11 +413,17 @@ export function mcpServerOf(
     ),
   );
 
-  server.setRequestHandler(CallToolRequestSchema, (request) => {
+  server.setRequestHandler(CallToolRequestSchema, (request, extra) => {
     const { name, arguments: args, _meta } = request.params;
     // callToolEffect provides kbRuntimeLayer and maps Fail/Die → isError.
     const made = { stated: sessionOfMeta(_meta), follow: options.session === "follow" };
-    return server.run(() => Effect.runPromise(callToolEffect(ctx, name, args, toolsCtx, made)));
+    // The request's own signal interrupts the call: a cancellation, or the
+    // server closing (an HTTP request past its deadline). A write interrupted
+    // before it commits does not commit; one past `writesBy` takes no lock.
+    const call = callToolEffect(ctx, name, args, toolsCtx, made).pipe(
+      Effect.provideService(WriteLockDeadline, writesBy),
+    );
+    return server.run(() => Effect.runPromise(call, { signal: extra.signal }));
   });
 
   return server;

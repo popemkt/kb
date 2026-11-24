@@ -5893,11 +5893,21 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
       - at most 8 run at once, and one more is answered 503 with a
         JSON-RPC `-32000`;
       - its work is held by kb ui's `requestHealth` (`@kb/listener`): it
-        is answered 503 past a 35 s deadline, which covers a write's
-        15 s wait for the store's lock, and tracked until it settles.
-        `listen` binds every host with an idle timeout past that
-        deadline, so a connection is not dropped under a write that
-        then commits with no one to tell.
+        is answered 503 past a 35 s deadline and tracked until it
+        settles. `listen` binds every host with an idle timeout past
+        that deadline, so a connection is not dropped under a write
+        that then commits with no one to tell;
+      - a write never commits after its caller has given up. A request
+        keeps the last 5 s of its deadline to commit and answer: its
+        calls take no write lock after that (`writesBy`, set as
+        `WriteLockDeadline`, and never later than the usual 15 s wait).
+        So a write still waiting fails before the deadline, saying it
+        found the store busy, and the caller knows it did not land.
+        A call runs under its request's own signal, so a cancellation,
+        or the server closing at the deadline, interrupts it, and a
+        write interrupted before it commits does not commit. This holds
+        on stdio too, where a client cancels a call with
+        `notifications/cancelled`.
     - Whatever puts it in front of anyone else, such as a proxy that
       authenticates, belongs to the deployment and not to kb
       (`docs/research/2026-11-24-public-mcp.md`).

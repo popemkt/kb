@@ -150,6 +150,7 @@
         "effect": "catalog:",
       },
       "devDependencies": {
+        "@kb/file-write": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "happy-dom": "catalog:",
