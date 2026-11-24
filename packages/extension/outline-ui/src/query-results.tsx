@@ -49,6 +49,7 @@ interface QueryResultsSectionProps {
   depth: number;
   /** The view the query node shows its results in; null while none is provided. */
   view: FrameViewKey | null;
+  viewNodeId?: string | undefined;
   frameInstanceKey?: string;
   /** How to render one result node. Inverted from QueryResultsSection so the
    * recursive node <-> query-results pair is not a static import cycle. */
@@ -148,6 +149,7 @@ export function QueryResultsSection({
   nodeId,
   depth,
   view,
+  viewNodeId,
   frameInstanceKey,
   renderNode,
 }: QueryResultsSectionProps) {
@@ -218,6 +220,7 @@ export function QueryResultsSection({
           <div style={indent}>
             <FrameViewSlot
               frameId={nodeId}
+              viewNodeId={viewNodeId}
               instanceKey={frameInstanceKey}
               rowIds={ids}
               isQuerySource

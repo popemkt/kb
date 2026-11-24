@@ -19,13 +19,15 @@ export const FRAME_HOST =
 
 /**
  * The outline, rooted at `root`; without one, at the outline's zoom, which
- * lives in the store (`/`).
+ * lives in the store (`/`). When `view` names a frame view node, the root
+ * frame is laid out through that view node instead of the frame's first.
  */
 export const OutlineParams = Schema.Struct({
   root: Schema.optionalKey(Schema.NonEmptyString),
+  view: Schema.optionalKey(Schema.NonEmptyString),
 }).annotate({
   description:
-    "The outline: nodes as an editable tree, rooted at root, or at the outline's zoom (/) when there is none. Stored, root is lens.focus, else the node it is shown for.",
+    "The outline: nodes as an editable tree, rooted at root, or at the outline's zoom (/) when there is none; view overrides which frame view node lays out the root frame. Stored, root is lens.focus, else the node it is shown for.",
 });
 export type OutlineParams = typeof OutlineParams.Type;
 
@@ -94,10 +96,15 @@ export function frameViewKey<P extends FrameViewParams>(
     family: FRAME_VIEW_FAMILY,
     rows,
     // A frame view lays the frame's rows out inside the outline, so its page is
-    // the outline at the frame. The outline lays the frame out through the
-    // frame's own first frame view, so another of its frame view nodes chosen
-    // to open it shows that one instead. GAP [[01M411FPKHWPRFTWDYKVXBDYSB]]
-    page: ({ host }) => (host === null ? null : { key: OutlineView, input: { root: host } }),
+    // the outline at the frame, carrying the chosen view node so a pane can
+    // show a frame through any of its frame view nodes.
+    page: ({ host, viewNode }) =>
+      host === null
+        ? null
+        : {
+            key: OutlineView,
+            input: viewNode === null ? { root: host } : { root: host, view: viewNode },
+          },
   };
 }
 

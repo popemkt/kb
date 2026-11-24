@@ -4359,7 +4359,10 @@ until "Save workspace".
   lists the node the pane is shown for, through its default view, each of
   its view nodes, and each view type that a node can be shown in. Then it
   lists every route's `entry`. Choosing one moves the pane, and nothing is
-  written.
+  written. Choosing one of a frame's frame view nodes opens the outline at
+  the frame through that view node (`OutlineParams.view`), so two panes can
+  show the same frame through different frame views (a list and a board)
+  side by side.
 - **Opening a node is the pane's.** `open` (a bullet's follow, a crumb, a
   reference) zooms the outline when the pane shows the page's outline. When
   the pane shows an outline rooted at a node (`/node/<id>`), it moves that

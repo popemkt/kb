@@ -251,14 +251,20 @@ function useFrameViewKeys(): readonly FrameViewKey[] {
  * schema (the whole graph, `frameViewNodeOf`): the store is read for that
  * one node, so a host re-renders when its view node changes and not otherwise.
  */
-export function useFrameViewNode(frame: OutlineNode | undefined): OutlineNode | undefined {
-  return usePageGraph((s) => frameViewNodeOf(frame, schemaOf(s)) ?? undefined);
+export function useFrameViewNode(
+  frame: OutlineNode | undefined,
+  overrideId?: string | null,
+): OutlineNode | undefined {
+  return usePageGraph((s) => frameViewNodeOf(frame, schemaOf(s), overrideId) ?? undefined);
 }
 
 /** The view `frame` shows its children in, live (`frameViewOf`). */
-export function useFrameView(frame: OutlineNode | undefined): FrameView | null {
+export function useFrameView(
+  frame: OutlineNode | undefined,
+  overrideId?: string | null,
+): FrameView | null {
   const views = useFrameViewKeys();
-  const viewNode = useFrameViewNode(frame);
+  const viewNode = useFrameViewNode(frame, overrideId);
   const defaultOption = usePageGraph((s) =>
     familyDefaultViewOf(FRAME_VIEW_FAMILY, (id) => schemaOf(s).get(id)),
   );

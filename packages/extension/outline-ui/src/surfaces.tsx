@@ -31,7 +31,7 @@ import { useRecent, useRecordRecent } from "./recents";
 export function OutlineSurface({ params }: ViewProps<OutlineParams>) {
   const zoomRoot = useZoom();
   const homeRoot = usePageGraph((s) => s.homeRootId);
-  const { root } = params;
+  const { root, view } = params;
   useRecordRecent(root ?? zoomRoot, homeRoot);
   const pane = usePane();
   const navigatePane = browserHost().navigatePane;
@@ -43,7 +43,7 @@ export function OutlineSurface({ params }: ViewProps<OutlineParams>) {
   return (
     <OpenNodeContext.Provider value={open}>
       <ViewErrorBoundary title="Outline crashed" resetKey={root ?? zoomRoot}>
-        <OutlineColumn root={root} />
+        <OutlineColumn root={root} view={view} />
       </ViewErrorBoundary>
     </OpenNodeContext.Provider>
   );

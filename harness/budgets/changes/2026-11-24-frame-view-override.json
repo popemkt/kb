@@ -1,0 +1,8 @@
+{
+  "reason": "OutlineParams takes an optional view override (frame view node id) and frameViewKey.page passes the chosen view node so a pane can show a frame through any of its frame views (01M411FPKHWPRFTWDYKVXBDYSB). This adds 139 bytes to cli-closure (2800142 to 2800281).",
+  "raise": {
+    "cli-closure": {
+      "bytes": 139
+    }
+  }
+}

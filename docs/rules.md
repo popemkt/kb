@@ -378,14 +378,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — add a focus binding to the pane spec, resolved through the screen state
 - **node** — `01M411FQ0FQMXK01FCB1840GT0`
 
-### GAP: a pane cannot show a frame through its second frame view
-
-- **expected** — choosing a frame's second frame view in a pane's switcher shows that view
-- **current** — the pane shows the frame's first frame view
-- **impact** — a frame with list and board views cannot be shown as a board in one pane and a list in another
-- **closes** — let the outline page take a frame view override from the pane
-- **node** — `01M411FPKHWPRFTWDYKVXBDYSB`
-
 ### GAP: a pending / command's gesture can capture a separate edit made in the same tab
 
 - **expected** — A / pick's batch (PageWrites.together around command.run) holds only the writes that command makes, so undo takes back that command and nothing else.
@@ -2254,6 +2246,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A one-off reminder (a dentist visit) cannot be marked done from the calendar; deleting it is the only way to clear it.
 - **closes** — The engine projects a one-off routine's own fact (done or skipped) onto its single event, with the shared projection test, and the calendar drops its series guard on done and skip.
 - **node** — `01M6HGRGWW0WZ41V24SK89KXQY`
+
+### GAP: a pane cannot show a frame through its second frame view
+
+- **expected** — choosing a frame's second frame view in a pane's switcher shows that view
+- **current** — the pane shows the frame's first frame view
+- **impact** — a frame with list and board views cannot be shown as a board in one pane and a list in another
+- **closes** — let the outline page take a frame view override from the pane
+- **node** — `01M411FPKHWPRFTWDYKVXBDYSB`
 
 ### GAP: a proposed graph view cannot set its query or mappings
 

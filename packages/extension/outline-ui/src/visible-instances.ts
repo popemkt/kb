@@ -88,6 +88,8 @@ interface WalkContext {
   run: EdnRunner | null;
   /** The frame views provided, which a frame's props resolve against. */
   views: readonly FrameViewKey[];
+  /** Optional frame view node id overriding the root frame's first frame view. */
+  rootView?: string | null;
   /** The slots around the outline's root frame, as its host renders it (`useSlotChain`). */
   chain: SlotChain;
   pages: FramePagesMap;
@@ -333,7 +335,7 @@ export function collectVisibleInstances(
   const ctx: WalkContext = { ...source, host, out };
 
   // The root's rows sit in the root frame's slot, inside the outline's.
-  const view = frameViewOf(root, schema, views);
+  const view = frameViewOf(root, schema, views, source.rootView);
   if (view === null) return out;
   // A query root shows its results, as a query row does, and not its children.
   if (isQueryNode(root)) {

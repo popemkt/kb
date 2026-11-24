@@ -66,7 +66,12 @@ interface ViewCarrier {
 export function frameViewNodeOf(
   frame: { readonly props: NodeProps } | undefined,
   schema: SchemaIndex,
+  overrideId?: string | null,
 ): OutlineNode | null {
+  if (overrideId !== undefined && overrideId !== null) {
+    const override = schema.get(overrideId);
+    if (override !== undefined) return override;
+  }
   const id = familyViewIdOf(frame, FRAME_VIEW_FAMILY, (node) => schema.get(node));
   return (id === null ? undefined : schema.get(id)) ?? null;
 }
@@ -98,10 +103,11 @@ export function frameViewOf(
   frame: ViewCarrier | undefined,
   schema: SchemaIndex,
   views: readonly FrameViewKey[],
+  overrideId?: string | null,
 ): FrameView | null {
   return frameViewThrough(
     frame,
-    frameViewNodeOf(frame, schema),
+    frameViewNodeOf(frame, schema, overrideId),
     views,
     familyDefaultViewOf(FRAME_VIEW_FAMILY, (id) => schema.get(id)),
   );

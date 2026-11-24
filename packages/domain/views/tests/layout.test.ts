@@ -482,9 +482,48 @@ describe("what /node/<id> opens", () => {
     expect(open("n.frame")).toEqual(
       Result.succeed({
         key: OutlineView,
-        input: { root: "n.frame" },
+        input: { root: "n.frame", view: "v.table" },
         subject: "v.table",
         viewNode: "v.table",
+      }),
+    );
+  });
+
+  test("choosing a frame's second frame view opens the outline through that view node", () => {
+    const graph = new Map([
+      ...nodes,
+      [
+        "n.frame",
+        {
+          props: {
+            [SYSTEM_IDS.viewsField]: [
+              { t: "ref" as const, v: "v.table" },
+              { t: "ref" as const, v: "v.board" },
+            ],
+          },
+        },
+      ],
+      [
+        "v.board",
+        {
+          props: {
+            [SYSTEM_IDS.viewField]: [{ t: "ref" as const, v: viewOptionId("outline.board") }],
+          },
+        },
+      ],
+    ]);
+    const opened = resolveNodeView(
+      { node: "n.frame", view: "v.board" },
+      catalog,
+      (id) => graph.get(id),
+      () => {},
+    );
+    expect(opened).toEqual(
+      Result.succeed({
+        key: OutlineView,
+        input: { root: "n.frame", view: "v.board" },
+        subject: "v.board",
+        viewNode: "v.board",
       }),
     );
   });

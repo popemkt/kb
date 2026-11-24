@@ -1074,6 +1074,7 @@ function instancesOver(
       schema: schemaOf(graph),
       run,
       views,
+      rootView: outline.view ?? null,
       chain: outline.chain,
       pages: useOutlineStore.getState().framePages,
       expansion,

@@ -42,13 +42,23 @@ const ReferencesSection = lazy(() =>
  * rows, whether it is the workspace root or a zoomed-in node. A query's rows
  * are its results, as under a query row, and they are not children to add to.
  */
-function RootRows({ root, view }: { root: OutlineNode; view: FrameViewKey | null }) {
-  if (!isQueryNode(root)) return <FrameViewSlot frameId={root.id} depth={0} />;
+function RootRows({
+  root,
+  view,
+  viewNodeId,
+}: {
+  root: OutlineNode;
+  view: FrameViewKey | null;
+  viewNodeId?: string | undefined;
+}) {
+  if (!isQueryNode(root))
+    return <FrameViewSlot frameId={root.id} viewNodeId={viewNodeId} depth={0} />;
   return (
     <QueryResultsSection
       nodeId={root.id}
       depth={-1}
       view={view}
+      viewNodeId={viewNodeId}
       renderNode={({ nodeId, instanceKey, depth }) => (
         <NodeBlock key={instanceKey} nodeId={nodeId} instanceKey={instanceKey} depth={depth} />
       )}
@@ -84,7 +94,13 @@ function CreateStrip({ parentId }: { readonly parentId: string }) {
  * persist there, so home always renders the list of forest roots. Projected
  * views are available on zoomed/nested frames via ViewToolbar.
  */
-export function OutlineEditor({ root: rootProp }: { readonly root?: string | undefined }) {
+export function OutlineEditor({
+  root: rootProp,
+  view: viewProp,
+}: {
+  readonly root?: string | undefined;
+  readonly view?: string | undefined;
+}) {
   // Rooted at its own node in a pane, else at its pane's zoom.
   const zoomRoot = useZoom();
   const paneLocation = usePaneLocation();
@@ -92,15 +108,15 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
   // At the page's zoom (the focused pane), the walk reads the store's, which a zoom moves first.
   const walkRoot = rootProp ?? (paneLocation === null ? null : zoomRoot);
   const root = useOutlineNode(rootNodeId);
-  const rootView = useFrameView(root);
+  const rootView = useFrameView(root, viewProp);
   // The keyboard walk of this outline's rows starts where its root frame's slot does.
   const host = useOutlineHost();
   const slotChain = useSlotChain();
   const open = useContext(OpenNodeContext);
   useEffect(() => {
-    setOutlineHost(host, { root: walkRoot, chain: slotChain, open });
+    setOutlineHost(host, { root: walkRoot, view: viewProp ?? null, chain: slotChain, open });
     return () => setOutlineHost(host, null);
-  }, [host, walkRoot, slotChain, open]);
+  }, [host, walkRoot, viewProp, slotChain, open]);
   const leads = useLeadsOutlines();
 
   if (!root) {
@@ -116,7 +132,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
     );
   }
 
-  const rootRows = <RootRows root={root} view={rootView?.key ?? null} />;
+  const rootRows = <RootRows root={root} view={rootView?.key ?? null} viewNodeId={viewProp} />;
 
   if (rootNodeId !== WORKSPACE_ROOT_ID) {
     return (

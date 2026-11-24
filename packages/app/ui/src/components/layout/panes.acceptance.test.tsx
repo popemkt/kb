@@ -39,7 +39,21 @@ function snapshot(): GraphSnapshot {
     rev: 1,
     nodes: [
       ...viewOptionNodes,
-      node("n.a", "a project", { children: ["n.b"] }),
+      node("n.a", "a project", {
+        children: ["n.b"],
+        props: {
+          [SYSTEM_IDS.viewsField]: [
+            { t: "ref", v: "v.a-list" },
+            { t: "ref", v: "v.a-table" },
+          ],
+        },
+      }),
+      node("v.a-list", "List", {
+        props: { [SYSTEM_IDS.viewField]: [{ t: "ref", v: "sys.view.outline.list" }] },
+      }),
+      node("v.a-table", "Table", {
+        props: { [SYSTEM_IDS.viewField]: [{ t: "ref", v: "sys.view.outline.table" }] },
+      }),
       node("n.b", "a task", { parentId: "n.a" } as Partial<WireNode>),
       layoutNode("v.self", {
         split: "row",
@@ -200,5 +214,28 @@ describe("panes (acceptance)", () => {
     expect(panes()).toEqual([{ id: "only", path: "/node/v.one" }]);
     expect(useWorkspaceStore.getState().focused).toBe("only");
     expect(getPath()).toBe("/node/v.one");
+  });
+
+  it("shows a frame through its second frame view in another pane", async () => {
+    await act(async () =>
+      useWorkspaceStore.setState({
+        layout: {
+          split: "row",
+          children: [
+            { tabs: [{ id: "main", path: "/node/n.a/v.a-list" }] },
+            { tabs: [{ id: "side", path: "/node/n.a/v.a-table" }] },
+          ],
+        },
+        focused: "main",
+      }),
+    );
+    await until(
+      () =>
+        paneBody("main")?.textContent.includes("a task") === true &&
+        paneBody("side")?.querySelector("table") !== null,
+    );
+    expect(paneBody("main")?.querySelector("table")).toBeNull();
+    expect(paneBody("side")?.querySelector("table")).not.toBeNull();
+    expect(paneBody("side")?.textContent).toContain("a task");
   });
 });

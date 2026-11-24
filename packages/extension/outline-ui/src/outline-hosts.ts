@@ -9,6 +9,7 @@ import { browserHost, hostOfInstance, MAIN_OUTLINE_HOST, type SlotChain } from "
  */
 interface OutlineHost {
   readonly root: string | null;
+  readonly view?: string | null;
   readonly chain: SlotChain;
   readonly open: ((id: string) => void) | null;
 }

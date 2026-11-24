@@ -92,20 +92,22 @@ function UnheldFrameView({ viewNode }: { readonly viewNode: OutlineNode | undefi
  */
 export function FrameViewSlot({
   frameId,
+  viewNodeId,
   instanceKey,
   rowIds,
   isQuerySource = false,
   depth,
 }: {
   readonly frameId: string;
+  readonly viewNodeId?: string | undefined;
   readonly instanceKey?: string | undefined;
   readonly rowIds?: readonly string[] | undefined;
   readonly isQuerySource?: boolean;
   readonly depth: number;
 }) {
   const frame = useGraphRead().outline.get(frameId);
-  const view = useFrameView(frame);
-  const viewNode = useFrameViewNode(frame);
+  const view = useFrameView(frame, viewNodeId);
+  const viewNode = useFrameViewNode(frame, viewNodeId);
   // The pages revealed are the outline's, so the rows a view draws are the
   // rows its keyboard walk reaches.
   const pages = useOutlineStore((s) => s.framePages[frameId] ?? 1);
