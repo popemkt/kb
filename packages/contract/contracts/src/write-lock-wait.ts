@@ -27,8 +27,11 @@ export const writeLockEnd: Effect.Effect<number> = Effect.gen(function* () {
  * lock, `None` while another writer does. `timedOut` is the adapter's own
  * failure, which names the holder when it can. Taking the lock tells
  * {@link WriteLockTaken}.
+ *
+ * Only a store adapter waits for a lock, so the call that builds this is
+ * marked pure: a bundle that never takes one, the page's, drops it.
  */
-export const takeWriteLock = Effect.fn("kb.takeWriteLock")(function* <A, E, E2>(
+export const takeWriteLock = /* @__PURE__ */ Effect.fn("kb.takeWriteLock")(function* <A, E, E2>(
   attempt: (nowMs: number) => Effect.Effect<Option.Option<A>, E>,
   timedOut: Effect.Effect<never, E2>,
 ): Effect.fn.Return<A, E | E2> {
