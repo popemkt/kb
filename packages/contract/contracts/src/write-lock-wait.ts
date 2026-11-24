@@ -8,8 +8,19 @@ export const WRITE_LOCK_WAIT = Duration.seconds(15);
 export const WRITE_LOCK_RETRY = Duration.millis(25);
 
 /**
+ * When the lock wait of a write that begins now ends: {@link WRITE_LOCK_WAIT}
+ * from now, or {@link WriteLockDeadline} if that comes first.
+ */
+export const writeLockEnd: Effect.Effect<number> = Effect.gen(function* () {
+  return Math.min(
+    (yield* WriteLockDeadline) ?? Number.POSITIVE_INFINITY,
+    (yield* Clock.currentTimeMillis) + Duration.toMillis(WRITE_LOCK_WAIT),
+  );
+});
+
+/**
  * Try without blocking, sleeping up to {@link WRITE_LOCK_RETRY} between tries
- * until {@link WriteLockDeadline} or the default {@link WRITE_LOCK_WAIT} expires.
+ * until {@link writeLockEnd} expires.
  * No attempt starts at or past the deadline, even on a subsequent call.
  *
  * `attempt` tries once, given the clock's time: `Some` once it holds the
@@ -20,9 +31,7 @@ export const takeWriteLock = Effect.fn("kb.takeWriteLock")(function* <A, E, E2>(
   attempt: (nowMs: number) => Effect.Effect<Option.Option<A>, E>,
   timedOut: Effect.Effect<never, E2>,
 ): Effect.fn.Return<A, E | E2> {
-  const supplied = yield* WriteLockDeadline;
-  const deadline =
-    supplied ?? (yield* Clock.currentTimeMillis) + Duration.toMillis(WRITE_LOCK_WAIT);
+  const deadline = yield* writeLockEnd;
   for (;;) {
     const now = yield* Clock.currentTimeMillis;
     if (now >= deadline) return yield* timedOut;

@@ -10,6 +10,7 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { createConnection } from "node:net";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -95,6 +96,50 @@ test("over HTTP, a write held behind the lock past its last chance fails before 
     await Effect.runPromise(listening.stop);
   }
 }, 30_000);
+
+test("over HTTP, a write's lock wait starts when the write begins, not when a slow body started", async () => {
+  const socket = join(dir, "mcp.sock");
+  // A 25 s deadline caps writes at 20 s; a body that takes 16 s used to leave a 15 s wait spent.
+  const listening = await Effect.runPromise(
+    listenMcp(root, `unix:${socket}`, { deadlineMs: 25_000 }).pipe(
+      Effect.provide(bunFileSystemLayer),
+    ),
+  );
+  try {
+    const body = JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "node_add", arguments: { text: "after a slow upload" } },
+    });
+    const half = Math.floor(body.length / 2);
+    const answer = await new Promise<string>((resolve, reject) => {
+      const conn = createConnection({ path: socket });
+      let said = "";
+      conn.on("data", (chunk) => (said += chunk.toString()));
+      conn.on("end", () => resolve(said));
+      conn.on("error", reject);
+      conn.write(
+        [
+          "POST /mcp HTTP/1.1",
+          "Host: localhost",
+          "Content-Type: application/json",
+          "Accept: application/json, text/event-stream",
+          `Content-Length: ${Buffer.byteLength(body)}`,
+          "Connection: close",
+          "",
+          body.slice(0, half),
+        ].join("\r\n"),
+      );
+      setTimeout(() => conn.write(body.slice(half)), 16_000);
+    });
+    expect(answer).toStartWith("HTTP/1.1 200");
+    expect(failedCall(JSON.parse(answer.slice(answer.indexOf("\r\n\r\n") + 4)))).toBe(false);
+    expect(await written("after a slow upload")).toBe(true);
+  } finally {
+    await Effect.runPromise(listening.stop);
+  }
+}, 40_000);
 
 test("a cancelled call is interrupted, and its write held behind the lock never commits", async () => {
   const server = await Effect.runPromise(createMcpServer(root));

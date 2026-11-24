@@ -20,6 +20,7 @@ import {
   KbStore,
   TxOrigin,
   WriteLockDeadline,
+  writeLockEnd,
   type KbContext,
   type StoreCommit,
   type StoreFingerprint,
@@ -176,13 +177,12 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
   return yield* options.expected === undefined ? retryCommit(Effect.result(commit)) : commit;
 });
 
-const COMMIT_WAIT_MS = 15_000;
-
 // Preparing a write may itself refuse. Only a conflict during commit starts another attempt.
 const retryCommit = Effect.fnUntraced(function* <A, E, R>(
   attempt: Effect.Effect<Result.Result<A, DomainError>, E, R>,
 ) {
-  const deadline = (yield* WriteLockDeadline) ?? (yield* Clock.currentTimeMillis) + COMMIT_WAIT_MS;
+  // One wait, started as the write begins, covers every attempt's lock.
+  const deadline = yield* writeLockEnd;
   const run = Effect.provideService(attempt, WriteLockDeadline, deadline);
   let delayCap = 10;
   for (;;) {

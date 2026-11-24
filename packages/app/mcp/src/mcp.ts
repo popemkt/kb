@@ -370,8 +370,9 @@ class SessionServer extends Server {
 /**
  * What a server answering for a session is held to: `release`, run once it
  * closes and its requests settle, and `writesBy`, the Effect-clock time
- * after which none of its calls takes a write lock (`WriteLockDeadline`;
- * none means each lock wait's default). A transport that answers within a
+ * after which none of its calls takes a write lock (`WriteLockDeadline`,
+ * which caps the wait each write starts as it begins; none leaves that
+ * wait as it is). A transport that answers within a
  * deadline sets it, so a write either takes the lock in time to commit and
  * answer, or fails saying so and never commits after the caller gave up.
  */

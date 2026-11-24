@@ -19,9 +19,9 @@
  * authenticates) is the deployment's, not kb's.
  */
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { Clock, Duration, Effect, Exit, Scope } from "effect";
+import { Clock, Effect, Exit, Scope } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import { type ServerListener, WRITE_LOCK_WAIT } from "@kb/contracts";
+import type { ServerListener } from "@kb/contracts";
 import {
   type BindOptions,
   hostsOf,
@@ -146,11 +146,11 @@ const answer = Effect.fn("kb.mcp.answer")(function* (
   request: Request,
   deadlineMs: number,
 ) {
-  const now = yield* Clock.currentTimeMillis;
+  // A write's own lock wait starts when it begins, after the body is read;
+  // this only caps it, counted from when the request's deadline started.
+  const writesBy = (yield* Clock.currentTimeMillis) + deadlineMs - COMMIT_WINDOW_MS;
   const read = messageOf(yield* Effect.promise(() => request.text()));
   if (read instanceof Response) return read;
-  const writesBy =
-    now + Math.min(Duration.toMillis(WRITE_LOCK_WAIT), deadlineMs - COMMIT_WINDOW_MS);
   const server = mcpServerOf(session, { release: Effect.void, writesBy });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,

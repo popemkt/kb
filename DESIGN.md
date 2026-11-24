@@ -2014,7 +2014,8 @@ reading up against that adapter's own internals when it gets there; keeping
 `decodeNodes` exported for a benchmark nobody runs yet would be a dead seam.
 
 **The session retries commit conflicts.** Across backends, a retryable write
-starts with one 15-second deadline for lock acquisition and any retries.
+starts with one 15-second deadline for lock acquisition and any retries,
+which a caller's `WriteLockDeadline` may bring forward but never extend.
 Conflicts retry with capped, jittered exponential backoff. A transaction
 authored independently of the graph is checked again against the refreshed
 graph. Writes derived from it run their planner again, including decisions
@@ -5902,7 +5903,9 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
       - a write never commits after its caller has given up. A request
         keeps the last 5 s of its deadline to commit and answer: its
         calls take no write lock after that (`writesBy`, set as
-        `WriteLockDeadline`, and never later than the usual 15 s wait).
+        `WriteLockDeadline`). A write's own 15 s wait starts when the
+        write begins, after the body is read, and `writesBy` only
+        brings its end forward, so a slow upload does not spend it.
         So a write still waiting fails before the deadline, saying it
         found the store busy, and the caller knows it did not land.
         A call runs under its request's own signal, so a cancellation,

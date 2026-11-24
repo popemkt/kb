@@ -282,7 +282,12 @@ export type { KbContext } from "./session.ts";
 export { KeptState, staleCommitError } from "./store.ts";
 export { STORE_CHANGES_POLL, directorySignals, fingerprintChanges } from "./store-changes.ts";
 export { WriteLockDeadline } from "./write-lock-deadline.ts";
-export { WRITE_LOCK_RETRY, WRITE_LOCK_WAIT, takeWriteLock } from "./write-lock-wait.ts";
+export {
+  WRITE_LOCK_RETRY,
+  WRITE_LOCK_WAIT,
+  takeWriteLock,
+  writeLockEnd,
+} from "./write-lock-wait.ts";
 
 export type { EffectStore, StoreCommit, StoreFingerprint } from "./store.ts";
 export {
