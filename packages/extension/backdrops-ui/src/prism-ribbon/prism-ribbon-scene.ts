@@ -49,6 +49,8 @@ const BASE_TILT_X = -0.0395;
 const BASE_TILT_Y = 0.0819;
 const MAX_STEPS = 20;
 const MIN_STEPS = 12;
+/** Dark-mode bloom matching the original dark preset's luminous crest & hover halo (`0` in light). */
+const DARK_BLOOM = 0.5;
 
 function setModelRotation(
   rotMat: Matrix3,
@@ -128,7 +130,7 @@ function prismRibbon(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       u.codeGain.value = tuned.code;
       u.prismGain.value = tuned.prism;
       u.turn.value.set(...hueTurn(vary.hue + tuned.hue));
-      lastBloom = look.dark ? 0.28 : 0;
+      lastBloom = look.dark ? DARK_BLOOM : 0;
       stage.setBloom(lastBloom);
     },
     frame: (dt: number, reactions: Reactions) => {
@@ -146,7 +148,7 @@ function prismRibbon(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       writeWave = stepWriteWave(writeWave, waveStir, dt);
       u.writeWave.value.set(writeWave.x, writeWave.energy * (1 - calm));
       if (isDark) {
-        const nextBloom = 0.28 * (1 - calm * 0.65) + writeWave.energy * (1 - calm) * 0.08;
+        const nextBloom = DARK_BLOOM * (1 - calm * 0.68) + writeWave.energy * (1 - calm) * 0.12;
         if (Math.abs(nextBloom - lastBloom) > 0.004) {
           lastBloom = nextBloom;
           stage.setBloom(nextBloom);
@@ -179,8 +181,8 @@ export function mountPrismRibbon(
     host,
     init,
     {
-      bloom: { strength: 0.28, radius: 0.56 },
-      lens: { aberration: 0, streak: 0, grain: 0.028 },
+      bloom: { strength: DARK_BLOOM, radius: 0.62 },
+      lens: { aberration: 0, streak: 0, grain: 0.014 },
       fadeSpace: "display",
       feather: { sides: 0, top: 0.03, bottom: 0.04 },
     },

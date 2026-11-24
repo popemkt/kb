@@ -48,6 +48,7 @@ import {
   normalize,
   pow,
   reflect,
+  screenCoordinate,
   screenSize,
   screenUV,
   select,
@@ -62,7 +63,7 @@ import { Matrix3, Vector2, Vector3, type DataTexture } from "three/webgpu";
 import type { TslNode } from "@kb/scene-gpu";
 import { dissolve, dissolveUniforms } from "../gpu/dissolve";
 import type { Grounds } from "../gpu/gpu-scene";
-import { gnoise, hash2 } from "../gpu/noise";
+import { gnoise, hash, hash2 } from "../gpu/noise";
 import type { textScrim } from "../gpu/text-scrim";
 import { CODE_BUFFER_LEN } from "./prism-ribbon";
 import { ATLAS_COLS, ATLAS_ROWS } from "./sdf-font";
@@ -591,6 +592,38 @@ function shadeRibbonSurface(
   };
 }
 
+/** Screen-space Interleaved Gradient Noise (IGN) for fine 1px film grain & blue-noise dither. */
+const ign = (st: V2): F =>
+  fract(float(52.9829189).mul(fract(dot(st, vec2(0.06711056, 0.00583715)))));
+
+/**
+ * Two-layer photographic finish matching the original artwork's static IGN film
+ * grain (`±0.025`) plus 10%-mixed animated 2-level blue-noise dither stipple,
+ * strictly masked to the artwork so empty page ground stays completely clean.
+ */
+function applyArtworkGrainAndDither(
+  srgb: V3,
+  artMask: F,
+  time: F,
+  grainAmp: number,
+  ditherMix: number,
+): V3 {
+  const px = floor(screenCoordinate.xy);
+  const ignStatic = ign(px.add(vec2(17.0, 17.0))).toVar();
+  // Mix static IGN with isotropic hash so 1px film grain has zero diagonal lattice at 2× DPR.
+  const fineGrain = fract(ignStatic.add(hash(px.add(vec2(3.1, 7.3))).mul(0.5)));
+  const grained = clamp(
+    srgb.add(fineGrain.sub(0.5).mul(grainAmp).mul(artMask)),
+    vec3(0, 0, 0),
+    vec3(1, 1, 1),
+  );
+  // Isotropic high-frequency 1px stipple stepped cleanly with `u.time` (frozen under reduced motion).
+  const step = floor(time.mul(2.0));
+  const ditherNoise = hash(px.add(vec2(step.mul(123.0), step.mul(56.0))));
+  const dithered = floor(grained.mul(2.0).add(ditherNoise)).div(2.0);
+  return mix(grained, dithered, artMask.mul(ditherMix));
+}
+
 function composeSceneColor(
   u: PrismRibbonUniforms,
   grounds: Grounds,
@@ -610,30 +643,48 @@ function composeSceneColor(
   },
 ): V3 {
   const { ground, page, paint } = grounds;
-  const toCursor = c.p.sub(u.cursor);
-  const cursorGlow = exp(dot(toCursor, toCursor).mul(-10.0)).mul(0.2).mul(u.pointer.z);
+  const ribbonCov = c.cov.mul(c.bodyAlpha).mul(c.ribbonBottomFade).toVar();
+  const artPresence = smoothstep(float(0.02), float(0.16), max(c.groundMask, ribbonCov)).toVar();
+  // Keep page typography clean while giving the ribbon and field crisp 1px tactile grain.
+  const grainMask = artPresence.mul(float(1).sub(c.under.mul(0.75))).toVar();
 
-  // Dark composition (linear HDR + subtle crest boost for stage bloom).
-  const darkFieldLin = toLinear(
-    c.fieldSrgb.mul(float(1).sub(c.shadowSoft)).add(c.haloCol).mul(float(1.16).add(cursorGlow)),
-  );
-  const darkRibbonHdr = toLinear(c.bodyDarkSrgb).add(
-    vec3(0.42, 0.34, 0.16).mul(c.hotCrest.mul(c.hotCrest)).mul(c.bodyAlpha),
-  );
-  const ribbonCov = c.cov.mul(c.bodyAlpha).mul(c.ribbonBottomFade);
-  const darkBg = mix(ground, ground.add(darkFieldLin), c.groundMask);
-  const darkEdgeHalo = toLinear(c.haloCol.mul(1.15))
+  // Post-composite luminous hover lift matching original `exp(-16 * d^2) * 0.306`:
+  // illuminates BOTH the field and the ribbon + projected code into HDR bloom around the pointer.
+  const toCursor = c.p.sub(u.cursor);
+  const hoverW = exp(dot(toCursor, toCursor).mul(-14.0))
+    .mul(0.34)
+    .mul(u.pointer.z)
+    .mul(artPresence)
+    .toVar();
+
+  // Dark composition: composite sRGB -> post-composite hover lift -> 2-layer grain/dither -> linear HDR.
+  const darkFieldSrgb = c.fieldSrgb
+    .mul(float(1).sub(c.shadowSoft))
+    .add(c.haloCol)
+    .mul(1.16)
+    .mul(c.groundMask);
+  const darkEdgeHaloSrgb = c.haloCol
+    .mul(1.15)
     .mul(float(1).sub(c.cov))
     .mul(0.45)
     .mul(c.ribbonBottomFade);
-  const darkScene = mix(darkBg.add(darkEdgeHalo), darkRibbonHdr, ribbonCov);
+  const darkArtSrgb = mix(darkFieldSrgb.add(darkEdgeHaloSrgb), c.bodyDarkSrgb, ribbonCov);
+  const darkLiftedSrgb = mix(darkArtSrgb, darkArtSrgb.add(0.2).mul(2.0), hoverW).toVar();
+  const darkBaseSrgb = clamp(darkLiftedSrgb, vec3(0, 0, 0), vec3(1, 1, 1));
+  const darkHdrExcess = max(darkLiftedSrgb.sub(1.0), vec3(0, 0, 0));
+  const darkTexturedSrgb = applyArtworkGrainAndDither(darkBaseSrgb, grainMask, u.time, 0.05, 0.1);
+  const darkArtLin = toLinear(darkTexturedSrgb.add(darkHdrExcess));
+  const darkScene = ground
+    .mul(float(1).sub(ribbonCov))
+    .add(darkArtLin)
+    .add(vec3(0.32, 0.25, 0.12).mul(c.hotCrest.mul(c.hotCrest)).mul(ribbonCov));
   const shownDark = mix(
     ground,
     u.turn.mul(darkScene).max(vec3(0, 0, 0)),
     float(1).sub(c.under.mul(ribbonCov.oneMinus()).mul(0.24)),
   );
 
-  // Light composition (ink/engraving watercolor wash on page paper).
+  // Light composition (ink/engraving watercolor wash + restrained hover lift & tactile print grain).
   const lightWashTint = mix(
     vec3(0.92, 0.94, 0.99),
     vec3(0.98, 0.92, 0.94),
@@ -642,9 +693,11 @@ function composeSceneColor(
   const lightWash = mix(vec3(1, 1, 1), lightWashTint, c.groundMask.mul(0.88)).mul(
     float(1).sub(c.shadowSoft.mul(0.2).mul(c.ribbonBottomFade)),
   );
-  const lightComposed = mix(lightWash, c.bodyLightSrgb, ribbonCov.mul(0.95));
+  const lightComped = mix(lightWash, c.bodyLightSrgb, ribbonCov.mul(0.95));
+  const lightLifted = mix(lightComped, mix(lightComped, vec3(1, 1, 1), 0.36), hoverW);
+  const lightTextured = applyArtworkGrainAndDither(lightLifted, grainMask, u.time, 0.032, 0.075);
   const lightGraded = mix(
-    u.turn.mul(lightComposed).clamp(0, 1),
+    u.turn.mul(lightTextured).clamp(0, 1),
     vec3(1, 1, 1),
     c.under.mul(ribbonCov.oneMinus()).mul(0.22),
   );

@@ -117,7 +117,8 @@ export interface PointerRig {
 /** Fast-attack, slow-release time constants (s): within 0.15–0.6 s per docs/backdrops.md. */
 const POINTER_ATTACK = 0.24;
 const POINTER_RELEASE = 0.52;
-const CURSOR_FOLLOW = 0.16;
+/** Matches the original artwork's `mouseMomentum: 0.7` gliding inertia (frame-rate independent). */
+const CURSOR_FOLLOW = 0.24;
 /** Bounded maximum pointer displacement (frame heights) so composition always holds. */
 export const MAX_POINTER_LEAN = 0.085;
 
