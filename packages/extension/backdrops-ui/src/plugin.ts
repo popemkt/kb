@@ -315,7 +315,7 @@ const ichiraku: Omit<Backdrop, "key"> = {
     { cue: "pointer", does: "the alley camera pans subtly toward the cursor" },
     {
       cue: "writes",
-      does: "lanterns, neon signs and bike core flare with a gust through the noren and leaves",
+      does: "lanterns, neon signs and bike core flare with a breeze through the noren",
     },
     { cue: "navigation", does: "the lanterns sway and neon shimmers" },
   ],

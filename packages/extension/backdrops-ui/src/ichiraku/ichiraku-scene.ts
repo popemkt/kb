@@ -25,6 +25,8 @@ import { ICHIRAKU_INK_KNOB, ICHIRAKU_NEON_KNOB, ICHIRAKU_RAIN_KNOB } from "@kb/b
 import { knobValue } from "@kb/model";
 import type { SceneStage } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
+import type { Rng } from "../scene/rng";
+import { variation } from "../scene/seed";
 import type { Anchor, Composition } from "../gpu/framing";
 import {
   groundsOf,
@@ -66,24 +68,31 @@ interface RainDrop {
   width: number;
 }
 
-function makeRainDrops(): RainDrop[] {
-  let seed = 918273;
-  const rng = () => {
-    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-    return seed / 4294967296;
-  };
+function makeRainDrops(rng: Rng): RainDrop[] {
   return Array.from({ length: RAIN_COUNT }, (_, idx) => {
     const layer = idx % 3;
     const z =
-      layer === 0 ? 1.5 + rng() * 3.8 : layer === 1 ? -2.2 + rng() * 3.7 : -6.8 + rng() * 4.5;
+      layer === 0
+        ? 1.5 + rng.next() * 3.8
+        : layer === 1
+          ? -2.2 + rng.next() * 3.7
+          : -6.8 + rng.next() * 4.5;
     const speed =
-      layer === 0 ? 8.2 + rng() * 3.2 : layer === 1 ? 6.4 + rng() * 2.8 : 4.8 + rng() * 2.2;
+      layer === 0
+        ? 8.2 + rng.next() * 3.2
+        : layer === 1
+          ? 6.4 + rng.next() * 2.8
+          : 4.8 + rng.next() * 2.2;
     const len =
-      layer === 0 ? 0.55 + rng() * 0.4 : layer === 1 ? 0.38 + rng() * 0.3 : 0.26 + rng() * 0.2;
+      layer === 0
+        ? 0.55 + rng.next() * 0.4
+        : layer === 1
+          ? 0.38 + rng.next() * 0.3
+          : 0.26 + rng.next() * 0.2;
     const width = layer === 0 ? 1.3 : layer === 1 ? 1.0 : 0.7;
     return {
-      x: (rng() - 0.5) * 23.0,
-      y: rng() * 6.8,
+      x: (rng.next() - 0.5) * 23.0,
+      y: rng.next() * 6.8,
       z,
       speed,
       len,
@@ -92,11 +101,14 @@ function makeRainDrops(): RainDrop[] {
   });
 }
 
-function buildRainField(shared: IchirakuUniforms): {
+function buildRainField(
+  shared: IchirakuUniforms,
+  rng: Rng,
+): {
   readonly mesh: InstancedMesh;
   readonly step: (dt: number) => void;
 } {
-  const drops = makeRainDrops();
+  const drops = makeRainDrops(rng);
   const mesh = new InstancedMesh(
     new PlaneGeometry(0.011, 1.0),
     rainStreakMaterial(shared),
@@ -111,7 +123,7 @@ function buildRainField(shared: IchirakuUniforms): {
       d.x -= d.speed * dt * 0.16;
       if (d.y < -0.2) {
         d.y += 7.0;
-        d.x = ((d.x + 12.5) % 23.0) - 11.5;
+        d.x = ((((d.x + 11.5) % 23.0) + 23.0) % 23.0) - 11.5;
       }
       dummy.position.set(d.x, d.y, d.z);
       dummy.rotation.set(0, 0, -0.16);
@@ -163,10 +175,11 @@ function createSharedUniforms(
   init: GpuBackdropInit,
   scrim: ReturnType<typeof textScrim>,
   brushTex: ReturnType<typeof createIchirakuTextures>["brush"],
+  initialTime: number,
 ): IchirakuUniforms {
   const { page, paint } = groundsOf(stage);
   return {
-    time: uniform(STILL_TIME),
+    time: uniform(initialTime),
     writePulse: uniform(0),
     navFlicker: uniform(0),
     dayLift: uniform(init.dark ? 0 : 1),
@@ -181,9 +194,11 @@ function createSharedUniforms(
 }
 
 function ichirakuParts(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
+  const vary = variation(init.seed);
+  const initialTime = STILL_TIME + vary.range("phase", -3.0, 3.0);
   const textures = createIchirakuTextures();
   const scrim = textScrim();
-  const shared = createSharedUniforms(stage, init, scrim, textures.brush);
+  const shared = createSharedUniforms(stage, init, scrim, textures.brush, initialTime);
   const { time, writePulse, navFlicker, dayLift, rainAmount, neonAmount, inkAmount } = shared;
 
   stage.backdrop({ focus: [0.42, 0.58], warmth: 0.36, haze: 0.78, rise: 0.14, time });
@@ -195,12 +210,12 @@ function ichirakuParts(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
 
   const blenderGroup = new Group();
   const live = buildLiveElements(shared, textures);
-  const rain = buildRainField(shared);
+  const rain = buildRainField(shared, vary.stream("rain"));
   stage.scene.add(blenderGroup, live.group, rain.mesh);
   const street = buildWetStreet(shared, stage);
   const blenderStage = loadBlenderStage(blenderGroup, shared, textures);
 
-  let clockSec = STILL_TIME;
+  let clockSec = initialTime;
   let targetDayLift = init.dark ? 0 : 1;
   let camOffsetX = 0;
   let camOffsetY = 0;
@@ -232,14 +247,18 @@ function ichirakuParts(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
     ready: blenderStage.ready,
     frame: (dt: number, reactions: Reactions) => {
       clockSec += dt;
-      const t = dt === 0 ? STILL_TIME : clockSec;
-      time.value = t;
+      time.value = clockSec;
 
       const pulse = Math.min(1, reactions.impulse * 1.4);
       const nav = Math.min(1, reactions.stir * 1.2);
       writePulse.value = pulse;
-      navFlicker.value = nav * Math.sin(t * 22) * 0.5 + nav * 0.5;
-      dayLift.value += (targetDayLift - dayLift.value) * Math.min(1, dt * 4.5);
+      navFlicker.value = nav * Math.sin(clockSec * 22) * 0.5 + nav * 0.5;
+      // Apply theme transitions immediately when paused (reduced motion or Speed = 0).
+      if (dt === 0) {
+        dayLift.value = targetDayLift;
+      } else {
+        dayLift.value += (targetDayLift - dayLift.value) * Math.min(1, dt * 4.5);
+      }
 
       const ptr = reactions.pointer;
       const nx = hostWidth <= 0 ? 0 : (ptr.x / hostWidth - 0.5) * 2 * ptr.near;
@@ -249,7 +268,7 @@ function ichirakuParts(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
       camOffsetY += ((dt === 0 ? 0 : -ny * 0.06) - camOffsetY) * ease;
       placeCamera();
 
-      live.update(t, pulse, nav);
+      live.update(clockSec, pulse, nav);
       if (dt > 0) rain.step(dt);
     },
     layout: (layout: BackdropLayout) => {

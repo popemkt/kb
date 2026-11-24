@@ -528,7 +528,7 @@ function paintKonohaPlasterTexture(): CanvasTexture {
     for (let i = 0; i < 240; i++) {
       const shade = Math.round(44 + rng() * 32);
       ctx.fillStyle = `rgba(${shade},${shade - 2},${shade - 8},0.28)`;
-      ctx.fillRect(rng() * 256, rng() * 256, 12 + rng() * 34, 8 + rng() * 24);
+      ctx.fillRect(rng() * 256, rng() * 256, 12 + rng() * 34, 8 + rng() * 25);
     }
     for (let i = 0; i < 65; i++) {
       ctx.fillStyle = "rgba(10,12,18,0.3)";
@@ -625,12 +625,13 @@ function paintVendingTexture(): CanvasTexture {
     ctx.fillStyle = winGrad;
     ctx.fillRect(16, 18, 160, 126);
     const rowColors = ["#c45646", "#58967c", "#d6a44c", "#4d7aa8"];
+    const canPitch = 24;
     for (let r = 0; r < 3; r++) {
       ctx.fillStyle = "#1d272e";
       ctx.fillRect(16, 52 + r * 38, 160, 5);
       for (let c = 0; c < 6; c++) {
         ctx.fillStyle = rowColors[(r + c) % rowColors.length] ?? "#58967c";
-        ctx.fillRect(24 + c * 24, 28 + r * 38, 14, 22);
+        ctx.fillRect(24 + c * canPitch, 28 + r * 38, 14, 22);
       }
     }
     ctx.fillStyle = "#0c1116";

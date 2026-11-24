@@ -185,7 +185,7 @@ function puddleRippleUvOffset(shared: IchirakuUniforms): TslNode<"vec2"> {
     .add(dir2.mul(w2).mul(0.7))
     .add(rainDrift.mul(0.16))
     .mul(0.0062)
-    .mul(shared.rainAmount.clamp(0.15, 1.4));
+    .mul(shared.rainAmount.clamp(0, 1.4));
 }
 
 export function reflectorSampleUv(shared: IchirakuUniforms): TslNode<"vec2"> {
