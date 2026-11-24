@@ -251,25 +251,47 @@ export function runResourceHandler<A, E>(effect: Effect.Effect<A, E>): Promise<A
 }
 
 /**
- * Build an MCP server bound to a kb root. Does not connect a transport —
- * callers connect stdio (startMcp) or InMemoryTransport (tests).
+ * What a kb MCP server serves: a root opened once, the registry's tools by
+ * name, and how calls choose their session. One session answers every
+ * transport the same way: stdio binds it to one server, and HTTP to a fresh
+ * server per request, since a stateless request has no connection to keep.
  */
-export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
+interface McpSession {
+  readonly ctx: KbContext;
+  readonly tools: McpToolContext;
+  readonly options: McpOptions;
+}
+
+/** Open `root` and read its tools; the caller owns closing `ctx.store`. */
+const openMcpSession = Effect.fn("kb.openMcpSession")(function* (
   root: string,
   options: McpOptions = {},
-  // oxlint-disable-next-line typescript/no-deprecated -- registry-built tool list; McpServer cannot express it (SDK docs)
-): Effect.fn.Return<Server, DomainError, FileSystem> {
+): Effect.fn.Return<McpSession, DomainError, FileSystem> {
   return yield* Effect.acquireUseRelease(
     openKbEffect(root),
     (ctx) =>
       Effect.gen(function* () {
         const actions = (yield* sessionRegistry(ctx)).manifestEntries();
         const byToolName = new Map(actions.map((a) => [mcpToolName(a.id), a] as const));
-        return bindMcpHandlers(ctx, { byToolName }, options);
+        return { ctx, tools: { byToolName }, options };
       }),
     (ctx, exit) => (Exit.isFailure(exit) ? ctx.store.closeEffect : Effect.void),
   );
 }, Effect.provide(bunFileSystemLayer));
+
+/**
+ * Build an MCP server bound to a kb root, which it closes when the server
+ * closes. Does not connect a transport — callers connect stdio (startMcp)
+ * or InMemoryTransport (tests).
+ */
+export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
+  root: string,
+  options: McpOptions = {},
+  // oxlint-disable-next-line typescript/no-deprecated -- registry-built tool list; McpServer cannot express it (SDK docs)
+): Effect.fn.Return<Server, DomainError> {
+  const session = yield* openMcpSession(root, options);
+  return mcpServerOf(session, session.ctx.store.closeEffect);
+});
 
 /**
  * One listed action as an MCP tool, its hints from the mode and `{id, mode}`
@@ -345,12 +367,13 @@ class SessionServer extends Server {
 }
 
 /**
- * The MCP SDK boundary. Every request handler must hand the SDK a promise, so
- * this is where kb's Effects are run — a plain function beside the builder,
- * not inside it.
+ * The MCP SDK boundary: a server answering for `session`, which runs
+ * `release` once it closes and its requests settle. Every request handler
+ * must hand the SDK a promise, so this is where kb's Effects are run — a
+ * plain function beside the builder, not inside it.
  */
-function bindMcpHandlers(ctx: KbContext, toolsCtx: McpToolContext, options: McpOptions) {
-  const server = new SessionServer(ctx.store.closeEffect);
+function mcpServerOf({ ctx, tools: toolsCtx, options }: McpSession, release: Effect.Effect<void>) {
+  const server = new SessionServer(release);
 
   server.setRequestHandler(ListToolsRequestSchema, () =>
     server.run(() =>
