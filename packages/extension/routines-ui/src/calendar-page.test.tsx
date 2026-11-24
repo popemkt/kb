@@ -746,6 +746,169 @@ describe("the page", () => {
   });
 });
 
+describe("day view", () => {
+  test("routes /calendar/day/<day>, switches with d, and sits in the mode switcher", () => {
+    open("/calendar/week/2026-11-04", [CALENDAR, GYM]);
+    const modes = [...document.querySelectorAll('[aria-label="Layout"] button')].map((b) =>
+      b.textContent.trim(),
+    );
+    expect(modes).toEqual(["Month", "Week", "Day", "Agenda"]);
+    const page = $('[data-testid="routines-calendar"]');
+    act(() => {
+      page.dispatchEvent(new window.KeyboardEvent("keydown", { key: "d", bubbles: true }));
+    });
+    expect(window.location.pathname).toBe("/calendar/day/2026-11-04");
+    expect(page.dataset["calendarMode"]).toBe("day");
+    expect($('[data-calendar-layout="day"]')).toBeDefined();
+    expect(button("Day").getAttribute("aria-pressed")).toBe("true");
+    expect($("[data-calendar-title]").textContent).toBe("Wed, Nov 4, 2026");
+    const head = $('[data-calendar-head="2026-11-04"]');
+    expect(head.textContent).toContain("Wed");
+    expect(head.textContent).toContain("4");
+    expect(head.parentElement?.className).toContain("grid-cols-[3.5rem_minmax(0,1fr)]");
+  });
+
+  test("steps one day on previous/next and jumps to today", async () => {
+    open("/calendar/day/2026-11-04", [CALENDAR]);
+    await click(button("Next (j)"));
+    expect(window.location.pathname).toBe("/calendar/day/2026-11-05");
+    expect($("[data-calendar-title]").textContent).toBe("Thu, Nov 5, 2026");
+    const page = $('[data-testid="routines-calendar"]');
+    act(() => {
+      page.dispatchEvent(new window.KeyboardEvent("keydown", { key: "j", bubbles: true }));
+    });
+    expect(window.location.pathname).toBe("/calendar/day/2026-11-06");
+    await click(button("Previous (k)"));
+    expect(window.location.pathname).toBe("/calendar/day/2026-11-05");
+    act(() => {
+      page.dispatchEvent(new window.KeyboardEvent("keydown", { key: "k", bubbles: true }));
+    });
+    act(() => {
+      page.dispatchEvent(new window.KeyboardEvent("keydown", { key: "k", bubbles: true }));
+    });
+    expect(window.location.pathname).toBe("/calendar/day/2026-11-03");
+    await click(button("Today"));
+    expect(window.location.pathname).toBe("/calendar/day/2026-11-04");
+  });
+
+  test("places all-day and overlapping timed events, draws a now-line on today, and scrolls on open", () => {
+    const allDay = routine("ship", "Ship day", { [F.starts]: [str("2026-11-04")] });
+    const deep = routine("deep", "Deep work", {
+      [F.starts]: [str("2026-11-04")],
+      [F.at]: [str("09:00")],
+      [F.duration]: [num(120)],
+    });
+    const review = routine("review", "Review", {
+      [F.starts]: [str("2026-11-04")],
+      [F.at]: [str("09:30")],
+      [F.duration]: [num(60)],
+    });
+    const tomorrowEvent = routine("plan", "Planning", {
+      [F.starts]: [str("2026-11-05")],
+      [F.at]: [str("14:00")],
+      [F.duration]: [num(60)],
+    });
+    open("/calendar/day/2026-11-04", [CALENDAR, allDay, deep, review, tomorrowEvent]);
+    const allDayCell = $('[data-calendar-day="2026-11-04"]:not([data-calendar-timed])');
+    expect(allDayCell.contains(chip("ship/2026-11-04"))).toBe(true);
+    expect(column("2026-11-04").contains(chip("deep/2026-11-04"))).toBe(true);
+    expect(column("2026-11-04").contains(chip("review/2026-11-04"))).toBe(true);
+    expect(chip("deep/2026-11-04").parentElement?.style.top).toBe(`${String(9 * HOUR_PX)}px`);
+    expect(chip("deep/2026-11-04").parentElement?.style.left).toBe("0%");
+    expect(chip("deep/2026-11-04").parentElement?.style.width).toBe("50%");
+    expect(chip("review/2026-11-04").parentElement?.style.top).toBe(`${String(9.5 * HOUR_PX)}px`);
+    expect(chip("review/2026-11-04").parentElement?.style.left).toBe("50%");
+    expect(chip("review/2026-11-04").parentElement?.style.width).toBe("50%");
+    const nowLine = $("[data-calendar-now]");
+    expect(nowLine.style.top).toBe(`${String(10 * HOUR_PX)}px`);
+    // Today (10:00) scrolls to the current hour.
+    expect($("[data-calendar-scroller]").scrollTop).toBe(10 * HOUR_PX - 10);
+
+    // Another day: no now-line, scrolls to the first event (14:00).
+    open("/calendar/day/2026-11-05", [CALENDAR, allDay, deep, review, tomorrowEvent]);
+    expect(document.querySelector("[data-calendar-now]")).toBeNull();
+    expect($("[data-calendar-scroller]").scrollTop).toBe(14 * HOUR_PX - 10);
+
+    // An empty day scrolls to 07:00.
+    open("/calendar/day/2026-11-06", [CALENDAR, allDay, deep, review, tomorrowEvent]);
+    expect($("[data-calendar-scroller]").scrollTop).toBe(7 * HOUR_PX - 10);
+  });
+
+  test("stepping to another day resets scroll even when the opening hour is unchanged, while week keeps scroll", async () => {
+    const day1 = routine("day1", "Standup 1", {
+      [F.starts]: [str("2026-11-05")],
+      [F.at]: [str("09:00")],
+      [F.duration]: [num(30)],
+    });
+    const day2 = routine("day2", "Standup 2", {
+      [F.starts]: [str("2026-11-06")],
+      [F.at]: [str("09:00")],
+      [F.duration]: [num(30)],
+    });
+    open("/calendar/day/2026-11-05", [CALENDAR, day1, day2]);
+    const scroller = () => $("[data-calendar-scroller]");
+    expect(scroller().scrollTop).toBe(9 * HOUR_PX - 10);
+    scroller().scrollTop = 18 * HOUR_PX;
+    await click(button("Next (j)"));
+    expect(window.location.pathname).toBe("/calendar/day/2026-11-06");
+    expect(scroller().scrollTop).toBe(9 * HOUR_PX - 10);
+
+    // Week keeps where the person scrolled when stepping to a week with the same opening hour.
+    open("/calendar/week/2026-11-02", [CALENDAR, GYM]);
+    expect(scroller().scrollTop).toBe(7 * HOUR_PX - 10);
+    scroller().scrollTop = 18 * HOUR_PX;
+    await click(button("Next (j)"));
+    expect(window.location.pathname).toBe("/calendar/week/2026-11-09");
+    expect(scroller().scrollTop).toBe(18 * HOUR_PX);
+  });
+
+  test("j on an empty day's focused scroller steps twice, the keyboard kept on the scroller", () => {
+    open("/calendar/day/2026-11-05", [CALENDAR]);
+    const scroller = $("[data-calendar-scroller]");
+    // Chromium lets Tab reach a scroller that scrolls; jsdom focuses only what says it may.
+    scroller.tabIndex = 0;
+    act(() => scroller.focus());
+    expect(document.activeElement).toBe(scroller);
+    press("j");
+    press("j");
+    expect(window.location.pathname).toBe("/calendar/day/2026-11-07");
+    expect(document.activeElement).toBe(scroller);
+    expect(scroller.isConnected).toBe(true);
+  });
+
+  test("creates, moves, and edits events from day mode through the same write path", async () => {
+    const dentist = routine("dentist", "Dentist", {
+      [F.starts]: [str("2026-11-04")],
+      [F.at]: [str("14:00")],
+      [F.duration]: [num(60)],
+    });
+    open("/calendar/day/2026-11-04", [CALENDAR, dentist]);
+
+    // Create by clicking an empty slot.
+    pointer("pointerdown", column("2026-11-04"), y(11) + 5);
+    pointer("pointerup", column("2026-11-04"), y(11) + 5);
+    expect($('[aria-label="Date"]').dataset["value"]).toBe("2026-11-04");
+    expect(valueOf('[aria-label="Starts"]')).toBe("11:00");
+    fill("Title", "Sync");
+    await click(button("Save"));
+    expect(writes()[0]?.id).toBe("node.add");
+    expect(column("2026-11-04").textContent).toContain("Sync");
+
+    // Move by dragging vertically in the day column.
+    drag(chip("dentist/2026-11-04"), y(14) + 5, column("2026-11-04"), y(16) + 5);
+    await settle();
+    expect(propOf(writes().at(-1), F.at)).toEqual(["16:00"]);
+
+    // Edit title through popover → Edit event.
+    pointer("pointerdown", chip("dentist/2026-11-04"), y(16) + 5);
+    pointer("pointerup", chip("dentist/2026-11-04"), y(16) + 5);
+    await click(button("Edit event"));
+    fill("Title", "Checkup");
+    await click(button("Save"));
+    expect(column("2026-11-04").textContent).toContain("Checkup");
+  });
+});
+
 /** The choices an event's line offers, as they read. */
 const lineChoices = () =>
   [...document.querySelectorAll<HTMLElement>("[data-event-line-choice]")].map(

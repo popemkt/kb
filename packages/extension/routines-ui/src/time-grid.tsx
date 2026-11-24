@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, type PointerEvent } from "react";
 import { wallClock, type CalendarEntry } from "@kb/routines";
 import { cn } from "@kb/ui-sdk";
-import { DayNumber, WEEKDAY_SHORT } from "@kb/calendar-kit";
+import { DayNumber, weekdayShort } from "@kb/calendar-kit";
 import type { Drag, Spot } from "./drag";
 import { EntryChip } from "./entry-chip";
 import { HOUR_PX, placeDay, type Placed } from "./layout";
@@ -36,6 +36,8 @@ export interface LayoutProps {
   readonly presses: LayoutPresses;
 }
 
+type TimeGridMode = "day" | "week";
+
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const px = (minutes: number) => (minutes / 60) * HOUR_PX;
 /** The fewest minutes an instance is drawn as, so its one line stays readable. */
@@ -45,18 +47,25 @@ const ONE_LINE = 45;
 /** The hour the grid opens at: seven, or the hour of the earliest instance shown when it is earlier. */
 const OPEN_HOUR = 7;
 /**
- * The week's columns, the hour gutter and then seven days: every row of the
- * week (days, all day, hours) is laid on it inside one scroller, so a
- * scrollbar narrows them alike and the columns stay one grid.
+ * The time grid's columns, the hour gutter and then its days: every row
+ * (days, all day, hours) is laid on it inside one scroller, so a scrollbar
+ * narrows them alike and the columns stay one grid.
  */
-const WEEK_COLUMNS = "grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))]";
+const GRID_COLUMNS: Readonly<Record<TimeGridMode, string>> = {
+  day: "grid grid-cols-[3.5rem_minmax(0,1fr)]",
+  week: "grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))]",
+};
 /** Room above the hour the grid opens at, so that hour's label is drawn whole under the header. */
 const LABEL_ROOM = 10;
 
-function openHour({ days, model, zone }: LayoutProps): number {
+function openHour({ days, model, zone, today, now }: LayoutProps, mode: TimeGridMode): number {
   const starts = days
     .flatMap((day) => model.byDay.get(day) ?? [])
     .flatMap((entry) => (entry.start === null ? [] : [wallClock(entry.start, zone).minutes]));
+  if (mode === "day") {
+    if (days[0] === today) return Math.floor(wallClock(now, zone).minutes / 60);
+    return starts.length > 0 ? Math.floor(Math.min(...starts) / 60) : OPEN_HOUR;
+  }
   return Math.min(OPEN_HOUR, Math.floor(Math.min(...starts, OPEN_HOUR * 60) / 60));
 }
 
@@ -174,10 +183,16 @@ function DayColumn({ layout, day }: { readonly layout: LayoutProps; readonly day
   );
 }
 
-function AllDayRow({ layout }: { readonly layout: LayoutProps }) {
+function AllDayRow({
+  layout,
+  columns,
+}: {
+  readonly layout: LayoutProps;
+  readonly columns: string;
+}) {
   const { days, model, zone, presses } = layout;
   return (
-    <div className={cn(WEEK_COLUMNS, "border-t border-border")}>
+    <div className={cn(columns, "border-t border-border")}>
       <div className="py-1 pr-1.5 text-right text-caption text-faint-foreground">all day</div>
       {days.map((day) => (
         <div
@@ -206,38 +221,47 @@ function AllDayRow({ layout }: { readonly layout: LayoutProps }) {
 }
 
 /**
- * Seven days side by side: a header of days and an all-day row held at the
- * top, then a 24-hour grid opened at seven in the morning, or earlier when
- * the week has something earlier.
+ * One or seven days as a 24-hour time grid: a header of days and an all-day
+ * row held at the top, then the hours inside one scroller so a scrollbar
+ * narrows every row alike. Stepping days puts the scroll at that day's
+ * opening hour; stepping weeks keeps where the person scrolled, unless
+ * something earlier opens the week there. The scroller itself stays, so
+ * the keyboard on it stays on it as the calendar steps.
  */
-export function WeekView(layout: LayoutProps) {
+export function TimeGrid({ mode, ...layout }: LayoutProps & { readonly mode: TimeGridMode }) {
   const scroller = useRef<HTMLDivElement>(null);
-  // Stepping to another week keeps where the person scrolled; something earlier opens it there.
-  const opensAt = openHour(layout);
+  const columns = GRID_COLUMNS[mode];
+  const opensAt = openHour(layout, mode);
+  // What the scroll is placed for: a day in Day mode, the mode itself in Week.
+  const place = mode === "day" ? layout.days[0] : mode;
+  const placedFor = useRef<string | null>(null);
   useLayoutEffect(() => {
-    if (scroller.current !== null)
-      scroller.current.scrollTop = Math.max(0, opensAt * HOUR_PX - LABEL_ROOM);
-  }, [opensAt]);
+    const box = scroller.current;
+    const at = `${place}@${opensAt}`;
+    if (box === null || placedFor.current === at) return;
+    placedFor.current = at;
+    box.scrollTop = Math.max(0, opensAt * HOUR_PX - LABEL_ROOM);
+  }, [place, opensAt]);
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-calendar-layout="week">
+    <div className="flex min-h-0 flex-1 flex-col" data-calendar-layout={mode}>
       <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto" data-calendar-scroller="">
         <div className="sticky top-0 z-10 border-b border-border bg-background">
-          <div className={WEEK_COLUMNS}>
+          <div className={columns}>
             <div />
-            {layout.days.map((day, index) => (
+            {layout.days.map((day) => (
               <div
                 key={day}
                 data-calendar-head={day}
                 className="flex flex-col items-center border-l border-border py-1.5 text-meta sm:flex-row sm:items-baseline sm:justify-center sm:gap-1"
               >
-                <span className="text-muted-foreground">{WEEKDAY_SHORT[index]}</span>
+                <span className="text-muted-foreground">{weekdayShort(day)}</span>
                 <DayNumber day={day} today={layout.today} />
               </div>
             ))}
           </div>
-          <AllDayRow layout={layout} />
+          <AllDayRow layout={layout} columns={columns} />
         </div>
-        <div className={WEEK_COLUMNS}>
+        <div className={columns}>
           <div className="relative" style={{ height: px(DAY_MINUTES) }} aria-hidden>
             {HOURS.slice(1).map((hour) => (
               <span

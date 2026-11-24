@@ -2,7 +2,7 @@ import { DayNumber, MonthGrid, monthCellClass, sameMonth } from "@kb/calendar-ki
 import { cn } from "@kb/ui-sdk";
 import { wallClock } from "@kb/routines";
 import { EntryChip } from "./entry-chip";
-import type { LayoutProps } from "./week-view";
+import type { LayoutProps } from "./time-grid";
 
 /** How many instances a month cell lists before it says how many more. */
 const CELL_ROWS = 3;

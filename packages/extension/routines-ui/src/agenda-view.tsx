@@ -5,7 +5,7 @@ import { longDay } from "@kb/calendar-kit";
 import { displayTimes } from "./layout";
 import { inkOf } from "./model";
 import { StatusDot } from "./status-dot";
-import type { LayoutProps } from "./week-view";
+import type { LayoutProps } from "./time-grid";
 
 /** What an agenda row does besides opening: tick its instance done, or skip it. */
 export interface InstanceActions {

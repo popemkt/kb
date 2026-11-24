@@ -7,7 +7,7 @@ into events is [§6 of the data plane design](../../../docs/research/2026-11-10-
 labelled **Events** and keeps its id, `routines`, as every id it seeds keeps
 its own: what changed is labels, retired by the seed where nobody edited them.
 This family is hosted by `kb ui`, off by default. Its browser half,
-`@kb/routines-ui`, is the month, week and agenda calendar at `/calendar`
+`@kb/routines-ui`, is the month, week, day and agenda calendar at `/calendar`
 ([DESIGN-UI.md → The routines calendar](../../../DESIGN-UI.md#the-routines-calendar));
 ordinary outline fields and `ext.routines.*` actions work as well.
 
