@@ -64,7 +64,13 @@ import { typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import { shownNodes, useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageRows } from "@/stores/page"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageEditor } from "@/stores/page-editor"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
-import { invoke, invokeCoalesced, invokeLocal, invokeSettled } from "@/session/runtime";
+import {
+  invoke,
+  invokeCoalesced,
+  invokeLocal,
+  invokeSettled,
+  type LocalCommitChange,
+} from "@/session/runtime";
 
 /** The page's editor's state now: where a write lands the caret. */
 const editor = () => pageEditor().getState();
@@ -110,17 +116,20 @@ function indexed(id: string): KbNode | undefined {
   return useGraphStore.getState().index?.getNode(id);
 }
 
-function historyOf(preWire: WireNode[], plan: PlannedMutation) {
+function historyOf(commits: readonly LocalCommitChange[], plan: PlannedMutation) {
   const undoText = plan.undoText;
-  const before =
-    undoText === undefined || undoText.size === 0
-      ? preWire
-      : preWire.map((node) => {
-          const text = undoText.get(node.id);
-          return text === undefined ? node : { ...node, text };
-        });
+  const undo = commits.toReversed().flatMap(({ before, after }) => {
+    const restored =
+      undoText === undefined || undoText.size === 0
+        ? before
+        : before.map((node) => {
+            const text = undoText.get(node.id);
+            return text === undefined ? node : { ...node, text };
+          });
+    return restoreInvocations(after, restored);
+  });
   return {
-    undo: restoreInvocations(wire(), before),
+    undo,
     redo: plan.redoActions ?? plan.actions,
   };
 }
@@ -167,10 +176,9 @@ async function runPlanIn(
     if (plan.completion !== undefined) gesture.completion = plan.completion;
     return { ok: true };
   }
-  const preWire = useGraphStore.getState().wireNodes;
   const result = await runOptimistic(plan);
   if (!result.ok) return result;
-  const history = historyOf(preWire, plan);
+  const history = historyOf(result.commits ?? [], plan);
   if (result.confirmed !== undefined && !(await result.confirmed)) return { ok: false };
   if (result.focusId !== undefined) {
     // Its row where the page is being edited: at the instance the write

@@ -103,4 +103,41 @@ describe("mutations invoke shared actions", () => {
     expect(outlineNodes().get("n.root-a")?.text).toBe("after the gesture");
     expect(useGraphStore.getState().undoStack).toHaveLength(before + 2);
   });
+
+  it("overlapping commits each undo and redo only their own changes", async () => {
+    const a = outlineNodes().get("n.root-a")?.text;
+    const b = outlineNodes().get("n.root-b")?.text;
+    const before = useGraphStore.getState().undoStack.length;
+    // Start a gesture commit and a separate edit concurrently in the same tab.
+    const [gesture, separate] = await Promise.all([
+      mutations.together(async (writes) => {
+        await writes.setNodeText("n.root-a", "from the gesture");
+      }),
+      mutations.setNodeText("n.root-b", "from the separate edit"),
+    ]);
+    expect(gesture).not.toBeNull();
+    expect(separate).toBe(true);
+    expect(useGraphStore.getState().undoStack).toHaveLength(before + 2);
+    expect(outlineNodes().get("n.root-a")?.text).toBe("from the gesture");
+    expect(outlineNodes().get("n.root-b")?.text).toBe("from the separate edit");
+    // First Undo reverts only one step, leaving the other edit intact.
+    expect(await mutations.undo()).toBe(true);
+    const afterFirstUndo = [
+      outlineNodes().get("n.root-a")?.text,
+      outlineNodes().get("n.root-b")?.text,
+    ];
+    expect(
+      (afterFirstUndo[0] === a && afterFirstUndo[1] === "from the separate edit") ||
+        (afterFirstUndo[0] === "from the gesture" && afterFirstUndo[1] === b),
+    ).toBe(true);
+    // Redo puts that step back so both edits are present again.
+    expect(await mutations.redo()).toBe(true);
+    expect(outlineNodes().get("n.root-a")?.text).toBe("from the gesture");
+    expect(outlineNodes().get("n.root-b")?.text).toBe("from the separate edit");
+    // Two Undos revert both cleanly.
+    expect(await mutations.undo()).toBe(true);
+    expect(await mutations.undo()).toBe(true);
+    expect(outlineNodes().get("n.root-a")?.text).toBe(a);
+    expect(outlineNodes().get("n.root-b")?.text).toBe(b);
+  });
 });

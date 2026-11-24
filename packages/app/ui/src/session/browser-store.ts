@@ -16,6 +16,13 @@ import {
 } from "@kb/model";
 import { MemoryTxTail } from "@kb/tx-log";
 
+/** The graph immediately before and after one atomic local store commit. */
+export interface LocalCommitChange {
+  readonly before: KbNode[];
+  readonly after: KbNode[];
+  readonly tx: StoreTx;
+}
+
 /** In-memory persistence side of the browser's replicated kb session. */
 export class BrowserStore implements EffectStore {
   readonly closeEffect = Effect.void;
@@ -48,6 +55,32 @@ export class BrowserStore implements EffectStore {
     record: TxRecord,
     expected?: StoreFingerprint,
   ): Effect.Effect<StoreCommit, DomainError> {
+    return this.commitWith(tx, record, expected);
+  }
+
+  /**
+   * An `EffectStore` view of this store that reports each commit it makes
+   * with the exact state immediately before and after `apply`, so a caller's
+   * undo history sees only its own commits even when writes overlap.
+   */
+  scoped(onCommit: (change: LocalCommitChange) => void): EffectStore {
+    return {
+      path: this.path,
+      loadEffect: this.loadEffect,
+      fingerprint: this.fingerprint,
+      changes: this.changes,
+      closeEffect: this.closeEffect,
+      txTail: this.txTail,
+      commitEffect: (tx, record, expected) => this.commitWith(tx, record, expected, onCommit),
+    };
+  }
+
+  private commitWith(
+    tx: StoreTx,
+    record: TxRecord,
+    expected: StoreFingerprint | undefined,
+    onCommit?: (change: LocalCommitChange) => void,
+  ): Effect.Effect<StoreCommit, DomainError> {
     return Effect.gen({ self: this }, function* () {
       // Single-threaded and synchronous: nothing can land between the read of
       // the generation and the write that bumps it, or between that and the
@@ -55,6 +88,7 @@ export class BrowserStore implements EffectStore {
       const base = String(this.generation);
       const stale = staleCommitError(expected, base);
       if (stale !== null) return yield* stale;
+      const before = onCommit === undefined ? null : [...this.state.values()];
       const applied = rankTx(this.state, tx);
       const writes = writesOf(applied, (id) => this.state.get(id));
       this.apply(applied);
@@ -62,6 +96,9 @@ export class BrowserStore implements EffectStore {
         applied.upserts.length > 0 || applied.deletes.length > 0
           ? yield* this.txTail.append(applied, record)
           : null;
+      if (onCommit !== undefined && before !== null && kept !== null) {
+        onCommit({ before, after: [...this.state.values()], tx: applied });
+      }
       return {
         base,
         fingerprint: String(this.generation),
