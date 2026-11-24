@@ -1,0 +1,4 @@
+{
+  "reason": "A host answering a request past its deadline must know whether a commit may have begun: @kb/contracts exports WriteLockTaken, which takeWriteLock tells each time a write takes its lock, so kb mcp --listen and kb ui answer an unknown outcome rather than a retryable 503 from then on.",
+  "raise": { "surface": { "@kb/contracts": 1 } }
+}

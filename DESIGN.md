@@ -5895,23 +5895,29 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
         and Bun answers a larger one 413;
       - at most 8 run at once, and one more is answered 503 with a
         JSON-RPC `-32000`;
-      - its work is held by kb ui's `requestHealth` (`@kb/listener`): it
-        is answered 503 past a 35 s deadline and tracked until it
-        settles. `listen` binds every host with an idle timeout past
-        that deadline, so a connection is not dropped under a write
-        that then commits with no one to tell;
-      - a write never commits after its caller has given up. A request
-        keeps the last 5 s of its deadline to commit and answer: its
-        calls take no write lock after that (`writesBy`, set as
-        `WriteLockDeadline`). A write's own 15 s wait starts when the
-        write begins, after the body is read, and `writesBy` only
-        brings its end forward, so a slow upload does not spend it.
-        So a write still waiting fails before the deadline, saying it
-        found the store busy, and the caller knows it did not land.
-        A call runs under its request's own signal, so a cancellation,
-        or the server closing at the deadline, interrupts it, and a
-        write interrupted before it commits does not commit. This holds
-        on stdio too, where a client cancels a call with
+      - its work is held by kb ui's `requestHealth` (`@kb/listener`) to
+        a 35 s deadline and tracked until it settles. `listen` binds
+        every host with an idle timeout past that deadline, so a
+        connection is not dropped under a call still running;
+      - a caller told to retry knows nothing was written. A response
+        the call finished is always the answer, however late. Past the
+        deadline, a request none of whose writes took a write lock is
+        answered 503 with `Retry-After`. Once one has
+        (`WriteLockTaken`), a commit may have begun, and the answer is a
+        JSON-RPC `-32001` for the request's id, without `Retry-After`,
+        saying the outcome is unknown and to read `graph.changes`;
+      - a write takes the lock in time to commit, or not at all. A
+        request keeps the last 5 s of its deadline to commit and
+        answer, and its calls take no write lock after that
+        (`writesBy`, set as `WriteLockDeadline`). A write's own 15 s
+        wait starts when the write begins, after the body is read, and
+        `writesBy` only brings its end forward, so a slow upload does
+        not spend it. A write still waiting fails before the deadline,
+        saying it found the store busy, and the caller knows it did not
+        land. A call runs under its request's own signal, so a
+        cancellation, or the server closing at the deadline, interrupts
+        it, and a write interrupted before it commits does not commit.
+        This holds on stdio too, where a client cancels a call with
         `notifications/cancelled`.
     - Whatever puts it in front of anyone else, such as a proxy that
       authenticates, belongs to the deployment and not to kb

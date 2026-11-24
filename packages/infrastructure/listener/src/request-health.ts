@@ -1,7 +1,8 @@
 /**
  * A host's HTTP requests, each held to a deadline (DESIGN.md → Surfaces →
- * MCP; kb ui's server): a handler that overruns it is answered 503 and
- * aborted, and its work is tracked until it settles, so the host closes its
+ * MCP; kb ui's server): a handler that overruns it is aborted and answered,
+ * 503 to retry if it never reached a commit and an unknown outcome if it
+ * may have (`HeldRequest`), and its work is tracked until it settles, so the host closes its
  * root only after every call in flight. The listener's idle timeout covers
  * the deadline, so a connection is never dropped under a handler still
  * within it.
@@ -15,6 +16,39 @@ export const HTTP_IDLE_TIMEOUT_SECONDS = Math.ceil(REQUEST_DEADLINE_MS / 1000) +
 
 const SAMPLE_INTERVAL_MS = 1_000;
 const STALL_THRESHOLD_MS = 1_000;
+
+/**
+ * What a handler is given: the `signal` that aborts it at the deadline, and
+ * `committing`, which it calls once a commit may have begun (when a write
+ * takes its lock, `WriteLockTaken`), with the answer to give if the deadline
+ * comes before its own. From then on the deadline answers that, or
+ * {@link unknownOutcome}, and never that a retry is safe.
+ */
+export interface HeldRequest {
+  readonly signal: AbortSignal;
+  readonly committing: (answer?: Response) => void;
+}
+
+const NO_STORE = { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" };
+
+/** The deadline's answer to a request that never reached a commit: nothing was written, so retry. */
+function retryable(deadlineMs: number): Response {
+  return new Response(`Request exceeded the ${String(deadlineMs)} ms deadline.`, {
+    status: 503,
+    headers: { ...NO_STORE, "Retry-After": "1" },
+  });
+}
+
+/**
+ * The deadline's answer to a request whose commit may have begun: whether
+ * it landed is unknown, so it says to look rather than to retry.
+ */
+function unknownOutcome(deadlineMs: number): Response {
+  return new Response(
+    `Request exceeded the ${String(deadlineMs)} ms deadline after its write may have begun to commit, so whether it landed is unknown; read graph.changes before retrying.`,
+    { status: 504, headers: NO_STORE },
+  );
+}
 
 /**
  * Track handler work until it settles, including cancellation after a
@@ -40,38 +74,33 @@ export function requestHealth(report: (line: string) => void, deadlineMs = REQUE
   );
 
   return {
-    run(req: Request, pathname: string, handle: (signal: AbortSignal) => Promise<Response>) {
+    run(req: Request, pathname: string, handle: (held: HeldRequest) => Promise<Response>) {
       const abort = new AbortController();
-      const due = performance.now() + deadlineMs;
-      let expired: Response | undefined;
-      const expire = () => {
-        if (expired !== undefined) return expired;
-        const message = `Request exceeded the ${String(deadlineMs)} ms deadline.`;
-        expired = new Response(message, {
-          status: 503,
-          headers: {
-            "Content-Type": "text/plain; charset=utf-8",
-            "Cache-Control": "no-store",
-            "Retry-After": "1",
-          },
-        });
-        report(`${req.method} ${JSON.stringify(pathname)}: ${message}`);
-        abort.abort();
-        return expired;
+      let unknown: Response | undefined;
+      const committing = (answer?: Response) => {
+        unknown ??= answer ?? unknownOutcome(deadlineMs);
       };
-      // Start the timer before the handler runs. Check the elapsed time on
-      // completion too, since synchronous work can delay the timer itself.
+      const expire = () => {
+        const answer = unknown ?? retryable(deadlineMs);
+        const outcome = unknown === undefined ? "" : " after it may have begun to commit";
+        report(
+          `${req.method} ${JSON.stringify(pathname)}: Request exceeded the ${String(deadlineMs)} ms deadline${outcome}.`,
+        );
+        abort.abort();
+        return answer;
+      };
+      // The timer starts before the handler runs. A response the handler
+      // finished is the answer, whatever the clock says by then.
       const timer = new AbortController();
       const deadline = Effect.runPromise(Effect.sleep(deadlineMs), { signal: timer.signal }).then(
         expire,
       );
-      const pending = requests.run(() => Promise.resolve().then(() => handle(abort.signal)));
-      return Promise.race([
-        deadline,
-        pending.then((response) => (performance.now() >= due ? expire() : response)),
-      ]).finally(() => timer.abort());
+      const pending = requests.run(() =>
+        Promise.resolve().then(() => handle({ signal: abort.signal, committing })),
+      );
+      return Promise.race([deadline, pending]).finally(() => timer.abort());
     },
-    /** How long a request may run before it is answered 503. */
+    /** How long a request may run before its deadline answers it. */
     deadlineMs,
     /** How many requests' work is still running, an overrun one's included. */
     inFlight() {

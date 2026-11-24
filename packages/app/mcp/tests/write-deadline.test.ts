@@ -1,11 +1,13 @@
 /**
- * A write that the caller has given up on never commits afterwards
- * (DESIGN.md → Surfaces → MCP). Over `kb mcp --listen`, a request keeps the
+ * A write takes the store's lock in time to commit, or not at all, and a
+ * caller told to retry knows nothing was written (DESIGN.md → Surfaces →
+ * MCP). Over `kb mcp --listen`, a request keeps the
  * end of its deadline to commit and answer, so a write still waiting for
  * the store's lock by then fails, saying so, before the deadline, and does
  * not commit once the lock comes free. On any transport, a call the client
  * cancels is interrupted, and a write it interrupts before it commits does
- * not commit.
+ * not commit. A server is told when a call's write takes its lock, so the
+ * transport answers a deadline after that as an unknown outcome, not a retry.
  */
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { mkdtemp, readFile, realpath, rm } from "node:fs/promises";
@@ -17,7 +19,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { acquireFileWriteLockEffect, releaseFileWriteLock } from "@kb/file-write";
 import { bunFileSystemLayer, openKb } from "@kb/runtime";
-import { createMcpServer } from "../src/mcp.ts";
+import { createMcpServer, mcpServerOf, openMcpSession } from "../src/mcp.ts";
 import { listenMcp } from "../src/http.ts";
 
 /** Whether a JSON-RPC answer is a tool call that failed. */
@@ -168,6 +170,36 @@ test("a cancelled call is interrupted, and its write held behind the lock never 
     expect(await written("cancelled while held")).toBe(false);
   } finally {
     release();
+    await client.close();
+    await server.close();
+  }
+}, 30_000);
+
+test("a server is told when a call's write takes its lock, and not for a read", async () => {
+  const session = await Effect.runPromise(
+    openMcpSession(root).pipe(Effect.provide(bunFileSystemLayer)),
+  );
+  let told = 0;
+  const server = mcpServerOf(session, {
+    release: session.ctx.store.closeEffect,
+    committing: () => {
+      told += 1;
+    },
+  });
+  const client = new Client({ name: "kb-write-deadline", version: "0.0.0" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+  try {
+    const read = await client.callTool({ name: "kb_manifest", arguments: {} });
+    expect(read.isError).not.toBe(true);
+    expect(told).toBe(0);
+    const added = await client.callTool({
+      name: "node_add",
+      arguments: { text: "told on commit" },
+    });
+    expect(added.isError).not.toBe(true);
+    expect(told).toBeGreaterThan(0);
+  } finally {
     await client.close();
     await server.close();
   }

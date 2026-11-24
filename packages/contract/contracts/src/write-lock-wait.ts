@@ -1,5 +1,5 @@
 import { Clock, Duration, Effect, Option } from "effect";
-import { WriteLockDeadline } from "./write-lock-deadline.ts";
+import { WriteLockDeadline, WriteLockTaken } from "./write-lock-deadline.ts";
 
 /** How long a writer waits for a lock when its caller has no deadline. */
 export const WRITE_LOCK_WAIT = Duration.seconds(15);
@@ -25,7 +25,8 @@ export const writeLockEnd: Effect.Effect<number> = Effect.gen(function* () {
  *
  * `attempt` tries once, given the clock's time: `Some` once it holds the
  * lock, `None` while another writer does. `timedOut` is the adapter's own
- * failure, which names the holder when it can.
+ * failure, which names the holder when it can. Taking the lock tells
+ * {@link WriteLockTaken}.
  */
 export const takeWriteLock = Effect.fn("kb.takeWriteLock")(function* <A, E, E2>(
   attempt: (nowMs: number) => Effect.Effect<Option.Option<A>, E>,
@@ -36,7 +37,10 @@ export const takeWriteLock = Effect.fn("kb.takeWriteLock")(function* <A, E, E2>(
     const now = yield* Clock.currentTimeMillis;
     if (now >= deadline) return yield* timedOut;
     const got = yield* attempt(now);
-    if (Option.isSome(got)) return got.value;
+    if (Option.isSome(got)) {
+      (yield* WriteLockTaken)();
+      return got.value;
+    }
     const remaining = deadline - (yield* Clock.currentTimeMillis);
     if (remaining > 0)
       yield* Effect.sleep(Math.min(remaining, Duration.toMillis(WRITE_LOCK_RETRY)));

@@ -27,6 +27,7 @@ import {
   sessionOfMeta,
   Screens,
   WriteLockDeadline,
+  WriteLockTaken,
 } from "@kb/contracts";
 import { type DomainError, currentIso, domainError, ensureDomainError } from "@kb/model";
 import {
@@ -374,11 +375,14 @@ class SessionServer extends Server {
  * which caps the wait each write starts as it begins; none leaves that
  * wait as it is). A transport that answers within a
  * deadline sets it, so a write either takes the lock in time to commit and
- * answer, or fails saying so and never commits after the caller gave up.
+ * answer, or fails saying so and never commits afterwards.
+ * `committing` is told each time a call's write takes its lock
+ * (`WriteLockTaken`), so that transport knows a commit may have begun.
  */
 interface McpServerTerms {
   readonly release: Effect.Effect<void>;
   readonly writesBy?: number;
+  readonly committing?: () => void;
 }
 
 /**
@@ -388,7 +392,7 @@ interface McpServerTerms {
  */
 export function mcpServerOf(
   { ctx, tools: toolsCtx, options }: McpSession,
-  { release, writesBy }: McpServerTerms,
+  { release, writesBy, committing = () => undefined }: McpServerTerms,
 ) {
   const server = new SessionServer(release);
 
@@ -423,6 +427,7 @@ export function mcpServerOf(
     // before it commits does not commit; one past `writesBy` takes no lock.
     const call = callToolEffect(ctx, name, args, toolsCtx, made).pipe(
       Effect.provideService(WriteLockDeadline, writesBy),
+      Effect.provideService(WriteLockTaken, committing),
     );
     return server.run(() => Effect.runPromise(call, { signal: extra.signal }));
   });

@@ -281,7 +281,7 @@ export type { ExtensionTemplate, TemplateContext, TemplateFn } from "./template.
 export type { KbContext } from "./session.ts";
 export { KeptState, staleCommitError } from "./store.ts";
 export { STORE_CHANGES_POLL, directorySignals, fingerprintChanges } from "./store-changes.ts";
-export { WriteLockDeadline } from "./write-lock-deadline.ts";
+export { WriteLockDeadline, WriteLockTaken } from "./write-lock-deadline.ts";
 export {
   WRITE_LOCK_RETRY,
   WRITE_LOCK_WAIT,

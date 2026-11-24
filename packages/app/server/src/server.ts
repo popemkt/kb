@@ -345,7 +345,7 @@ function serveUi(deps: {
       }
 
       if (req.method === "GET" && url.pathname === "/api/health") return health.response();
-      return health.run(req, url.pathname, (signal) =>
+      return health.run(req, url.pathname, (held) =>
         handleHttpRequest(
           req,
           caller.wire,
@@ -359,7 +359,7 @@ function serveUi(deps: {
             embedding: deps.embedding,
             builds: deps.builds,
           },
-          signal,
+          held,
         ),
       );
     },

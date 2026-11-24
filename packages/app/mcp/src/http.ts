@@ -24,6 +24,7 @@ import type { FileSystem } from "effect/FileSystem";
 import type { ServerListener } from "@kb/contracts";
 import {
   type BindOptions,
+  type HeldRequest,
   hostsOf,
   listen,
   listenerOfAddress,
@@ -40,8 +41,8 @@ export const MCP_PATH = "/mcp";
 
 /**
  * How `kb mcp --listen` serves: the session's options, and how long a
- * request may run before it is answered 503 (kb ui's deadline when none is
- * given).
+ * request may run before its deadline answers it (kb ui's deadline when
+ * none is given).
  */
 interface McpListenOptions extends McpOptions {
   readonly deadlineMs?: number;
@@ -61,7 +62,8 @@ const MAX_IN_FLIGHT = 8;
 /**
  * What a request keeps of its deadline to commit and answer once its last
  * chance to take a write lock has passed (`writesBy`). A write still waiting
- * then fails, saying so, before the deadline, and never commits after a 503.
+ * then fails, saying so, before the deadline, and never commits after a 503
+ * told its caller to retry.
  */
 const COMMIT_WINDOW_MS = 5_000;
 
@@ -90,6 +92,26 @@ function gateOf(at: ServerListener, port: number | undefined): Gate {
   if (at.kind === "socket") return { hosts: null, origins: [] };
   const hosts = hostsOf(at, port ?? at.port);
   return { hosts, origins: hosts.map((host) => `http://${host}`) };
+}
+
+/**
+ * The JSON-RPC error for a call whose request reached its deadline after a
+ * write took its lock: the commit may have landed, so it is no 503 to
+ * retry, and says where to look.
+ */
+const UNKNOWN_OUTCOME = -32001;
+
+function unknownOutcomeOf(message: unknown): Response {
+  const id = typeof message === "object" && message !== null && "id" in message ? message.id : null;
+  return Response.json({
+    jsonrpc: "2.0",
+    error: {
+      code: UNKNOWN_OUTCOME,
+      message:
+        "The outcome is unknown: the request reached its deadline after its write may have begun to commit. Read graph.changes to see whether it landed before retrying.",
+    },
+    id,
+  });
 }
 
 /** A JSON-RPC error answering no request id, as the transport answers one it refuses. */
@@ -138,12 +160,15 @@ function messageOf(body: string): { readonly message: unknown } | Response {
 
 /**
  * One admitted request, as the stateless transport answers it: its one
- * message, parsed here so a batch never reaches the SDK. A transport that
- * rejects is a defect, which the listener answers with a 500.
+ * message, parsed here so a batch never reaches the SDK. Once a call's
+ * write takes its lock, the deadline answers its message with
+ * {@link UNKNOWN_OUTCOME}. A transport that rejects is a defect, which the
+ * listener answers with a 500.
  */
 const answer = Effect.fn("kb.mcp.answer")(function* (
   session: McpSession,
   request: Request,
+  held: HeldRequest,
   deadlineMs: number,
 ) {
   // A write's own lock wait starts when it begins, after the body is read;
@@ -151,7 +176,8 @@ const answer = Effect.fn("kb.mcp.answer")(function* (
   const writesBy = (yield* Clock.currentTimeMillis) + deadlineMs - COMMIT_WINDOW_MS;
   const read = messageOf(yield* Effect.promise(() => request.text()));
   if (read instanceof Response) return read;
-  const server = mcpServerOf(session, { release: Effect.void, writesBy });
+  const committing = () => held.committing(unknownOutcomeOf(read.message));
+  const server = mcpServerOf(session, { release: Effect.void, writesBy, committing });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
@@ -166,8 +192,9 @@ const answer = Effect.fn("kb.mcp.answer")(function* (
 /**
  * The Bun server for `session` at `where`, the SDK boundary every request
  * crosses. A request is refused before its body is read (`refusalOf`);
- * an admitted one is held by `requests` (kb ui's mechanism): answered 503
- * past its deadline, and tracked until it settles, so the root closes only
+ * an admitted one is held by `requests` (kb ui's mechanism): answered at
+ * its deadline, 503 to retry until a write takes its lock and an unknown
+ * outcome after, and tracked until it settles, so the root closes only
  * after the calls in flight. The idle timeout `listen` binds with covers
  * that deadline, which covers a write's wait for the store's lock, so a
  * connection is not dropped under a write that then commits with no one to
@@ -184,8 +211,10 @@ function bunServe(
     maxRequestBodySize: MAX_BODY_BYTES,
     fetch: (request, server) =>
       refusalOf(request, gateOf(at, server.port), requests.inFlight()) ??
-      requests.run(request, MCP_PATH, (signal) =>
-        Effect.runPromise(answer(session, request, requests.deadlineMs), { signal }),
+      requests.run(request, MCP_PATH, (held) =>
+        Effect.runPromise(answer(session, request, held, requests.deadlineMs), {
+          signal: held.signal,
+        }),
       ),
   });
 }

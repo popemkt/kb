@@ -10,3 +10,12 @@ export const WriteLockDeadline = Context.Reference<number | undefined>(
   "@kb/contracts/WriteLockDeadline",
   { defaultValue: () => undefined },
 );
+
+/**
+ * Told each time a write takes its lock, the point from which a commit may
+ * have begun: a host answering a request past its deadline can then say the
+ * outcome is unknown rather than that it is safe to retry.
+ */
+export const WriteLockTaken = Context.Reference<() => void>("@kb/contracts/WriteLockTaken", {
+  defaultValue: () => () => undefined,
+});
