@@ -678,6 +678,7 @@
   "@kb/keychain" = copyPathToStore ./packages/infrastructure/keychain;
   "@kb/lab" = copyPathToStore ./packages/extension/lab;
   "@kb/lab-ui" = copyPathToStore ./packages/extension/lab-ui;
+  "@kb/listener" = copyPathToStore ./packages/infrastructure/listener;
   "@kb/locations" = copyPathToStore ./packages/extension/locations;
   "@kb/locations-fs" = copyPathToStore ./packages/extension/locations-fs;
   "@kb/locations-ui" = copyPathToStore ./packages/extension/locations-ui;

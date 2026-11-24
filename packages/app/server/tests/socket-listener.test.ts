@@ -1,5 +1,5 @@
 /**
- * `kb ui` on a Unix socket (`src/listener.ts`, DESIGN.md → Surfaces → Hosted
+ * `kb ui` on a Unix socket (`listen` in `@kb/listener`, DESIGN.md → Surfaces → Hosted
  * behind a proxy): the socket is created with mode 0600, so only its owner
  * (and root, as `tailscale serve` runs) can connect; a request through it
  * names `localhost`, as the proxy rewrites `Host`, and the page is the
@@ -47,7 +47,8 @@ function viaSocket(route: string, init: RequestInit = {}) {
 }
 
 beforeAll(async () => {
-  dir = await mkdtemp(join(tmpdir(), "kb-socket-"));
+  // Canonical, as a socket's directory must be (macOS reaches its tmpdir through /var).
+  dir = await realpath(await mkdtemp(join(tmpdir(), "kb-socket-")));
   root = join(dir, "root");
   path = join(dir, "kb.sock");
   await mkdir(root);

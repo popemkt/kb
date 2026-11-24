@@ -12,6 +12,7 @@ import {
   listingOf,
   onWire,
   requestOf,
+  WriteLockTaken,
   type ActionResponse,
   type Embedding,
   type HostedFamilies,
@@ -30,6 +31,7 @@ import {
   type ActionHandlerEnv,
 } from "@kb/runtime";
 import { SANDBOX_FRAME_HEADERS, SANDBOX_FRAME_PATH, sandboxFrameDocument } from "@kb/sandbox";
+import type { HeldRequest } from "@kb/listener";
 import { canonicalRoot } from "@kb/workspace-fs";
 import * as assets from "./assets.ts";
 import { deliver } from "./delivery.ts";
@@ -350,18 +352,21 @@ const handleHttpRequestEffect = Effect.fn("kb.ui.request")(
  * Promise facade for the HTTP layer: runs the routing Effect, for a request
  * the guard let through on `wire`, then converts the response for delivery.
  * Routes have the filesystem and compose the full runtime when invoking an action.
+ * A request `held` to a deadline is aborted by its signal and tells it when
+ * a write takes its lock, so the deadline never answers a retry then.
  */
 export function handleHttpRequest(
   req: Request,
   wire: SurfaceWire,
   deps: UiHttpDeps,
-  signal?: AbortSignal,
+  held?: HeldRequest,
 ): Promise<Response> {
   return Effect.runPromise(
     handleHttpRequestEffect(req, wire, deps).pipe(
       Effect.provide(bunFileSystemLayer),
       Effect.flatMap((response) => deliver(req, response)),
+      Effect.provideService(WriteLockTaken, () => held?.committing()),
     ),
-    signal === undefined ? undefined : { signal },
+    held === undefined ? undefined : { signal: held.signal },
   );
 }

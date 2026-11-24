@@ -1,0 +1,6 @@
+{
+  "reason": "`kb mcp --listen` (DESIGN.md → Surfaces → MCP): @kb/mcp exports listenMcp, which serves the MCP server over Streamable HTTP, mcpAddressOf, how the command names where it listens, and MCP_PATH, the one path it answers on, which the surface contract's mcp-http row reaches.",
+  "raise": {
+    "surface": { "@kb/mcp": 3 }
+  }
+}

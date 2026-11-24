@@ -1,0 +1,4 @@
+{
+  "reason": "A write's lock wait starts when the write begins, and WriteLockDeadline only caps it: @kb/contracts exports writeLockEnd, the one place that combines the two, which takeWriteLock and the session's commit retry both read.",
+  "raise": { "surface": { "@kb/contracts": 1 } }
+}

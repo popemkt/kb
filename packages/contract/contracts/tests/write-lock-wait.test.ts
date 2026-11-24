@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { Clock, Effect, Fiber, Option } from "effect";
+import { Clock, Duration, Effect, Fiber, Option } from "effect";
 import { TestClock } from "effect/testing";
-import { takeWriteLock, WriteLockDeadline } from "../src/index.ts";
+import { takeWriteLock, WRITE_LOCK_WAIT, WriteLockDeadline, WriteLockTaken } from "../src/index.ts";
 
 test("lock attempts spend the caller's deadline across calls", () =>
   Effect.runPromise(
@@ -23,6 +23,59 @@ test("lock attempts spend the caller's deadline across calls", () =>
         expect(yield* Fiber.join(first)).toMatchObject({ failure: "lock wait expired" });
         expect(yield* wait).toMatchObject({ failure: "lock wait expired" });
         expect(attempts).toEqual([0, 25]);
+      }),
+    ).pipe(Effect.provide(TestClock.layer())),
+  ));
+
+test("a caller's deadline only brings the wait's end forward, never past the wait a write starts with", () =>
+  Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const start = yield* Clock.currentTimeMillis;
+        let last = 0;
+        const wait = takeWriteLock(
+          (now) =>
+            Effect.sync(() => {
+              last = now - start;
+              return Option.none();
+            }),
+          Effect.fail("lock wait expired"),
+        ).pipe(Effect.result, Effect.provideService(WriteLockDeadline, start + 60_000));
+
+        const waiting = yield* Effect.forkScoped(wait, { startImmediately: true });
+        yield* TestClock.adjust(Duration.toMillis(WRITE_LOCK_WAIT));
+        expect(yield* Fiber.join(waiting)).toMatchObject({ failure: "lock wait expired" });
+        expect(last).toBeLessThan(Duration.toMillis(WRITE_LOCK_WAIT));
+      }),
+    ).pipe(Effect.provide(TestClock.layer())),
+  ));
+
+test("taking the lock tells WriteLockTaken, and a wait that expires does not", () =>
+  Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        let told = 0;
+        const tell = () => {
+          told += 1;
+        };
+        const taken = yield* takeWriteLock(
+          () => Effect.succeed(Option.some("held")),
+          Effect.fail("lock wait expired"),
+        ).pipe(Effect.provideService(WriteLockTaken, tell));
+        expect(taken).toBe("held");
+        expect(told).toBe(1);
+
+        const start = yield* Clock.currentTimeMillis;
+        const expired = yield* takeWriteLock(
+          () => Effect.succeed(Option.none()),
+          Effect.fail("lock wait expired"),
+        ).pipe(
+          Effect.result,
+          Effect.provideService(WriteLockDeadline, start),
+          Effect.provideService(WriteLockTaken, tell),
+        );
+        expect(expired).toMatchObject({ failure: "lock wait expired" });
+        expect(told).toBe(1);
       }),
     ).pipe(Effect.provide(TestClock.layer())),
   ));

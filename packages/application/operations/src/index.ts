@@ -17,7 +17,7 @@ export { graphChangesDef, graphRunEffect, graphSearchEffect, nodeAddEffect } fro
 
 export { KB_DESIGN_SYSTEM, coreExtension } from "./core-extension.ts";
 export { nodeAddTreeEffect } from "./node-add-tree.ts";
-export { ASSET_MAX_BYTES, assetUploadEffect } from "./assets.ts";
+export { ASSET_BYTES_INPUT_MAX, ASSET_MAX_BYTES, assetUploadEffect } from "./assets.ts";
 export { GENERATED_HEADER } from "./docs/docs.ts";
 export { DocsError } from "./docs/views.ts";
 export {

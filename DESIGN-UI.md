@@ -276,7 +276,11 @@ files and identity reads use the filesystem without building that runtime.
 HTTP handlers have 35 seconds to produce a response, allowing a screen command
 to wait its full 30 seconds. On expiry `kb ui` responds with a plain-text 503
 and `Retry-After: 1` so a capture client treats the timeout as a delivery failure
-it can retry. The host requests cancellation of the handler and writes one line
+it can retry, unless a write of the request had taken its lock
+(`WriteLockTaken`). Then the commit may have landed, and the answer is a
+plain-text 504 without `Retry-After` that says the outcome is unknown and to
+read `graph.changes`. A response the handler finished is always the answer,
+however late it came. The host requests cancellation of the handler and writes one line
 to stderr with the method and path. Bun's HTTP idle timeout is 45 seconds on
 either listener. WebSocket traffic and streaming response bodies continue under
 their own lifetimes.

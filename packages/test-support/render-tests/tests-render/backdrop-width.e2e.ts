@@ -94,13 +94,31 @@ async function spreadOf(page: Page): Promise<number> {
 }
 
 /**
+ * Wait until the page has rendered a frame and begun the next. A frame
+ * sized in container units (`100cqw`) keeps its container's old width
+ * until a rendering update, though a forced layout already reads the
+ * window's new width: right after a resize from 1440 to 1280 the frame is
+ * 160 px wider than its region. A heavy GPU scene can hold that update back
+ * for seconds on a slow runner, so the wait is for the frame, not a time.
+ */
+function renderedFrame(page: Page): Promise<void> {
+  return page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
+}
+
+/**
  * The frame spans the scroll region's whole width — its border box, under
  * where a classic scrollbar's track would be, so a gutter the region kept
  * would show as a strip the frame stops short of — once the resize has
- * laid out (a forced layout reads a container's old width until the next
- * frame), and the page does not scroll sideways.
+ * laid out and rendered (`renderedFrame`), and the page does not scroll
+ * sideways.
  */
 async function expectSpansRegion(page: Page, label: string) {
+  await renderedFrame(page);
   const fit = () =>
     page.evaluate((frame) => {
       const box = document.querySelector(frame)?.getBoundingClientRect();
