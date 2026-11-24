@@ -3553,10 +3553,17 @@ server listens on a Unix socket instead of a TCP port, created with mode
 0600 under a matching umask, so only its owner and root can connect
 (`listen` in `@kb/listener`). A socket is reached through its
 proxy, so it needs `--public-origin`, which is where its page is, and takes
-no `--port` or `--dev`. A socket a stopped server left behind, which
-refuses a connection, is replaced; one anything accepts a connection on,
-or a path that is not a socket, is refused;
-the socket is removed when the server stops. The request guard admits
+no `--port` or `--dev`. The socket's directory must be its owner's alone:
+a real directory, not a link, owned by the server's user and writable by
+no group or other. Then no other account can put a link or a socket of its
+own at the path while the server checks or binds it. The socket is bound
+at a private name beside the path and renamed into place, under
+`<path>.lock` (flock(2)), so two starts never both win. A socket a stopped
+server left behind, which refuses a connection, is replaced by that
+rename. One anything accepts a connection on, a link, or a path that is not
+a socket is refused. When the server stops, the socket is removed under
+the lock, and only while the path still holds the socket this server made
+(the same device and inode), never one a later start put there. The request guard admits
 `Host: localhost`, as the proxy names a socket, and the public origin's
 host; `http://localhost` is no origin of a socket's, since no browser loads
 the page from it. A socket server is present as a TCP one is: `.kb/ui.json`

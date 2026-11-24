@@ -12,11 +12,11 @@
   },
   "dependencies": {
     "@kb/contracts": "workspace:*",
+    "@kb/file-write": "workspace:*",
     "@kb/model": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@effect/platform-bun": "catalog:",
     "@types/bun": "catalog:"
   },
   "nx": {
