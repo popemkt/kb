@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@kb/contracts": "workspace:*",
+    "@kb/listener": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",
     "@kb/runtime": "workspace:*",

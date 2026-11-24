@@ -5843,6 +5843,32 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
 - **MCP** (`kb mcp`, `@modelcontextprotocol/sdk` stdio): `kb.manifest` as an
   agent, read at each `tools/list` → one tool per action it may call → Effect
   handler (`callToolEffect` / resource Effects via `reloadEffect` + `invokeReceiptEffect`); tool hints from the mode ([Action registry](#action-registry)). SDK request handlers remain Promise-returning; CallTool maps Fail/Die to `isError`, resource Fail/Die to JSON-RPC `-32603`.
+  - **Over Streamable HTTP** (`kb mcp --listen <address>`, `app/mcp/src/http.ts`).
+    It serves the same server over a second transport. One `McpSession`,
+    the root opened once with its tools, answers every transport. stdio
+    binds it to one SDK server; HTTP binds a fresh server and a stateless
+    transport to it for each POST at `/mcp`, answered as JSON. So the
+    tools, the resources, read and write, and every call's wire
+    (`MCP_WIRE`, with the `via` from `KB_VIA`, see [The caller's
+    via](#action-registry)) are stdio's, and the surface contract runs the
+    `mcp-http` row beside `mcp`.
+    - There is no session to resume and no stream from the server, so GET
+      and DELETE on `/mcp` answer 405. Every other path is 404.
+    - It checks no credentials and knows no caller, so it listens only
+      where this machine alone reaches it: `unix:<path>`, a socket made by
+      `listen` in `@kb/listener` with mode 0600 as `kb ui --socket` makes
+      one (see [Hosted behind a proxy](#hosted-behind-a-proxy)), or a TCP
+      port on a loopback address written as one (`127.0.0.1:<port>`,
+      `[::1]:<port>`). Any other address, a name such as `localhost`
+      included, is refused before anything opens (`onThisMachineOnly`).
+    - On a TCP port a request must name the listener in `Host` (its
+      address or `localhost`, with the port). Otherwise a page whose DNS
+      name was rebound to the loopback address could call it. A socket
+      takes any `Host`, since only its owner's processes (and the proxy
+      they run) connect.
+    - Whatever puts it in front of anyone else, such as a proxy that
+      authenticates, belongs to the deployment and not to kb
+      (`docs/research/2026-11-24-public-mcp.md`).
   - **Breaking change (roadmap step 0), with no alias.** MCP no longer has
     hand-written tools; every tool is a registry action.
     - `render_view` is now `render.view`. Its argument is `name` (it was

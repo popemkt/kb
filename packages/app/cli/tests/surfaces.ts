@@ -2,8 +2,9 @@
  * Every surface that projects the action registry, as the surface contract
  * (`@kb/test-kit`'s `surfaceContract`) runs over them: one test file per
  * contract cell, `surface-contract.<cell>.test.ts`, takes {@link SURFACES}
- * from here. This package is the one place that can reach all five: the CLI
- * is its own, and it composes the MCP and HTTP servers, the page's WebMCP
+ * from here. This package is the one place that can reach them all: the CLI
+ * is its own, and it composes the MCP server (in memory and over Streamable
+ * HTTP) and the HTTP server, the page's WebMCP
  * adapter, and the agent bridge the `kb ui` server hosts.
  *
  * Each adapter speaks its surface's own protocol and turns the answer back
@@ -15,6 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import {
   PAGE_WIRE,
@@ -33,7 +35,14 @@ import {
   uiAddressOf,
   SESSION_META_KEY,
 } from "@kb/contracts";
-import { ACTION_META_KEY, MCP_WIRE, createMcpServer } from "@kb/mcp";
+import {
+  ACTION_META_KEY,
+  MCP_PATH,
+  MCP_WIRE,
+  createMcpServer,
+  listenMcp,
+  mcpAddressOf,
+} from "@kb/mcp";
 import { bunFileSystemLayer, governanceMode } from "@kb/runtime";
 import { HTTP_WIRE, startUi } from "@kb/server";
 import {
@@ -136,16 +145,10 @@ const McpFailureSchema = z.object({
  * MCP: the tool list is the listing, read from each tool's `_meta`. A call
  * is `tools/call` on that tool with the input as its arguments, and the tab
  * session under `_meta`. There is no envelope, so `approved` has nowhere to
- * go and is dropped.
+ * go and is dropped. Every transport the server is reached over answers
+ * through this one adapter, so they are held to the same listing and receipts.
  */
-const mcp: SurfaceFactory = async (root) => {
-  const server = await Effect.runPromise(
-    createMcpServer(root).pipe(Effect.provide(bunFileSystemLayer)),
-  );
-  const client = new Client({ name: "kb-surface-contract", version: "0.0.0" });
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
-
+async function mcpSurface(client: Client, close: () => Promise<void>): Promise<ActionSurface> {
   const listed = (await client.listTools()).tools.map((tool) => ({
     tool: tool.name,
     action: ListedActionSchema.parse(tool._meta?.[ACTION_META_KEY]),
@@ -184,9 +187,48 @@ const mcp: SurfaceFactory = async (root) => {
     },
     close: async () => {
       await client.close();
-      await server.close();
+      await close();
     },
   } satisfies ActionSurface;
+}
+
+/** MCP over a linked in-memory pair, as stdio carries it: one server for the connection. */
+const mcp: SurfaceFactory = async (root) => {
+  const server = await Effect.runPromise(
+    createMcpServer(root).pipe(Effect.provide(bunFileSystemLayer)),
+  );
+  const client = new Client({ name: "kb-surface-contract", version: "0.0.0" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+  return mcpSurface(client, () => server.close());
+};
+
+/**
+ * MCP over Streamable HTTP (`kb mcp --listen`), listening the way the root's
+ * `kb ui` does: on a loopback port, or on a socket reached as its proxy
+ * reaches it, naming `localhost`.
+ */
+const mcpHttp: SurfaceFactory = async (root, ui) => {
+  const dir = await mkdtemp(join(tmpdir(), "kb-sc-mcp-"));
+  const socket = join(dir, "mcp.sock");
+  const listening = await Effect.runPromise(
+    listenMcp(root, ui.at.kind === "socket" ? `unix:${socket}` : "127.0.0.1:0").pipe(
+      Effect.provide(bunFileSystemLayer),
+    ),
+  );
+  const { at } = listening;
+  const transport =
+    at.kind === "socket"
+      ? new StreamableHTTPClientTransport(new URL(`http://localhost${MCP_PATH}`), {
+          fetch: (url, init) => fetch(url, { ...init, unix: at.path }),
+        })
+      : new StreamableHTTPClientTransport(new URL(mcpAddressOf(at)));
+  const client = new Client({ name: "kb-surface-contract", version: "0.0.0" });
+  await client.connect(transport);
+  return mcpSurface(client, async () => {
+    await Effect.runPromise(listening.stop);
+    await rm(dir, { recursive: true, force: true });
+  });
 };
 
 /**
@@ -434,5 +476,5 @@ const agent: SurfaceFactory = async (_root, ui, signal) => {
 /** How a root is served, and every surface by name: what each contract cell runs over. */
 export const SURFACES: SurfaceSet = {
   serve,
-  surfaces: { cli, mcp, http, page: pageWire, webmcp, agent },
+  surfaces: { cli, mcp, "mcp-http": mcpHttp, http, page: pageWire, webmcp, agent },
 };

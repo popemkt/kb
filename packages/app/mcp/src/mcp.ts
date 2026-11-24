@@ -256,14 +256,14 @@ export function runResourceHandler<A, E>(effect: Effect.Effect<A, E>): Promise<A
  * transport the same way: stdio binds it to one server, and HTTP to a fresh
  * server per request, since a stateless request has no connection to keep.
  */
-interface McpSession {
+export interface McpSession {
   readonly ctx: KbContext;
   readonly tools: McpToolContext;
   readonly options: McpOptions;
 }
 
 /** Open `root` and read its tools; the caller owns closing `ctx.store`. */
-const openMcpSession = Effect.fn("kb.openMcpSession")(function* (
+export const openMcpSession = Effect.fn("kb.openMcpSession")(function* (
   root: string,
   options: McpOptions = {},
 ): Effect.fn.Return<McpSession, DomainError, FileSystem> {
@@ -372,7 +372,10 @@ class SessionServer extends Server {
  * must hand the SDK a promise, so this is where kb's Effects are run — a
  * plain function beside the builder, not inside it.
  */
-function mcpServerOf({ ctx, tools: toolsCtx, options }: McpSession, release: Effect.Effect<void>) {
+export function mcpServerOf(
+  { ctx, tools: toolsCtx, options }: McpSession,
+  release: Effect.Effect<void>,
+) {
   const server = new SessionServer(release);
 
   server.setRequestHandler(ListToolsRequestSchema, () =>

@@ -1,7 +1,10 @@
-/** `kb mcp`: the MCP server on stdio, a host the command loads only when it is the one run. */
+/**
+ * `kb mcp`: the MCP server on stdio, or over Streamable HTTP with `--listen`,
+ * a host the command loads only when it is the one run.
+ */
 import { type Command, CommanderError } from "commander";
 import { Effect } from "effect";
-import { resolveRootEffect } from "@kb/runtime";
+import { resolveRootEffect, writeErr } from "@kb/runtime";
 import { EXIT_USAGE } from "../arguments.ts";
 import { cliAction } from "../command.ts";
 
@@ -18,19 +21,31 @@ export const toSessionMode = (value: string): "follow" => {
 export function mcpCommand(program: Command): void {
   program
     .command("mcp")
-    .description("Serve the kb MCP server on stdio")
+    .description("Serve the kb MCP server on stdio, or over Streamable HTTP with --listen")
     .option(
       "--session <mode>",
       "follow: make each call that names no session in the person's most recently active tab",
       toSessionMode,
     )
+    .option(
+      "--listen <address>",
+      "serve over Streamable HTTP at /mcp instead of stdio: unix:<path> (mode 0600), 127.0.0.1:<port> or [::1]:<port>; no authentication",
+    )
     .action(
-      cliAction((globals, [opts]: [{ session?: "follow" }]) =>
+      cliAction((globals, [opts]: [{ session?: "follow"; listen?: string }]) =>
         Effect.gen(function* () {
-          const { startMcp } = yield* Effect.promise(() => import("@kb/mcp"));
+          const { listenMcp, mcpAddressOf, startMcp } = yield* Effect.promise(
+            () => import("@kb/mcp"),
+          );
           const root = yield* resolveRootEffect({ root: globals.root });
-          yield* startMcp(root, opts.session === undefined ? {} : { session: opts.session });
-          // keep the process alive; the transport owns stdio from here
+          const options = opts.session === undefined ? {} : { session: opts.session };
+          if (opts.listen === undefined) {
+            yield* startMcp(root, options);
+          } else {
+            const { at } = yield* listenMcp(root, opts.listen, options);
+            writeErr(`kb mcp listening on ${mcpAddressOf(at)}`);
+          }
+          // keep the process alive; the transport owns stdio, or the listener the process
           return yield* Effect.never;
         }),
       ),
