@@ -7,12 +7,13 @@
  * picture of one gesture is one history step, and is selected.
  */
 import { ulid } from "ulid";
+import { isImageFile } from "@kb/ui-sdk";
 import { imageItem, placeItems, type CanvasDoc, type CanvasFileNode } from "@kb/canvas";
 import type { CanvasSelection } from "./canvas-selection";
 
-/** The image files among `files`; anything else is not a picture. */
+/** The image files in a canvas gesture. */
 export function imageFilesOf(files: Iterable<File>): File[] {
-  return [...files].filter((file) => file.type.startsWith("image/"));
+  return [...files].filter(isImageFile);
 }
 
 /** A file's pixel size, or undefined where this browser cannot decode it. */

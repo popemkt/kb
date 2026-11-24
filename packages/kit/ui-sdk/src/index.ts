@@ -492,6 +492,7 @@ export {
   serializeEditable,
   setCaretSerializedOffset,
 } from "./lib/md-edit";
+export { isImageFile } from "./lib/image-files";
 export { assetSrcUrl, KB_TEXT_CLASS } from "./lib/md-inline";
 export { HeldStill, prefersReducedMotion, useReducedMotion } from "./lib/motion";
 export { MAIN_PANE, PaneContext, usePane } from "./lib/pane";
