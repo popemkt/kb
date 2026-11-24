@@ -126,11 +126,14 @@ function CaretValue({
   };
 
   const showEmpty = blank && !text;
-  const tone = showEmpty
-    ? "text-foreground/25 italic"
-    : rejected !== null
-      ? "text-warning underline decoration-wavy decoration-warning/50 underline-offset-2"
-      : "text-foreground/70";
+  // An open editor's placeholder is its own `:empty::before`, so what is
+  // typed over it is in the value's tone; the empty tone is the slot at rest.
+  const tone =
+    showEmpty && !editing
+      ? "text-foreground/25 italic"
+      : rejected !== null
+        ? "text-warning underline decoration-wavy decoration-warning/50 underline-offset-2"
+        : "text-foreground/70";
   const textClass = cn(
     editableClass,
     "kb-md-view min-w-0 cursor-text whitespace-pre-wrap",

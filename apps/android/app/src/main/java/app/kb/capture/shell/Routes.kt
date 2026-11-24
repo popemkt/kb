@@ -2,7 +2,11 @@ package app.kb.capture.shell
 
 import app.kb.capture.pairing.Pairing
 import java.net.URI
+import java.net.URLDecoder
 import java.net.URLEncoder
+
+/** A validated store origin and 32-character lowercase hex pairing code from a `kb://pair` link. */
+data class PairLink(val url: String, val code: String)
 
 /**
  * Which of the app's two WebViews shows a URL: the shell's page, a store's
@@ -41,6 +45,30 @@ object Routes {
     fun offline(store: Pairing?, why: String): String =
         "$QUEUE?offline=${encode(store?.name ?: "the store")}&why=${encode(why)}"
 
+    /** The Stores view with its pairing form prefilled from a validated [PairLink]; never pairs on its own. */
+    fun pair(link: PairLink): String = "$STORES?url=${encode(link.url)}&code=${encode(link.code)}"
+
+    /**
+     * Parses and validates a `kb://pair?url=<origin>&code=<code>` deep link.
+     *
+     * Requires an `https://` origin (`http://` only when [allowHttp] is true,
+     * matching the debug build's network policy) with no path, query, fragment
+     * or userinfo, and a 32-character hex pairing code (normalized to
+     * lowercase). Returns null for anything else.
+     */
+    fun parsePairLink(link: String?, allowHttp: Boolean = false): PairLink? {
+        val uri = link?.let { runCatching { URI(it) }.getOrNull() } ?: return null
+        if (!uri.scheme.equals("kb", ignoreCase = true)) return null
+        if (!uri.host.equals("pair", ignoreCase = true)) return null
+        if (!uri.rawPath.isNullOrEmpty() && uri.rawPath != "/") return null
+        val params = parseQuery(uri.rawQuery)
+        val rawUrl = params["url"]?.trim() ?: return null
+        val rawCode = params["code"]?.trim() ?: return null
+        if (!PAIR_CODE.matches(rawCode)) return null
+        val normalizedOrigin = parseOrigin(rawUrl, allowHttp) ?: return null
+        return PairLink(url = normalizedOrigin, code = rawCode.lowercase())
+    }
+
     /**
      * Whether [url] is one of the shell's own views: the bundled page at the
      * root of [SHELL], with one of the fragment routes it draws. Nothing else
@@ -68,16 +96,18 @@ object Routes {
     /**
      * Where a launch or a `kb://` link goes. A plain launch opens the current
      * store's UI (Stores when none is paired); `kb://capture` opens Capture;
-     * `kb://open/<path>` opens `<path>` in the current store's UI; `kb://stores`
-     * and anything else open Stores.
+     * `kb://pair?url=<origin>&code=<code>` opens Stores with the pair form
+     * prefilled when valid; `kb://open/<path>` opens `<path>` in the current
+     * store's UI; `kb://stores` and anything else open Stores.
      */
-    fun forLink(link: String?, current: Pairing?): String {
+    fun forLink(link: String?, current: Pairing?, allowHttp: Boolean = false): String {
         if (link == null) return current?.let(::home) ?: STORES
         val uri = runCatching { URI(link) }.getOrNull()
         if (uri?.scheme != "kb") return STORES
         return when (uri.host) {
             "capture" -> CAPTURE
             "queue" -> QUEUE
+            "pair" -> parsePairLink(link, allowHttp)?.let(::pair) ?: STORES
             "open" -> current?.let { home(it) + (uri.rawPath ?: "").trimStart('/') + (uri.rawQuery?.let { q -> "?$q" } ?: "") + (uri.rawFragment?.let { f -> "#$f" } ?: "") } ?: STORES
             else -> STORES
         }
@@ -125,5 +155,34 @@ object Routes {
             "$scheme://$host:$port"
         }.getOrNull()
 
-    private fun encode(s: String) = URLEncoder.encode(s, Charsets.UTF_8).replace("+", "%20")
+    private val PAIR_CODE = Regex("^[0-9a-fA-F]{32}$")
+
+    private fun parseQuery(rawQuery: String?): Map<String, String> {
+        if (rawQuery.isNullOrEmpty()) return emptyMap()
+        val out = linkedMapOf<String, String>()
+        for (part in rawQuery.split('&')) {
+            if (part.isEmpty()) continue
+            val eq = part.indexOf('=')
+            val rawKey = if (eq == -1) part else part.substring(0, eq)
+            val rawVal = if (eq == -1) "" else part.substring(eq + 1)
+            val key = runCatching { URLDecoder.decode(rawKey, "UTF-8") }.getOrNull() ?: continue
+            val value = runCatching { URLDecoder.decode(rawVal, "UTF-8") }.getOrNull() ?: continue
+            out[key] = value
+        }
+        return out
+    }
+
+    private fun parseOrigin(url: String, allowHttp: Boolean): String? {
+        val u = runCatching { URI(url) }.getOrNull() ?: return null
+        val scheme = u.scheme?.lowercase() ?: return null
+        if (scheme != "https" && !(allowHttp && scheme == "http")) return null
+        if (u.rawUserInfo != null || u.rawQuery != null || u.rawFragment != null) return null
+        if (!u.rawPath.isNullOrEmpty() && u.rawPath != "/") return null
+        val host = u.host?.lowercase()?.takeIf { it.isNotEmpty() } ?: return null
+        if (u.port != -1 && u.port !in 1..65535) return null
+        val port = if (u.port != -1) ":${u.port}" else ""
+        return "$scheme://$host$port"
+    }
+
+    private fun encode(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
 }

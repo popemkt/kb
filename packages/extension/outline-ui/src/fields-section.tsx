@@ -259,13 +259,13 @@ function pasteValues(
   if (lines === null) return null;
   const { writes } = browserHost();
   return writes
-    .together(async () => {
+    .together(async (gestureWrites) => {
       // A target a line names that the field may make is made first.
       const made = await Promise.all(
         lines.map((line) =>
           line.kind === "value" || creation === null
             ? Promise.resolve(null)
-            : writes.createRefTarget(creation, line.name),
+            : gestureWrites.createRefTarget(creation, line.name),
         ),
       );
       const added = lines.flatMap((line, i): PropValue[] => {
@@ -273,7 +273,7 @@ function pasteValues(
         const id = made[i];
         return id === null || id === undefined ? [] : [{ t: "ref", v: id }];
       });
-      await Promise.all(added.map((value) => writes.updateProp(nodeId, fieldId, value)));
+      await Promise.all(added.map((value) => gestureWrites.updateProp(nodeId, fieldId, value)));
       return added.length;
     })
     .then((added) => added ?? 0);

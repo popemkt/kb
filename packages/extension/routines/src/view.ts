@@ -1,6 +1,6 @@
 /**
  * The routines calendar: a page that shows every routine's instances by day,
- * as a month, a week or an agenda, and edits them where they are. Its params
+ * as a month, a week, a day or an agenda, and edits them where they are. Its params
  * name only what it shows (the layout and the day it is open at); what it
  * draws is the graph's routines, read as the engine reads them.
  */
@@ -8,7 +8,7 @@ import { Schema } from "effect";
 import { viewKey } from "@kb/views";
 
 /** The calendar's layouts. */
-export const CALENDAR_MODES = ["month", "week", "agenda"] as const;
+export const CALENDAR_MODES = ["month", "week", "day", "agenda"] as const;
 export type CalendarMode = (typeof CALENDAR_MODES)[number];
 
 export const CalendarParams = Schema.Struct({
@@ -24,7 +24,7 @@ export const RoutinesCalendarView = viewKey(
   "Calendar",
   CalendarParams.annotate({
     description:
-      "Events by day as a month, a week or an agenda: create, move, resize, tick done and skip their instances.",
+      "Events by day as a month, a week, a day or an agenda: create, move, resize, tick done and skip their instances.",
   }),
 );
 

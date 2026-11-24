@@ -100,12 +100,17 @@ Nothing runs it on a schedule (GAP [[01M7YGA1ZSD4MARTYMA8K0KJVA]]).
    kb --root <store> --json action-invoke '{"id":"capture.pairCode"}'
    ```
 
-3. In the app, under **Stores**, enter the store's URL and the code, then tap
-   **Pair**. The app trades the code for this phone's credential
-   (`capture.pair`), which it keeps encrypted with an Android Keystore key.
-   The card then shows whether the host accepts this app's capture contract
-   version (`Accepts v1 · in step with this phone`). Tap **Open** to load
-   the store's kb.
+3. Open the pairing link `kb://pair?url=<encoded-origin>&code=<code>` (for
+   example by scanning a QR code with the phone's camera), or open **Stores**
+   in the app and enter the store's URL and the code by hand. A `kb://pair`
+   link validates that `url` is an `https://` origin (`http://` is accepted
+   only in debug builds) and `code` is 32 hex characters, then opens the
+   Stores form prefilled without pairing silently. Tap **Pair** to confirm.
+   The app trades the code for this phone's credential (`capture.pair`), which
+   it keeps encrypted with an Android Keystore key. The card then shows
+   whether the host accepts this app's capture contract version
+   (`Accepts v1 · in step with this phone`). Tap **Open** to load the store's
+   kb.
 
 The credential is for capture. The store's page is admitted by the same
 rules that admit a browser. A store served with `kb ui --capture-only`
@@ -135,7 +140,9 @@ pairing waits and goes to the first store you pair.
     queue, and **Discard** drops it.
 - **Capture**: a note typed into the queue for the current store. The
   widget, the quick-settings tile and `kb://capture` open it.
-- **Links**: `kb://capture`, `kb://queue`, `kb://stores`, and
+- **Links**: `kb://capture`, `kb://queue`, `kb://stores`,
+  `kb://pair?url=<origin>&code=<code>` (prefills the Stores pair form after
+  validating the origin and 32-character hex code; never pairs silently), and
   `kb://open/<path>`, which opens `<path>` in the current store's kb.
 
 Delivery runs when you share, when you open the app, and in the background

@@ -149,6 +149,17 @@ describe("adding a value", () => {
     ]);
   });
 
+  it("draws what is typed into the next slot as a value, not as its placeholder", async () => {
+    await render();
+    await act(async () => {
+      present(container.querySelector<HTMLElement>('[data-add-value="true"]'), "+").click();
+    });
+    // The placeholder is the editor's own `:empty::before`; the text typed
+    // over it is in the value's tone from the first key.
+    expect(editor().classList.contains("italic")).toBe(false);
+    expect(editor().classList.contains("text-foreground/70")).toBe(true);
+  });
+
   it("a typed value emptied is taken out, not kept blank", async () => {
     await render();
     await act(async () => {

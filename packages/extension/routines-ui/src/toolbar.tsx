@@ -20,6 +20,7 @@ import { syncNow } from "./writes";
 const MODE_LABELS: Readonly<Record<CalendarMode, string>> = {
   month: "Month",
   week: "Week",
+  day: "Day",
   agenda: "Agenda",
 };
 

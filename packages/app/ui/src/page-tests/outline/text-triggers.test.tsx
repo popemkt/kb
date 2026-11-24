@@ -14,6 +14,7 @@ import { fieldTypeValue, isContextualRef, parseDateInput, present, SYSTEM_IDS } 
 import { definePlugin } from "@kb/plugin";
 import {
   browserHost,
+  type CommandContext,
   CommandPoint,
   DateTargetService,
   nodeMenu,
@@ -55,7 +56,7 @@ const days = bundledPlugin(
 );
 
 /** A node command, `label`, that runs `run`. */
-const probe = (label: string, run: () => void | Promise<void>) =>
+const probe = (label: string, run: (ctx: CommandContext) => void | Promise<void>) =>
   definePlugin({
     name: "probe",
     apply: (ctx) =>
@@ -714,10 +715,11 @@ describe("triggers in the text", () => {
       it("are one undo step when it answers them, made after a wait", async () => {
         syncPagePlugins([
           outlineUiPlugin,
-          probe("Rename both", async () => {
+          // Through the writes its context hands it, as every command writes.
+          probe("Rename both", async ({ writes }) => {
             await Promise.resolve();
-            await mutations.setNodeText("n.root-a", "one");
-            await mutations.setNodeText("n.root-b", "two");
+            await writes.setNodeText("n.root-a", "one");
+            await writes.setNodeText("n.root-b", "two");
           }),
         ]);
         const el = await typed("/rename");

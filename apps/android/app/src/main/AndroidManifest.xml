@@ -24,7 +24,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- kb://capture, kb://queue, kb://stores, kb://open/<path in the store's UI> -->
+            <!-- kb://capture, kb://queue, kb://stores, kb://pair?url=<origin>&code=<code>, kb://open/<path in the store's UI> -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

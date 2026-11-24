@@ -17,8 +17,14 @@ describe("routes", () => {
       mode: "week",
       date: "2026-11-04",
     });
+    expect(matchCalendar("/calendar/day")).toEqual({ mode: "day" });
+    expect(matchCalendar("/calendar/day/2026-11-04")).toEqual({
+      mode: "day",
+      date: "2026-11-04",
+    });
     expect(matchCalendar("/calendar/year")).toBeNull();
     expect(matchCalendar("/gallery")).toBeNull();
+    expect(calendarPath({ mode: "day", date: "2026-11-04" })).toBe("/calendar/day/2026-11-04");
     expect(calendarPath({ mode: "agenda", date: "2026-11-04" })).toBe(
       "/calendar/agenda/2026-11-04",
     );

@@ -1,0 +1,4 @@
+{
+  "reason": "The shared routines calendar declaration adds the 'day' layout mode to CALENDAR_MODES and its view description.",
+  "raise": { "cli-closure": { "bytes": 13 } }
+}

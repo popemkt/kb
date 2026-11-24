@@ -1,0 +1,6 @@
+{
+  "reason": "Scope PageWrites.together gestures to their own writes handle (writesIn), draw text typed into an empty field value slot in value tone, and build each undo inverse from its own atomic local store commit (BrowserStore.scoped, commitLocal, historyOf). Measured by page-bundle.test.ts at 2090073 bytes against the 2089783 limit (+290 bytes); raising page-eager by 500 bytes covers the fix with small headroom.",
+  "raise": {
+    "page-eager": { "bytes": 500 }
+  }
+}

@@ -48,11 +48,18 @@ export class MemoryTxTail implements TxTail {
   }
 
   append(ops: StoreTx, record: TxRecord): Effect.Effect<KbTx> {
-    return Effect.sync(() => {
-      const tx = recordedTx(this.head() + 1, ops, record);
-      this.entriesInOrder.push(tx);
-      return tx;
-    });
+    return Effect.sync(() => this.record(ops, record));
+  }
+
+  /**
+   * {@link append}, done now: the one way an entry is added, for a holder
+   * that records inside its own synchronous critical section, where an
+   * Effect step would let the scheduler run another fiber in between.
+   */
+  record(ops: StoreTx, record: TxRecord): KbTx {
+    const tx = recordedTx(this.head() + 1, ops, record);
+    this.entriesInOrder.push(tx);
+    return tx;
   }
 
   adopt(txs: readonly KbTx[]): Effect.Effect<void> {

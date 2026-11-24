@@ -11,6 +11,16 @@ const invoke = vi.fn();
 vi.mock("@/session/runtime", () => ({
   invoke: (id: string, input: unknown) => invoke(id, input),
   invokeLocal: ({ id, input }: { id: string; input: unknown }) => invoke(id, input),
+  commitLocal: async ({ id, input }: { id: string; input: unknown }) => ({
+    receipt: await invoke(id, input),
+    touched: [],
+    placed: null,
+    commits: [],
+  }),
+  invokeSettled: async ({ id, input }: { id: string; input: unknown }) => {
+    const receipt = await invoke(id, input);
+    return { receipt, settled: Promise.resolve(receipt), commits: [] };
+  },
 }));
 
 const { getPath, navigate } = await import("@kb/ui-sdk");
