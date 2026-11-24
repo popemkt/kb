@@ -1,5 +1,13 @@
+/**
+ * A host's HTTP requests, each held to a deadline (DESIGN.md → Surfaces →
+ * MCP; kb ui's server): a handler that overruns it is answered 503 and
+ * aborted, and its work is tracked until it settles, so the host closes its
+ * root only after every call in flight. The listener's idle timeout covers
+ * the deadline, so a connection is never dropped under a handler still
+ * within it.
+ */
 import { Effect, Fiber } from "effect";
-import { pendingRequests, writeErr } from "@kb/runtime";
+import { pendingRequests } from "./pending-requests.ts";
 
 /** Leave room for a screen command to spend its full wait inside a request. */
 const REQUEST_DEADLINE_MS = 35_000;
@@ -8,8 +16,12 @@ export const HTTP_IDLE_TIMEOUT_SECONDS = Math.ceil(REQUEST_DEADLINE_MS / 1000) +
 const SAMPLE_INTERVAL_MS = 1_000;
 const STALL_THRESHOLD_MS = 1_000;
 
-/** Track handler work until it settles, including cancellation after a deadline. */
-export function requestHealth(deadlineMs = REQUEST_DEADLINE_MS) {
+/**
+ * Track handler work until it settles, including cancellation after a
+ * deadline. `report` takes a line for the host's stderr (a stall, an
+ * overrun request), which the host prefixes with its name.
+ */
+export function requestHealth(report: (line: string) => void, deadlineMs = REQUEST_DEADLINE_MS) {
   const requests = pendingRequests();
   let nextSample = performance.now() + SAMPLE_INTERVAL_MS;
   let eventLoopLagMs = 0;
@@ -21,7 +33,7 @@ export function requestHealth(deadlineMs = REQUEST_DEADLINE_MS) {
         eventLoopLagMs = Math.max(0, Math.round(now - nextSample));
         nextSample = now + SAMPLE_INTERVAL_MS;
         if (eventLoopLagMs >= STALL_THRESHOLD_MS) {
-          writeErr(`kb ui: event loop stalled for ${String(eventLoopLagMs)} ms`);
+          report(`event loop stalled for ${String(eventLoopLagMs)} ms`);
         }
       }),
     ),
@@ -43,7 +55,7 @@ export function requestHealth(deadlineMs = REQUEST_DEADLINE_MS) {
             "Retry-After": "1",
           },
         });
-        writeErr(`kb ui: ${req.method} ${JSON.stringify(pathname)}: ${message}`);
+        report(`${req.method} ${JSON.stringify(pathname)}: ${message}`);
         abort.abort();
         return expired;
       };

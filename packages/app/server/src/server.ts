@@ -25,7 +25,6 @@ import {
   sessionRegistry,
   childProcessEnv,
   openKbScoped,
-  pendingRequests,
   registerOpenedRoot,
   writeErr,
 } from "@kb/runtime";
@@ -55,9 +54,14 @@ import { recordBuild } from "./build-archive.ts";
 import { UI_DIST, UI_ROOT } from "./paths.ts";
 import { identifyBy, serverOwner } from "./auth.ts";
 import { requestGuard, type RequestGuard } from "./guard.ts";
-import { listen, type BindOptions } from "@kb/listener";
+import {
+  HTTP_IDLE_TIMEOUT_SECONDS,
+  listen,
+  pendingRequests,
+  requestHealth,
+  type BindOptions,
+} from "@kb/listener";
 import { handleHttpRequest } from "./http.ts";
-import { HTTP_IDLE_TIMEOUT_SECONDS, requestHealth } from "./request-health.ts";
 import { channelsOf, loadServerPlugins, type HostedExtensions } from "./plugins.ts";
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
 import { serverRuntimeLayer } from "./screens.ts";
@@ -609,7 +613,7 @@ const startUiIn = Effect.fn("kb.startUiIn")(function* (
 
   // Bind before starting the background watchers.
   const sockets = pendingRequests();
-  const health = requestHealth();
+  const health = requestHealth((line) => writeErr(`kb ui: ${line}`));
   yield* Scope.addFinalizer(
     lifetime,
     Effect.promise(() => health.settle()),

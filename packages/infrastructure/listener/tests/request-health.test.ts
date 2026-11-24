@@ -1,9 +1,9 @@
-import { expect, spyOn, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { requestHealth } from "../src/request-health.ts";
 
 test("a deadline answers once and tracks work until cancellation settles", async () => {
-  const health = requestHealth(50);
-  const stderr = spyOn(process.stderr, "write");
+  const reported: string[] = [];
+  const health = requestHealth((line) => reported.push(line), 50);
   const work = Promise.withResolvers<Response>();
   const started = Promise.withResolvers<AbortSignal>();
   try {
@@ -31,10 +31,9 @@ test("a deadline answers once and tracks work until cancellation settles", async
     work.resolve(new Response("late"));
     await health.settle();
     expect(await health.response().json()).toMatchObject({ inFlight: 0, oldestRequestMs: 0 });
-    expect(stderr.mock.calls.filter(([line]) => String(line).includes("deadline"))).toHaveLength(1);
+    expect(reported.filter((line) => line.includes("deadline"))).toHaveLength(1);
   } finally {
     work.resolve(new Response());
     await health.settle();
-    stderr.mockRestore();
   }
 });

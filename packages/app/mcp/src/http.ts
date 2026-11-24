@@ -25,9 +25,10 @@ import {
   listen,
   listenerOfAddress,
   onThisMachineOnly,
+  pendingRequests,
 } from "@kb/listener";
 import { type DomainError, domainError } from "@kb/model";
-import { bunFileSystemLayer, pendingRequests } from "@kb/runtime";
+import { bunFileSystemLayer } from "@kb/runtime";
 import { type McpOptions, type McpSession, mcpServerOf, openMcpSession } from "./mcp.ts";
 
 /** The one path the server answers on. */

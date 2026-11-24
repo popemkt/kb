@@ -35,12 +35,12 @@ import {
   renderViewNodeEffect,
   type ViewRef,
 } from "@kb/operations";
+import { pendingRequests } from "@kb/listener";
 import { viewSnapshotApp } from "./view-app.ts";
 import {
   invokeReceiptEffect,
   kbRuntimeLayer,
   openKbEffect,
-  pendingRequests,
   processVia,
   sessionRegistry,
   resolveRootEffect,
