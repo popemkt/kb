@@ -1708,6 +1708,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Run the renderer contract suite in the browser lane (Playwright with WebGL), or give sigma a headless WebGL context in the unit run, and drop the todo rows.
 - **node** — `01M3EGV5616VKVV4J76ABC5XX2`
 
+### GAP: the graph's node cap keeps tag hubs and drops the nodes they join
+
+- **expected** — With many tags and the Type or All reference fields edge kinds on, the graph's max-nodes cap keeps a picture that still shows relations: the nodes and the edges between them, a tag hub only with the nodes it joins.
+- **current** — applyMaxNodesCap (graph-ui/src/graph-lens.ts) keeps the maxNodes (500 by default) highest-degree nodes. Since tags are drawn as nodes (ux/tags-visible), every tagged node gets a tag edge, so the tags are the highest-degree nodes: a stress check found the cap kept only tag hubs and dropped the nodes they join, so the picture had no edges.
+- **impact** — On a large store with many tags, turning on Type or All reference fields shows a cloud of unconnected tag nodes instead of a graph, and the dropped count gives no hint why.
+- **closes** — The cap ranks by something that keeps edges (for example keep a node only with neighbours, or count a tag edge less than a content edge), or tag edges collapse into a tag's colour once the cap applies; a graph-lens test with more tags than the cap pins it.
+- **node** — `01M80WQRH65A6A8JT5JQCMS76K`
+
 ### GAP: the inline markdown parser is a 41-branch hand-rolled scanner
 
 - **expected** — Inline markdown parses through a table of segment recognizers tried in order, each recognizer a named, separately tested function.

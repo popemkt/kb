@@ -53,6 +53,15 @@ export interface EditingKeyContext {
    */
   readonly ownsText: (nodeId: string) => boolean;
   /**
+   * Whether a row may join a text merge (Backspace at its start, Delete at
+   * the end of the row above): its shown text is its own (`ownsText`), and
+   * its node defines no kind (`definesKind`). A tag or a field is pointed at
+   * by other nodes, so a merge that took it away would leave them pointing
+   * at nothing, and one into it would rename it. A merge either side of
+   * such a row is claimed and does nothing.
+   */
+  readonly joins: (nodeId: string) => boolean;
+  /**
    * Visual-line decision for the pressed arrow (D10/D11).
    *
    * A function, not a value: reading caret geometry costs a layout probe, and
@@ -148,10 +157,10 @@ function backspaceIntent(ctx: EditingKeyContext): EditingIntent | null {
     return { type: "outdent", nodeId: ctx.nodeId, cursor: ctx.cursor };
   }
   if (ctx.siblingIndex > 0) {
-    // A merge joins this text onto the row above; either string not being
-    // its row's own leaves nothing to join, so the key is claimed inert.
+    // A merge joins this text onto the row above; either row not joining
+    // (`joins`) leaves nothing to merge, so the key is claimed inert.
     const above = ctx.previousInstance;
-    if (!ctx.ownsText(ctx.nodeId) || (above !== null && !ctx.ownsText(above.nodeId))) {
+    if (!ctx.joins(ctx.nodeId) || (above !== null && !ctx.joins(above.nodeId))) {
       return { type: "claim" };
     }
     return { type: "mergeIntoPrevious", nodeId: ctx.nodeId, instanceKey: ctx.instanceKey };
@@ -164,7 +173,7 @@ function deleteIntent(ctx: EditingKeyContext): EditingIntent | null {
   if (ctx.cursor !== ctx.text.length) return null;
   const next = ctx.nextInstance;
   if (next === null || next.nodeId === ctx.nodeId) return null;
-  if (!ctx.ownsText(ctx.nodeId) || !ctx.ownsText(next.nodeId)) return { type: "claim" };
+  if (!ctx.joins(ctx.nodeId) || !ctx.joins(next.nodeId)) return { type: "claim" };
   return {
     type: "mergeNextIn",
     nodeId: ctx.nodeId,

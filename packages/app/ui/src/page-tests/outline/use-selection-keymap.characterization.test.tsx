@@ -270,7 +270,12 @@ describe("selection-mode dispatcher (characterization)", () => {
     await press("o");
     const minted = useOutlineStore.getState().activeNodeId;
     const roots = node(WORKSPACE_ROOT_ID)?.children ?? [];
-    expect(roots.slice(roots.indexOf("n.root-b"))).toEqual(["n.root-b", minted, "n.root-c"]);
+    expect(roots.slice(roots.indexOf("n.root-b"))).toEqual([
+      "n.root-b",
+      minted,
+      "n.root-c",
+      "tag.todo",
+    ]);
   });
 
   it("createAfter: o on an expanded reference under a query result edits the new row there", async () => {
@@ -325,7 +330,12 @@ describe("selection-mode dispatcher (characterization)", () => {
     await press("O");
     const minted = useOutlineStore.getState().activeNodeId;
     const roots = node(WORKSPACE_ROOT_ID)?.children ?? [];
-    expect(roots.slice(roots.indexOf("n.root-b"))).toEqual(["n.root-b", minted, "n.root-c"]);
+    expect(roots.slice(roots.indexOf("n.root-b"))).toEqual([
+      "n.root-b",
+      minted,
+      "n.root-c",
+      "tag.todo",
+    ]);
   });
 
   it("append: a printable key edits at the end with the character added", async () => {

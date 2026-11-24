@@ -36,6 +36,7 @@ import type { GpuBackdropInit, GpuBackdropMount, GpuBackdropScene, GpuLook } fro
 
 /** Each GPU backdrop's scene, behind the second lazy boundary. */
 const SCENES = {
+  rainRelay: () => import("../relay/relay-scene").then((m) => m.mountRelay),
   lens: () => import("../lens/lens-scene").then((m) => m.mountLens),
   blackHole: () => import("../black-hole/black-hole-scene").then((m) => m.mountBlackHole),
   toonSea: () => import("../toon-sea/toon-sea-scene").then((m) => m.mountToonSea),

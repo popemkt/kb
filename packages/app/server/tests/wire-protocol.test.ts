@@ -116,9 +116,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // protocol 13 refuses that input, so the row stays: no new protocol.
 // `node.update` takes `requireSet`, an optional precondition only this
 // build's page sends; an older page never needs it.
+// `includeSystem`'s description no longer names tags as scaffolding (a tag
+// is a node like any); text only, so no new protocol.
 const RECORDED = {
   protocol: 13,
-  fingerprint: "ff5982552d9f4dbe4bb9be7c56dc0eeffeb818698757f72a4c1c7cc2f321b5df",
+  fingerprint: "b7791b604c1e8e6a41d49a456e095e0c7555e0e40231956a5b3fc5c0378cd424",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

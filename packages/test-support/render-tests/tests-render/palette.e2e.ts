@@ -42,11 +42,9 @@ test("Make supertag promotes the node and takes the user to its schema", async (
   await expect(page.locator("[data-tag-fields-config]")).toBeVisible();
   await expect(page.getByLabel("Add a field to this tag")).toBeVisible();
 
-  // And this is why the gesture navigates rather than just writing: a tag node
-  // is schema, so forestRootIds stops listing it. Without the zoom the row
-  // would simply vanish from the outline with no feedback at all.
+  // A tag is a node like any other: back home, its row is where it was.
   await page.goto("/");
-  await expect(page.locator(`[data-node-id="${ROOT}"]`)).toHaveCount(0);
+  await expect(page.locator(`[data-node-id="${ROOT}"]`).first()).toBeVisible();
 });
 
 test("Add field names a new field and gives the node an editable row for it", async ({ page }) => {

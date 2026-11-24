@@ -10,6 +10,7 @@ import {
   LIGHT_TRAILS_BACKDROP,
   LENS_BACKDROP,
   ROOST_BACKDROP,
+  RAIN_RELAY_BACKDROP,
   SILK_BACKDROP,
   SKY_BACKDROP,
   TOON_SEA_BACKDROP,
@@ -43,6 +44,7 @@ import {
   FloatingGeometryBackdrop,
   GradientOrbsBackdrop,
   LensBackdrop,
+  RainRelayBackdrop,
   LightTrailsBackdrop,
   SilkBackdrop,
   ToonSeaBackdrop,
@@ -319,6 +321,27 @@ export const backdropsUiPlugin = definePlugin({
         ctx.contribute(BackdropPoint, provideBackdrop(GRADIENT_BACKDROP, gradient)),
         ctx.contribute(BackdropPoint, provideBackdrop(SKY_BACKDROP, sky)),
         ctx.contribute(BackdropPoint, provideBackdrop(ROOST_BACKDROP, roost)),
+        ctx.contribute(
+          BackdropPoint,
+          provideBackdrop(RAIN_RELAY_BACKDROP, {
+            presentation: {
+              ...sceneFrame,
+              span: { reach: "region" },
+              space: 302,
+              minSpace: 270,
+              height: 326,
+            },
+            budget: BACKDROP_BUDGETS.gpu,
+            interactions: [
+              {
+                cue: "pointer",
+                does: "linger over No. 07 to call the keeper, or trail ripples across the canal",
+              },
+              { cue: "writes", does: "the relay needle kicks as a message lands" },
+            ],
+            Component: RainRelayBackdrop,
+          }),
+        ),
         ctx.contribute(BackdropPoint, provideBackdrop(LENS_BACKDROP, lens)),
         ctx.contribute(BackdropPoint, provideBackdrop(BLACK_HOLE_BACKDROP, blackHole)),
         ctx.contribute(BackdropPoint, provideBackdrop(TOON_SEA_BACKDROP, toonSea)),

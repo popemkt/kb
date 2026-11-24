@@ -48,9 +48,16 @@ describe("outline store (WireNode adaptation)", () => {
   it("hydrates forest roots under virtual workspace root (id-sorted)", () => {
     seed();
     const root = present(outlineNodes().get(WORKSPACE_ROOT_ID), "workspace root");
-    expect(root.children).toEqual(["lens.all-mentions", "n.root-a", "n.root-b", "n.root-c"]);
+    expect(root.children).toEqual([
+      "lens.all-mentions",
+      "n.root-a",
+      "n.root-b",
+      "n.root-c",
+      "tag.todo",
+    ]);
     expect(root.children).not.toContain("sys.tag");
-    expect(root.children).not.toContain("tag.todo");
+    // A field is scaffolding; a tag is a root like any node.
+    expect(root.children).not.toContain("field.status");
   });
 
   it("preserves ordered children arrays (no fractional order)", () => {
@@ -124,6 +131,7 @@ describe("outline store (WireNode adaptation)", () => {
       "n.root-a",
       "n.root-b",
       "n.root-c",
+      "tag.todo",
     ]);
   });
 
@@ -137,6 +145,7 @@ describe("outline store (WireNode adaptation)", () => {
       "n.child-a2",
       "n.root-b",
       "n.root-c",
+      "tag.todo",
     ]);
     useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
     expect(useOutlineStore.getState().getVisibleNodes()).toEqual([
@@ -144,6 +153,7 @@ describe("outline store (WireNode adaptation)", () => {
       "n.root-a",
       "n.root-b",
       "n.root-c",
+      "tag.todo",
     ]);
   });
 
@@ -356,21 +366,22 @@ describe("outline store (WireNode adaptation)", () => {
 
     it("a jump to a row no outline shows changes nothing", () => {
       seed();
-      // A row under a tag definition: in the graph, in no outline's forest,
-      // with a collapsed parent a jump would otherwise open.
-      const tag = present(
-        useGraphStore.getState().wireNodes.find((n) => n.id === "tag.todo"),
-        "tag.todo",
+      // A row under a field definition, which is scaffolding: in the graph,
+      // in no outline's forest, with a collapsed parent a jump would
+      // otherwise open.
+      const field = present(
+        useGraphStore.getState().wireNodes.find((n) => n.id === "field.status"),
+        "field.status",
       );
       useGraphStore
         .getState()
-        .applyTx([{ ...tag, children: ["n.under-tag"] }, wire("n.under-tag", "hidden")], [], {
+        .applyTx([{ ...field, children: ["n.under-field"] }, wire("n.under-field", "hidden")], [], {
           rev: 2,
         });
       useGraphStore.getState().zoomTo("n.root-b");
       useOutlineStore.getState().selectNode("n.root-b");
       const expansion = useOutlineStore.getState().expansion;
-      useOutlineStore.getState().jumpToNode("n.under-tag");
+      useOutlineStore.getState().jumpToNode("n.under-field");
       expect(useGraphStore.getState().rootNodeId).toBe("n.root-b");
       expect(useOutlineStore.getState().selectedNodeId).toBe("n.root-b");
       expect(useOutlineStore.getState().expansion).toBe(expansion);
