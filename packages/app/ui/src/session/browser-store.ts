@@ -81,32 +81,40 @@ export class BrowserStore implements EffectStore {
     expected: StoreFingerprint | undefined,
     onCommit?: (change: LocalCommitChange) => void,
   ): Effect.Effect<StoreCommit, DomainError> {
-    return Effect.gen({ self: this }, function* () {
-      // Single-threaded and synchronous: nothing can land between the read of
-      // the generation and the write that bumps it, or between that and the
-      // record — which is what "one critical section" means in a browser.
+    return Effect.suspend(() => {
       const base = String(this.generation);
       const stale = staleCommitError(expected, base);
-      if (stale !== null) return yield* stale;
-      const before = onCommit === undefined ? null : [...this.state.values()];
-      const applied = rankTx(this.state, tx);
-      const writes = writesOf(applied, (id) => this.state.get(id));
-      this.apply(applied);
-      const kept =
-        applied.upserts.length > 0 || applied.deletes.length > 0
-          ? yield* this.txTail.append(applied, record)
-          : null;
-      if (onCommit !== undefined && before !== null && kept !== null) {
-        onCommit({ before, after: [...this.state.values()], tx: applied });
-      }
-      return {
-        base,
-        fingerprint: String(this.generation),
-        tx: applied,
-        record: kept,
-        writes,
-      };
+      if (stale !== null) return Effect.fail(stale);
+      return Effect.succeed(this.commitNow(tx, record, base, onCommit));
     });
+  }
+
+  /**
+   * The commit's critical section, as plain code: the check of the base, the
+   * apply, the tail's record, the snapshots either side and the fingerprint
+   * returned all run in one synchronous step. An Effect step anywhere in it
+   * would let the scheduler run another fiber's commit in between, and that
+   * commit would then show in this one's `after`, so one Undo would revert
+   * both.
+   */
+  private commitNow(
+    tx: StoreTx,
+    record: TxRecord,
+    base: string,
+    onCommit: ((change: LocalCommitChange) => void) | undefined,
+  ): StoreCommit {
+    const before = onCommit === undefined ? null : [...this.state.values()];
+    const applied = rankTx(this.state, tx);
+    const writes = writesOf(applied, (id) => this.state.get(id));
+    this.apply(applied);
+    const kept =
+      applied.upserts.length > 0 || applied.deletes.length > 0
+        ? this.txTail.record(applied, record)
+        : null;
+    if (onCommit !== undefined && before !== null && kept !== null) {
+      onCommit({ before, after: [...this.state.values()], tx: applied });
+    }
+    return { base, fingerprint: String(this.generation), tx: applied, record: kept, writes };
   }
 
   /**
