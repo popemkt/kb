@@ -74,6 +74,28 @@ androidComponents {
     }
 }
 
+/**
+ * The Android framework jars Robolectric runs the tests on. Robolectric would
+ * download them from Maven Central while a test runs, outside Gradle's cache,
+ * so one throttled request failed the run. They are a configuration instead,
+ * resolved and cached by Gradle like every other dependency, copied to one
+ * directory, and Robolectric runs offline on that directory.
+ */
+val robolectricRuntime: Configuration by configurations.creating { isTransitive = false }
+
+val robolectricJars =
+    tasks.register<Sync>("robolectricJars") {
+        from(robolectricRuntime)
+        into(layout.buildDirectory.dir("robolectric-jars"))
+    }
+
+tasks.withType<Test>().configureEach {
+    val jars = robolectricJars.map { it.destinationDir }
+    inputs.files(robolectricJars).withPropertyName("robolectricJars").withPathSensitivity(PathSensitivity.NAME_ONLY)
+    systemProperty("robolectric.offline", "true")
+    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Drobolectric.dependency.dir=${jars.get().absolutePath}") })
+}
+
 dependencies {
     implementation(libs.capacitor.core)
     implementation(libs.androidx.core)
@@ -88,4 +110,5 @@ dependencies {
     testImplementation(libs.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.work.testing)
+    robolectricRuntime(libs.robolectric.android.all)
 }

@@ -16,6 +16,11 @@ coroutines = "1.10.2"
 junit = "4.13.2"
 # Runs the shell activity on the JVM, Capacitor included, for ShellActivityTest.
 robolectric = "4.16"
+# The Android framework jar Robolectric 4.16 runs SDK 35 on (ShellActivityTest's
+# @Config). Gradle fetches and caches it like any dependency, and the tests run
+# Robolectric offline on it (app/build.gradle.kts), so no test fetches anything.
+# Moves with `robolectric`: Robolectric's own `sdk.properties` names it.
+robolectricAndroidAll = "15-robolectric-13954326-i7"
 
 [libraries]
 capacitor-core = { group = "com.capacitorjs", name = "core", version.ref = "capacitor" }
@@ -29,6 +34,7 @@ coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutin
 coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+robolectric-android-all = { group = "org.robolectric", name = "android-all-instrumented", version.ref = "robolectricAndroidAll" }
 work-testing = { group = "androidx.work", name = "work-testing", version.ref = "work" }
 
 [plugins]
