@@ -1,7 +1,7 @@
 /**
  * `listen` (DESIGN.md → Action registry → Hosted behind a proxy): a socket
- * is made only where no other account can change its path (its directory
- * resolved once, every directory up to / checked), exists only with
+ * is made only where no other account can change its path (a canonical
+ * directory, every directory up to / checked), exists only with
  * mode 0600, replaces a stale one atomically under a lock so concurrent
  * starts never both win, refuses a live one, a link or a file that is no
  * socket, and is removed on close only while the path still holds the
@@ -15,6 +15,7 @@ import {
   mkdir,
   mkdtemp,
   readdir,
+  realpath,
   rm,
   stat,
   symlink,
@@ -22,7 +23,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect, Exit, Scope } from "effect";
+import { Cause, Effect, Exit, Scope } from "effect";
 import type { ServerListener } from "@kb/contracts";
 import { listen } from "../src/index.ts";
 
@@ -30,7 +31,8 @@ let dir = "";
 let path = "";
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), "kb-listen-"));
+  // Canonical, as a socket's directory must be (macOS reaches its tmpdir through /var).
+  dir = await realpath(await mkdtemp(join(tmpdir(), "kb-listen-")));
   path = join(dir, "kb.sock");
 });
 afterEach(async () => {
@@ -168,15 +170,19 @@ describe("listen on a socket", () => {
     }
   });
 
-  test("resolves a linked directory once and makes the socket in the real one", async () => {
+  test("refuses a directory reached through a link, naming the real path to use", async () => {
     const real = join(dir, "real");
     await mkdir(real, { mode: 0o700 });
     await symlink(real, join(dir, "linked"));
     const { exit, stop } = await bind({ kind: "socket", path: join(dir, "linked", "kb.sock") });
-    expect(Exit.isSuccess(exit)).toBe(true);
-    expect((await lstat(join(real, "kb.sock"))).isSocket()).toBe(true);
     await stop();
+    expect(Exit.isFailure(exit)).toBe(true);
+    if (Exit.isFailure(exit))
+      expect(String(Cause.squash(exit.cause))).toContain(join(real, "kb.sock"));
     expect(await readdir(real)).toEqual([]);
+    const named = await bind({ kind: "socket", path: join(real, "kb.sock") });
+    expect(Exit.isSuccess(named.exit)).toBe(true);
+    await named.stop();
   });
 });
 

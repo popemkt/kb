@@ -8,7 +8,7 @@
  * not commit.
  */
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
@@ -29,7 +29,8 @@ let dir = "";
 let root = "";
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), "kb-mcp-deadline-"));
+  // Canonical, as a socket's directory must be (macOS reaches its tmpdir through /var).
+  dir = await realpath(await mkdtemp(join(tmpdir(), "kb-mcp-deadline-")));
   root = join(dir, "root");
   const ctx = await openKb(root);
   await Effect.runPromise(ctx.store.closeEffect);

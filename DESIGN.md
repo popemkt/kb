@@ -3554,8 +3554,10 @@ server listens on a Unix socket instead of a TCP port, created with mode
 (`listen` in `@kb/listener`). A socket is reached through its
 proxy, so it needs `--public-origin`, which is where its page is, and takes
 no `--port` or `--dev`. The socket's path must be one no other account
-can change. Its directory is resolved once (`realpath`), and only the
-resolved path is used after that. Every directory from there up to `/`
+can change. Its directory must already be canonical, its own `realpath`;
+a path through a link is refused with the real path to use instead, since
+a link could later point elsewhere while the server reports the path it
+was given. Every directory from there up to `/`
 must be a real directory, not a link, that no group or other can write.
 The socket's own directory belongs to the server's user. A directory above
 it belongs to that user or to root, and may be root's and sticky, as `/tmp`

@@ -47,7 +47,8 @@ function viaSocket(route: string, init: RequestInit = {}) {
 }
 
 beforeAll(async () => {
-  dir = await mkdtemp(join(tmpdir(), "kb-socket-"));
+  // Canonical, as a socket's directory must be (macOS reaches its tmpdir through /var).
+  dir = await realpath(await mkdtemp(join(tmpdir(), "kb-socket-")));
   root = join(dir, "root");
   path = join(dir, "kb.sock");
   await mkdir(root);

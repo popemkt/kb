@@ -11,7 +11,7 @@
  * through a write's wait for the store's lock.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdtemp, realpath, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
@@ -120,7 +120,8 @@ const RpcResultSchema = z.object({ result: TextResultSchema });
 const RpcErrorSchema = z.object({ error: z.object({ code: z.number(), message: z.string() }) });
 
 beforeAll(async () => {
-  dir = await mkdtemp(join(tmpdir(), "kb-mcp-listen-"));
+  // Canonical, as a socket's directory must be (macOS reaches its tmpdir through /var).
+  dir = await realpath(await mkdtemp(join(tmpdir(), "kb-mcp-listen-")));
   root = join(dir, "root");
   socket = join(dir, "mcp.sock");
   // The root's first open writes its seed, before either server reads it.

@@ -16,7 +16,7 @@ import {
   type Stats,
 } from "node:fs";
 import { createConnection } from "node:net";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { Effect, Scope } from "effect";
 import type { ServerListener } from "@kb/contracts";
 import { acquireFileWriteLockEffect, releaseFileWriteLock } from "@kb/file-write";
@@ -85,18 +85,24 @@ function whyNotSafe(info: Stats, place: Place): string | null {
 }
 
 /**
- * Where to make the socket `requested` names: its directory resolved once
- * (`realpath`), with every directory from there up to `/` checked by
- * `lstat` (`whyNotSafe`), and the socket's name in it. Nothing past this
- * reads the requested path, so no link resolved later can redirect the
- * lock, the bind, the chmod or the removal.
+ * Where to make the socket `requested` names, which is where it is
+ * reported: its directory must already be canonical (its own `realpath`),
+ * since a path through a link names whatever the link points to later, and
+ * the address a server reports is what its clients connect to. Every
+ * directory from there up to `/` is checked by `lstat` (`whyNotSafe`).
  */
 const safeSocketPath = Effect.fn("kb.listen.safeSocketPath")(function* (requested: string) {
-  const asked = dirname(requested);
+  const asked = dirname(resolve(requested));
   const real = yield* Effect.try({
     try: () => realpathSync(asked),
     catch: () => domainError("not_found", `${asked} does not exist`),
   });
+  if (real !== asked) {
+    return yield* domainError(
+      "invalid_input",
+      `${asked} reaches its directory through a link; name the socket by its real path: ${join(real, basename(requested))}`,
+    );
+  }
   const chain: string[] = [];
   for (let dir = real; ; dir = dirname(dir)) {
     chain.push(dir);
@@ -241,8 +247,8 @@ const removeOwn = Effect.fn("kb.listen.removeOwn")(function* (path: string, made
  * bind is the port's. A socket:
  *
  * - is made only where no other account can change its path: its
- *   directory resolved once, and every directory up to `/` checked
- *   (`safeSocketPath`), and only the resolved path is used after;
+ *   directory is canonical, with no link on the way, and every directory
+ *   up to `/` is checked (`safeSocketPath`);
  * - is claimed and bound under its lock, so two starts never race: one a
  *   stopped server left behind, which refuses a connection, is replaced;
  *   anything else there is refused (`claim`);

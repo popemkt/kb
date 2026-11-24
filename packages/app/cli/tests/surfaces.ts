@@ -11,7 +11,7 @@
  * into a listing and a receipt without consulting the registry. That way a
  * surface that drops, renames or re-shapes something fails the contract.
  */
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
@@ -209,7 +209,8 @@ const mcp: SurfaceFactory = async (root) => {
  * reaches it, naming `localhost`.
  */
 const mcpHttp: SurfaceFactory = async (root, ui) => {
-  const dir = await mkdtemp(join(tmpdir(), "kb-sc-mcp-"));
+  // Canonical, as a socket's directory must be (macOS reaches its tmpdir through /var).
+  const dir = await realpath(await mkdtemp(join(tmpdir(), "kb-sc-mcp-")));
   const socket = join(dir, "mcp.sock");
   const listening = await Effect.runPromise(
     listenMcp(root, ui.at.kind === "socket" ? `unix:${socket}` : "127.0.0.1:0").pipe(
@@ -258,7 +259,7 @@ const PUBLIC_ORIGIN = "https://kb.surface-contract.test";
  * ephemeral port, or on a socket in a directory of its own, removed with it.
  */
 const serve: ServeUi = async (root, kind) => {
-  const dir = kind === "socket" ? await mkdtemp(join(tmpdir(), "kb-sc-")) : null;
+  const dir = kind === "socket" ? await realpath(await mkdtemp(join(tmpdir(), "kb-sc-"))) : null;
   const listen =
     dir === null ? { port: 0 } : { socket: join(dir, "kb.sock"), publicOrigin: PUBLIC_ORIGIN };
   const handle = await Effect.runPromise(
