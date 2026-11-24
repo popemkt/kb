@@ -475,8 +475,9 @@ the normal optimistic path, which activates it at offset 0, and marks it in the
 outline store's `transientIds`. The click-to-create affordance is the ghost
 row (`data-create-child-zone`), drawn under a page's rows and under an open
 row that has no rows yet ([Outline layout](#a-ghost-row-is-an-add-row)). `pruneOutgoingTransient` silently drops a session-transient
-node when focus leaves it while it is still empty; a node that existed before
-this session is never pruned, so committed content cannot evaporate.
+node when focus leaves it while it is still empty. Starting an attachment
+keeps the node when focus moves during the upload. A node that existed before
+this session is never pruned.
 
 **Two keymaps, one row.** The authoritative tables are r1-editor.md §3.2; the
 split is what matters here:
@@ -3677,7 +3678,8 @@ handler takes it as text.
     (`%%tana%%`), or two or more lines that are each a `-`, `*` or `+`
     item, nesting by indent, read by the Markdown codec, which reads all of
     that as it stands.
-  - the drop of a file (`ATTACH_FILE`).
+  - the first file from a drop or first image from a paste (`ATTACH_FILE`),
+    appended to the node as a Markdown attachment.
   - the paste of anything else, as text (`PASTE_TEXT`, `@kb/ui-sdk`), last
     of all (priority -1, below every family's). `pastedText` normalises the
     paste's `text/plain`:
@@ -3712,8 +3714,8 @@ handler takes it as text.
   author writes. GAP [[01M73WFP42V98AA4VRG8JBQQ2N]].
 - **A text host offers each gesture through its port** (`IngestPort`,
   bound by the surface that draws it). A row's port is the chain at that
-  row (`useRowIngest`). A canvas card's takes a dropped file and pastes
-  text as a row does (`ATTACH_FILE`, `PASTE_TEXT`).
+  row (`useRowIngest`). A canvas card takes attachments and pastes
+  text through the same handlers (`ATTACH_FILE`, `PASTE_TEXT`).
 
 ### UI points: routes and views
 
