@@ -5,6 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LayoutView, layoutPanes, type LayoutTree } from "@kb/views";
+import { SYSTEM_IDS, canonicalJson } from "@kb/model";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 
 const invoke = vi.fn();
@@ -13,7 +14,7 @@ vi.mock("@/session/runtime", () => ({
   invokeLocal: ({ id, input }: { id: string; input: unknown }) => invoke(id, input),
 }));
 
-const { getPath, navigate } = await import("@kb/ui-sdk");
+const { browserHost, getPath, navigate } = await import("@kb/ui-sdk");
 const { useUiStore } = await import("@/stores/ui.store");
 const { startWorkspace, useWorkspaceStore, WORKSPACE_STORAGE_KEY } =
   await import("@/stores/workspace.store");
@@ -27,7 +28,11 @@ describe("the workspace", () => {
   beforeEach(() => {
     dom = installDomGlobals();
     window.history.pushState({}, "", "/");
-    useWorkspaceStore.setState({ layout: { tabs: [{ id: "main", path: "/" }] }, focused: "main" });
+    useWorkspaceStore.setState({
+      layout: { tabs: [{ id: "main", path: "/" }] },
+      focused: "main",
+      from: null,
+    });
     stop = startWorkspace();
     invoke.mockReset();
   });
@@ -102,6 +107,45 @@ describe("the workspace", () => {
         },
       },
     });
+  });
+
+  it("writes the arrangement back to the layout node it was opened from", async () => {
+    const replaceField = vi
+      .spyOn(browserHost().writes, "replaceField")
+      .mockResolvedValue(undefined);
+    try {
+      // Nothing to write back to until the workspace came from a layout node.
+      await expect(useWorkspaceStore.getState().saveToLayout()).resolves.toBe(false);
+      const saved: LayoutTree = { tabs: [{ id: "x", path: "/graph" }] };
+      useWorkspaceStore.getState().replace(saved, "v.board");
+      expect(useWorkspaceStore.getState().from).toBe("v.board");
+      // Kept on the device with the arrangement.
+      expect(window.localStorage.getItem(WORKSPACE_STORAGE_KEY)).toContain('"from":"v.board"');
+      useWorkspaceStore.getState().openBeside("x", "/outline/n.zoomed");
+      await expect(useWorkspaceStore.getState().saveToLayout()).resolves.toBe(true);
+      const root = {
+        split: "row",
+        children: [
+          { tabs: [{ id: "x", path: "/graph" }] },
+          { tabs: [{ id: "p2", path: "/node/n.zoomed" }] },
+        ],
+      };
+      expect(replaceField).toHaveBeenCalledWith("v.board", SYSTEM_IDS.layoutField, [
+        { t: "str", v: canonicalJson(root) },
+      ]);
+      expect(invoke).not.toHaveBeenCalled();
+    } finally {
+      replaceField.mockRestore();
+    }
+  });
+
+  it("is kept as the layout node it was last saved as", async () => {
+    invoke.mockImplementation((_action: string, { id }: { id: string }) =>
+      Promise.resolve({ status: "succeeded", id: "view.propose", output: { id } }),
+    );
+    const saved = await useWorkspaceStore.getState().save("Evening");
+    expect(saved).toEqual(expect.any(String));
+    expect(useWorkspaceStore.getState().from).toBe(saved);
   });
 
   it("says why a save was refused, and saves nothing", async () => {

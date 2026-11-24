@@ -4557,6 +4557,14 @@ until "Save workspace".
   shows and selects or captures in it; a navigate to one is refused, since
   the dashboard is fixed. "Open as the workspace" (its corner button, or the node menu
   on a layout node) replaces the workspace with its tree, movable again.
+- **A saved layout is edited in place.** The workspace remembers the
+  layout node it was opened from, or last saved as (`from`, kept with the
+  arrangement on the device). While it has one, ⌘K offers "Save to
+  layout" (`sys.cmd.save-to-layout`): the live arrangement is written back
+  to that node's `sys.f.layout`, through the check `view.propose` makes
+  (`viewNodeFor`), as a chart writes its spec back, one undoable write;
+  the node keeps its text, its place and what names it. "Save workspace"
+  still makes a new layout node, which the workspace is then kept as.
 
 ### Chart views
 

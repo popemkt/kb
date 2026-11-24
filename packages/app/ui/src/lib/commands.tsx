@@ -378,12 +378,26 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     },
   },
   {
+    id: SYSTEM_IDS.cmdSaveToLayout,
+    menu: GLOBAL,
+    when: (ctx) => ctx.workspace.from !== null && targetIsLayout(ctx.workspace.from),
+    run: async (ctx) => {
+      await ctx.workspace.saveToLayout();
+    },
+  },
+  {
     id: SYSTEM_IDS.cmdClosePane,
     menu: GLOBAL,
     when: (ctx) => layoutPanes(ctx.workspace.layout).length > 1,
     run: (ctx) => ctx.workspace.close(ctx.workspace.focused),
   },
 ];
+
+/** Whether node `id` is still a layout view node, which "Save to layout" can write. */
+function targetIsLayout(id: string): boolean {
+  const node = browserHost().schema().get(id);
+  return node !== undefined && viewOptionOf(node) === LayoutView.option;
+}
 
 /** The arrangement a layout view node holds, when the node is one and holds a legal one. */
 function layoutOf(ctx: CommandContext): LayoutTree | null {
@@ -539,7 +553,7 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     when: (ctx) => layoutOf(ctx) !== null,
     run: (ctx) => {
       const layout = layoutOf(ctx);
-      if (layout !== null) ctx.workspace.replace(layout);
+      if (layout !== null) ctx.workspace.replace(layout, targetNode(ctx)?.id ?? null);
       ctx.palette.close();
     },
   },

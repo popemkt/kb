@@ -3,7 +3,8 @@
  * and layouts). Its arrangement is a kb layout tree (`@kb/views`), and which
  * pane has the focus is the workspace's too. Both are per device, kept in
  * localStorage["kb-workspace"]; "Save workspace" writes the arrangement as a
- * layout node, and opening one replaces it.
+ * layout node, opening one replaces it, and "Save to layout" writes it back
+ * to the layout node it was opened from or saved as.
  *
  * The URL names the focused pane: the address bar shows that pane's location,
  * a navigation moves that pane, and moving the focus shows the newly focused
@@ -11,6 +12,7 @@
  * step).
  */
 import { Result } from "effect";
+import { SYSTEM_IDS } from "@kb/model";
 import { create } from "zustand";
 import {
   closePane,
@@ -23,9 +25,11 @@ import {
   sameLayout,
   singlePane,
   withPanePath,
+  issueText,
   LayoutView,
   type LayoutTree,
   nodePath,
+  viewNodeFor,
 } from "@kb/views";
 import {
   browserHost,
@@ -45,6 +49,8 @@ interface Workspace {
   readonly layout: LayoutTree;
   /** The pane the URL names, where a navigation lands and keys type. */
   readonly focused: string;
+  /** The layout node the arrangement was opened from or saved as: where "Save to layout" writes. */
+  readonly from: string | null;
 }
 
 interface WorkspaceStore extends Workspace {
@@ -57,10 +63,12 @@ interface WorkspaceStore extends Workspace {
   focus: (id: string) => void;
   /** Take an arrangement the grid reports (a drag, a resize, a tab switch). */
   arrange: (layout: LayoutTree) => void;
-  /** Replace the workspace with a saved layout, focusing its first pane. */
-  replace: (layout: LayoutTree) => void;
+  /** Replace the workspace with a saved layout (the node `from`, when it is one), focusing its first pane. */
+  replace: (layout: LayoutTree, from?: string | null) => void;
   /** Keep the arrangement as a layout node named `text` (`saveWorkspace`); its id, or null. */
   save: (text: string) => Promise<string | null>;
+  /** Write the arrangement back to the layout node `from` (`saveToLayout`); whether it was written. */
+  saveToLayout: () => Promise<boolean>;
 }
 
 function currentPath(): string {
@@ -68,7 +76,11 @@ function currentPath(): string {
 }
 
 function fresh(): Workspace {
-  return { layout: singlePane({ id: MAIN_PANE, path: currentPath() }), focused: MAIN_PANE };
+  return {
+    layout: singlePane({ id: MAIN_PANE, path: currentPath() }),
+    focused: MAIN_PANE,
+    from: null,
+  };
 }
 
 /** What this device last had open, or one pane at the URL. */
@@ -86,16 +98,17 @@ function load(): Workspace {
       findPane(layout.success, stored.focused) !== undefined
         ? stored.focused
         : (layoutPanes(layout.success)[0]?.id ?? MAIN_PANE);
+    const from = "from" in stored && typeof stored.from === "string" ? stored.from : null;
     // The URL names the focused pane, so it wins over what was stored.
-    return { layout: withPanePath(layout.success, focused, currentPath()), focused };
+    return { layout: withPanePath(layout.success, focused, currentPath()), focused, from };
   } catch {
     return fresh();
   }
 }
 
-function save({ layout, focused }: Workspace): void {
+function save({ layout, focused, from }: Workspace): void {
   try {
-    window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify({ layout, focused }));
+    window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify({ layout, focused, from }));
   } catch {
     // A device that cannot store keeps the arrangement for this page load.
   }
@@ -109,7 +122,13 @@ function pathOf(workspace: Workspace, id: string): string | undefined {
 export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
   const commit = (next: Workspace): void => {
     const now = get();
-    if (next.focused === now.focused && sameLayout(next.layout, now.layout)) return;
+    if (
+      next.focused === now.focused &&
+      next.from === now.from &&
+      sameLayout(next.layout, now.layout)
+    ) {
+      return;
+    }
     set(next);
     save(next);
     // The address bar follows the focus, without a history entry.
@@ -122,7 +141,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     openBeside: (beside, path) => {
       const { layout } = get();
       const id = freshPaneId(layout);
-      commit({ layout: openBeside(layout, beside, { id, path }), focused: id });
+      commit({ ...get(), layout: openBeside(layout, beside, { id, path }), focused: id });
       return id;
     },
 
@@ -141,7 +160,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
       if (sameLayout(layout, now.layout)) return;
       const focused =
         now.focused === id ? (neighbourOf(now.layout, id) ?? now.focused) : now.focused;
-      commit({ layout, focused });
+      commit({ ...now, layout, focused });
     },
 
     focus: (id) => {
@@ -155,15 +174,25 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
         findPane(layout, now.focused) === undefined
           ? (layoutPanes(layout)[0]?.id ?? MAIN_PANE)
           : now.focused;
-      commit({ layout, focused });
+      commit({ ...now, layout, focused });
     },
 
-    replace: (layout) => {
+    replace: (layout, from = null) => {
       const focused = layoutPanes(layout)[0]?.id ?? MAIN_PANE;
-      commit({ layout, focused });
+      commit({ layout, focused, from });
     },
 
-    save: (text) => saveWorkspace(get().layout, text),
+    save: async (text) => {
+      const id = await saveWorkspace(get().layout, text);
+      // The node just written is the one the arrangement is now kept as.
+      if (id !== null) commit({ ...get(), from: id });
+      return id;
+    },
+
+    saveToLayout: () => {
+      const { layout, from } = get();
+      return from === null ? Promise.resolve(false) : saveToLayout(layout, from);
+    },
   };
 });
 
@@ -204,14 +233,39 @@ async function saveWorkspace(layout: LayoutTree, text: string): Promise<string |
 }
 
 /**
+ * "Save to layout": write the live arrangement back to layout node `node`,
+ * the one it was opened from or saved as, through the one check of a
+ * layout's settings (`viewNodeFor`, the check `view.propose` makes), as a
+ * chart writes its spec back. The node's text, its place and what names it
+ * stay as they are. False, saying why, when it was refused.
+ */
+async function saveToLayout(layout: LayoutTree, node: string): Promise<boolean> {
+  const checked = viewNodeFor(LayoutView, { root: keptLayout(layout) }, null);
+  if (Result.isFailure(checked)) {
+    useUiStore
+      .getState()
+      .pushToast(
+        "error",
+        `Could not save to the layout: ${checked.failure.map(issueText).join("; ")}`,
+      );
+    return false;
+  }
+  const values = checked.success.props[SYSTEM_IDS.layoutField] ?? [];
+  await browserHost().writes.replaceField(node, SYSTEM_IDS.layoutField, values);
+  useUiStore.getState().pushToast("info", "Saved the workspace to its layout");
+  return true;
+}
+
+/**
  * Keep the focused pane and the URL in step: a navigation (a link, a
  * command, back and forward) moves the focused pane. Returns the unsubscribe.
  */
 export function startWorkspace(): () => void {
   const follow = (): void => {
-    const { layout, focused } = useWorkspaceStore.getState();
+    const now = useWorkspaceStore.getState();
+    const { layout, focused } = now;
     const path = getPath();
-    if (pathOf({ layout, focused }, focused) === path) return;
+    if (pathOf(now, focused) === path) return;
     useWorkspaceStore.getState().arrange(withPanePath(layout, focused, path));
   };
   follow();

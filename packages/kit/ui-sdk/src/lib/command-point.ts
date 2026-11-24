@@ -54,10 +54,13 @@ interface UiCommandApi {
 interface WorkspaceCommandApi {
   readonly layout: LayoutTree;
   readonly focused: string;
+  /** The layout node the arrangement was opened from or saved as, if any. */
+  readonly from: string | null;
   openBeside: (beside: string, path: string) => string;
   close: (id: string) => void;
-  replace: (layout: LayoutTree) => void;
+  replace: (layout: LayoutTree, from?: string | null) => void;
   save: (text: string) => Promise<string | null>;
+  saveToLayout: () => Promise<boolean>;
 }
 
 interface DebugFieldsCommandApi {

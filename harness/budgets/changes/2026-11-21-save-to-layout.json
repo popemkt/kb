@@ -1,0 +1,8 @@
+{
+  "reason": "The seeded Save to layout command (sys.cmd.save-to-layout) writes the workspace back to the layout node it came from. The seed it adds takes the CLI's eager bundle from 2893523 to 2893614 bytes.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 91
+    }
+  }
+}

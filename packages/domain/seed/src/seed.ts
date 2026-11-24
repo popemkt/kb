@@ -235,6 +235,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     cmd(SYSTEM_IDS.cmdExitOntology, "Exit ontology"),
     // Panes and layouts
     cmd(SYSTEM_IDS.cmdSaveWorkspace, "Save workspace"),
+    cmd(SYSTEM_IDS.cmdSaveToLayout, "Save to layout"),
     cmd(SYSTEM_IDS.cmdClosePane, "Close pane"),
   ];
 

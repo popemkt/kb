@@ -301,6 +301,7 @@ export const SYSTEM_IDS = {
   cmdExitOntology: "sys.cmd.exit-ontology",
   /** Panes and layouts: keep the live arrangement as a layout node, close the focused pane. */
   cmdSaveWorkspace: "sys.cmd.save-workspace",
+  cmdSaveToLayout: "sys.cmd.save-to-layout",
   cmdClosePane: "sys.cmd.close-pane",
   /**
    * The list whose children are the extensions' own nodes

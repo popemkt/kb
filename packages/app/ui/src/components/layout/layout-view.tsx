@@ -1,7 +1,8 @@
 /**
  * The layout view (`layout.grid`) shown inside a pane: a dashboard. Its panes
- * are fixed: the arrangement is the view node's. Opening the layout as the
- * workspace and saving it makes a new layout node beside it.
+ * are fixed: the arrangement is the view node's. Opened as the workspace, it
+ * is moved there, and "Save to layout" writes the arrangement back to this
+ * node ("Save workspace" makes a new one beside it).
  * Each of its panes is a pane like any other (its own id, `<outer>:<inner>`,
  * `nestedLayout`, for the outline hosts, the slot chain and the screen), drawn through a slot shown for
  * its location, so a layout that contains itself stops at the first repeat.
@@ -19,8 +20,7 @@ const LayoutGrid = lazy(() => import("./layout-grid"));
 
 const drawPane = (pane: LayoutPane) => <PaneFrame path={pane.path} subject={pane.path} />;
 
-// GAP [[01M5CRYMXMMZC9S8GS00CE6DFB]] a saved layout's arrangement cannot be written back to its node
-export function LayoutViewSurface({ params }: ViewProps<LayoutParams>) {
+export function LayoutViewSurface({ params, host }: ViewProps<LayoutParams>) {
   const outer = usePane();
   const tree = nestedLayout(params.root, outer);
   const panes = layoutPanes(tree);
@@ -49,7 +49,7 @@ export function LayoutViewSurface({ params }: ViewProps<LayoutParams>) {
         icon={ArrowsOutSimpleIcon}
         size="md"
         className="absolute right-1.5 top-1 z-10 bg-background/80"
-        onClick={() => replace(params.root)}
+        onClick={() => replace(params.root, host.viewNode ?? null)}
       />
     </div>
   );

@@ -267,6 +267,7 @@
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.new-query","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"New query node","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.outline.copy-as","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Copy as…","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.outline.describe","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Edit description","updatedAt":"2026-01-01T00:00:00.000Z"}
+{"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.save-to-layout","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Save to layout","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.save-workspace","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Save workspace","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.settings","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Settings","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.switch-design-system","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Switch design system","updatedAt":"2026-01-01T00:00:00.000Z"}

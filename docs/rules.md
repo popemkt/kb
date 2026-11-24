@@ -467,15 +467,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a deadline in the query layer that the grant applies
 - **node** — `01M41DKVSGG1R5A27Q49SBPHDD`
 
-### GAP: a saved layout cannot be edited in place
-
-- **expected** — A saved layout is a node whose arrangement is changed from the editor and written back to that node.
-- **current** — 'Save layout' always makes a new layout node; its sys.f.layout is a hidden JSON value, and layout-view.tsx's header says saving again replaces it, which it does not.
-- **impact** — Adjusting a saved layout leaves the old node beside a new one; the old one is edited only as raw JSON through the CLI.
-- **closes** — A 'save to this layout' gesture when the open workspace came from a layout node, writing its sys.f.layout through view.propose's check.
-- **rule** — Editor first (the editor is the main human editing surface)
-- **node** — `01M5CRYMXMMZC9S8GS00CE6DFB`
-
 ### GAP: a seeded tag or field takes a description only with force
 
 - **expected** — A description is a setting any node takes, a seeded tag's or field's included: a person describes a family's tag and its hint shows in the tag picker, without force, and takes it back.
@@ -2312,6 +2303,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — After /indent or /outdent, ⌘Z while still typing in the row does not undo the indent; the person has to leave the row first. Tab-indent while editing has the same limit today.
 - **closes** — The page editor (outline.store.ts, WP-4's file in the 2026-11-20 parity work) keeps the active row's text history across a re-key of its instance, or the text host falls through to PageWrites.undo/redo when its history is empty, with the editor following the row to its new instance.
 - **node** — `01M7X9MKS1DM5JEAR2DRWS7KT6`
+
+### GAP: a saved layout cannot be edited in place
+
+- **expected** — A saved layout is a node whose arrangement is changed from the editor and written back to that node.
+- **current** — 'Save layout' always makes a new layout node; its sys.f.layout is a hidden JSON value, and layout-view.tsx's header says saving again replaces it, which it does not.
+- **impact** — Adjusting a saved layout leaves the old node beside a new one; the old one is edited only as raw JSON through the CLI.
+- **closes** — A 'save to this layout' gesture when the open workspace came from a layout node, writing its sys.f.layout through view.propose's check.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYMXMMZC9S8GS00CE6DFB`
 
 ### GAP: a seeded default the owner deletes comes back on the next open
 
