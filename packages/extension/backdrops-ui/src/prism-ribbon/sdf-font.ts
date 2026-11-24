@@ -15,7 +15,7 @@ export const ATLAS_COLS = 16;
 export const ATLAS_ROWS = 6;
 const CELL = 64;
 /** Distance field spread in atlas texels (half-range either side of edge 0.5). */
-const SDF_SPREAD = 5;
+const SDF_SPREAD = 6;
 const FIRST_CHAR = 32;
 const LAST_CHAR = 126;
 const INF = 1e20;
@@ -139,7 +139,7 @@ function rasteriseAtlasPixels(): {
     ctx.fillStyle = "#ffffff";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = `600 ${Math.round(CELL * 0.72)}px ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace`;
+    ctx.font = `600 ${Math.round(CELL * 0.78)}px ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace`;
     for (let code = FIRST_CHAR; code <= LAST_CHAR; code++) {
       const idx = code - FIRST_CHAR;
       const col = idx % ATLAS_COLS;

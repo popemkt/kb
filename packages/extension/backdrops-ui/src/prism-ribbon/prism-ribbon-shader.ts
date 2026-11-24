@@ -1,19 +1,28 @@
 /**
  * Prism ribbon shader (T1): a single-pass raymarched 3D twisted iridescent
  * membrane floating above a dissolving midnight-navy & warm-plum field,
- * inscribed with curvature-projected technical blueprint lines and crisp SDF
+ * inscribed with curvature-projected blueprint wireframes and crisp SDF
  * monospace shader code.
  *
- * Passes per frame:
- * 1. Scene backgroundNode (this shader): background field + dissolve, tight YZ
- *    AABB raymarch of the twisted ribbon SDF, tetrahedral normals, prismatic
- *    RGB-split specular lighting, curvature-projected blueprint grid + ticks,
- *    and SDF monospace code reveal.
- * 2. Stage bloom (dark mode only, catching only the hottest cream-gold crests).
- * 3. Stage composite (shoulder tone curve, edge feather, IGN dither, film grain).
+ * Surface reveal & pacing:
+ * - Mirrors the original artwork's progressive 3-stage surface wave:
+ *   pure iridescent glass → crisp blueprint wireframe (`mWire * (1 - mCode)`)
+ *   → rock-solid monospace shader code (`mCode`), with subtle decode scramble
+ *   confined strictly to the narrow leading materialization fringe and
+ *   high-frequency surface-space stipple dissolve (zero screen-space swimming).
+ * - Raymarch hits take a final Newton surface projection step (`hitT + minD`)
+ *   before computing surface UVs and derivatives, eliminating step-boundary
+ *   text shimmer as the ribbon moves.
+ * - Out-of-frame / lower-boundary transition: wherever an animated belly dip
+ *   reaches past the active field toward the bottom of the page head, the
+ *   ribbon first sheds prism & code into the original's sleek matte studio
+ *   silhouette, then merges cleanly into the page ground so no hard horizontal
+ *   cut-off line ever appears.
  *
- * WGSL uniformity: `fwidth(surf)` is evaluated outside non-uniform branches,
- * and all texture fetches inside branches use explicit `.level(float(0))`.
+ * Passes per frame:
+ * 1. Scene backgroundNode (this shader).
+ * 2. Stage bloom (dark mode only, catching only HDR cream-gold crests).
+ * 3. Stage composite (shoulder tone curve, edge feather, IGN dither, film grain).
  */
 import {
   Break,
@@ -38,13 +47,12 @@ import {
   mod,
   normalize,
   pow,
-  screenCoordinate,
+  reflect,
   screenSize,
   screenUV,
   select,
   sin,
   smoothstep,
-  step,
   texture,
   uniform,
   vec2,
@@ -64,32 +72,32 @@ type V2 = TslNode<"vec2">;
 type V3 = TslNode<"vec3">;
 
 const PI = Math.PI;
-const RIBBON_BASE_WIDTH = 0.252;
+const RIBBON_BASE_WIDTH = 0.248;
 const RIBBON_FREQ_X = 1.72;
-const RIBBON_AMP = 0.33;
+const RIBBON_AMP = 0.31;
 const RIBBON_TWIST_K = 0.936;
 const RIBBON_BULGE_K = 0.364;
 const FOCAL = 1.8;
 const CAMERA_Z = -3.4;
-const HIT_EPS = 0.0018;
+const HIT_EPS = 0.0014;
 const HALO_R = 0.32;
 
 export function prismRibbonUniforms() {
   return {
-    /** Ribbon undulation/flow clock (curated around STILL_FLOW). */
+    /** Ribbon undulation/flow clock (`time * 0.749` pacing ratio). */
     flow: uniform(4.65),
-    /** Mask & background wash clock. */
-    time: uniform(0.55),
+    /** Mask reveal, edge decode & background wash clock (`0.57/s` at 1× speed). */
+    time: uniform(1.15),
     /** 1 for dark page, 0 for light page. */
     dark: uniform(1),
     /** Hero anchor in frame units: (x, y, scale). */
     hero: uniform(new Vector3(0, 0, 1)),
     /** Bounded eased pointer lean in frame units: (x, y, near). */
     pointer: uniform(new Vector3(0, 0, 0)),
-    /** Cursor position in frame units for subtle highlight/code reveal lift. */
+    /** Smoothly damped cursor position in frame units for hover code reveal & field glow. */
     cursor: uniform(new Vector2(0, 0)),
-    /** Adaptive max raymarch steps (28 at full quality, 18 at floor). */
-    steps: uniform(28, "int"),
+    /** Adaptive max raymarch steps (20 at full quality, 12 at floor). */
+    steps: uniform(20, "int"),
     /** Model rotation & its transpose (updated on CPU from base tilt + pointer + seed). */
     modelRot: uniform(new Matrix3()),
     invModelRot: uniform(new Matrix3()),
@@ -99,20 +107,19 @@ export function prismRibbonUniforms() {
     codeGain: uniform(1),
     /** Prismatic dispersion width multiplier. */
     prismGain: uniform(1),
-    /** Write impulse shimmer (0..1). */
-    impulse: uniform(0),
+    /** Traveling optical write wave: `(spineX, energy)`. */
+    writeWave: uniform(new Vector2(-1.95, 0)),
+    /** Typing calm signal (`0..1`): settles glare and quietens code while editing. */
+    calm: uniform(0),
     /** Seeded background field phase offset. */
     fieldPhase: uniform(0),
     /** Encoded code line length in characters. */
     codeLen: uniform(128),
-    /** Ground field dissolve reach (ground only — never clips the 3D ribbon). */
+    /** Ground field dissolve reach (ground only — never clips the active ribbon). */
     reach: dissolveUniforms(),
   };
 }
 export type PrismRibbonUniforms = ReturnType<typeof prismRibbonUniforms>;
-
-const ign = (st: V2): F =>
-  fract(float(52.9829189).mul(fract(dot(st, vec2(0.06711056, 0.00583715)))));
 
 /** 2D rotation matching GLSL column-major `mat2(c, -s, s, c) * v`. */
 const rot2 = (v: V2, a: F): V2 => {
@@ -227,7 +234,7 @@ const mapRibbonFn = Fn(([p, t]: readonly [V3, F]) => {
 
 /** Tetrahedral SDF normal gradient in object space. */
 const ribbonNormalFn = Fn(([p, t]: readonly [V3, F]) => {
-  const e = float(0.0014);
+  const e = float(0.0012);
   const k1 = vec3(1, -1, -1);
   const k2 = vec3(-1, -1, 1);
   const k3 = vec3(-1, 1, -1);
@@ -248,26 +255,30 @@ const ribbonNormalFn = Fn(([p, t]: readonly [V3, F]) => {
   ],
 });
 
-/** Multi-octave organic reveal mask along the ribbon surface. */
-const maskStageFn = Fn(([surf, pFrame, cursor, near, time]: readonly [V2, V2, V2, F, F]) => {
-  const drift = time.mul(0.42);
-  const xCoord = surf.x.mul(1.25).sub(drift);
-  const pNoise = vec2(xCoord.mul(1.05), surf.y.mul(2.15));
-  const n1 = gnoise(pNoise).mul(2).sub(1);
-  const n2 = gnoise(pNoise.mul(2.17).add(vec2(drift.mul(-0.2), 1.4)))
-    .mul(2)
-    .sub(1);
-  const n3 = gnoise(pNoise.mul(4.31).add(vec2(drift.mul(0.3), 3.1)))
-    .mul(2)
-    .sub(1);
-  const noiseVal = n1.mul(0.54).add(n2.mul(0.32)).add(n3.mul(0.14));
-  const wave = cos(xCoord.mul(PI * 0.42).sub(0.25));
-  const combined = wave.mul(0.55).add(noiseVal.mul(1.18));
-  const toCursor = pFrame.sub(cursor);
-  const cursorLift = exp(dot(toCursor, toCursor).mul(-9.0)).mul(0.95).mul(near);
-  const raw = combined.add(0.22).add(cursorLift);
-  return select(raw.greaterThan(0), raw.mul(2.75), float(-1));
-}).setLayout({
+/**
+ * Progressive surface reveal mask matching the original artwork's paced
+ * wave (`drift = time * 0.563`, `pFreq = 1.25`, `nScale = 1.501`):
+ * `< 0` pure glass, `0..1` border shift, `1..2` wireframe grid, `> 2` code.
+ */
+const maskStageFn = Fn(
+  ([surf, pFrame, cursor, near, time, pulseLift]: readonly [V2, V2, V2, F, F, F]) => {
+    const drift = time.mul(0.563);
+    const xCoord = surf.x.mul(1.25).sub(drift);
+    const pNoise = vec2(xCoord.mul(0.9), surf.y.mul(2.1));
+    // `gnoise` is centered at 0.5 with ~0.25 amplitude; ×3.8 matches 2D simplex [-1, 1] variance.
+    const n1 = gnoise(pNoise).sub(0.5).mul(3.8);
+    const n2 = gnoise(pNoise.mul(2.25).add(vec2(drift.mul(-0.2), 1.4)))
+      .sub(0.5)
+      .mul(3.8);
+    const noiseVal = clamp(n1.mul(0.68).add(n2.mul(0.32)), float(-1), float(1));
+    const wave = sin(xCoord.mul(PI * 0.5));
+    const combined = wave.mul(0.65).add(noiseVal.mul(0.75));
+    const toCursor = pFrame.sub(cursor);
+    const cursorLift = exp(dot(toCursor, toCursor).mul(-12.0)).mul(1.15).mul(near);
+    const raw = combined.add(0.16).add(cursorLift).add(pulseLift);
+    return select(raw.greaterThan(0), raw.mul(2.6), float(-1));
+  },
+).setLayout({
   name: "kbPrismMaskStage",
   type: "float",
   inputs: [
@@ -276,15 +287,16 @@ const maskStageFn = Fn(([surf, pFrame, cursor, near, time]: readonly [V2, V2, V2
     { name: "cursor", type: "vec2" },
     { name: "near", type: "float" },
     { name: "time", type: "float" },
+    { name: "pulseLift", type: "float" },
   ],
 });
 
-/** Deep midnight navy-blue blended with warm dark plum/burgundy radial corner washes. */
+/** Deep midnight navy-blue blended with warm dark plum/burgundy corner washes. */
 const fieldColorDarkFn = Fn(([q, t]: readonly [V2, F]) => {
-  const w1 = sin(q.x.mul(1.85).add(q.y.mul(1.65)).add(t.mul(0.14)).add(0.65))
+  const w1 = sin(q.x.mul(1.85).add(q.y.mul(1.65)).add(t.mul(0.24)).add(0.65))
     .mul(0.5)
     .add(0.5);
-  const w2raw = sin(q.y.mul(2.45).sub(q.x.mul(1.45)).sub(t.mul(0.11)).add(1.3))
+  const w2raw = sin(q.y.mul(2.45).sub(q.x.mul(1.45)).sub(t.mul(0.18)).add(1.3))
     .mul(0.5)
     .add(0.5);
   const w2 = w2raw.mul(w2raw);
@@ -303,6 +315,36 @@ const fieldColorDarkFn = Fn(([q, t]: readonly [V2, F]) => {
   ],
 });
 
+/**
+ * Sleek dark studio-chrome reflection for the ribbon where it dips past the
+ * active color field (matching the original's matte outside-frame transition).
+ */
+const matteChromeFn = Fn(([r, dark]: readonly [V3, F]) => {
+  const up = r.y;
+  const col = mix(vec3(0.014, 0.015, 0.018), vec3(0.1, 0.105, 0.12), smoothstep(-0.25, 0.7, up));
+  const horizon = float(1).sub(smoothstep(0.01, 0.18, abs(up.sub(0.03))));
+  const top = smoothstep(0.5, 0.8, up).mul(float(1).sub(smoothstep(0.35, 0.65, abs(r.x.add(0.1)))));
+  const key = smoothstep(0.45, 0.7, r.x).mul(float(1).sub(smoothstep(0.25, 0.5, abs(up.sub(0.1)))));
+  const darkChrome = col
+    .add(vec3(0.65, 0.68, 0.75).mul(horizon).mul(0.45))
+    .add(vec3(0.85, 0.87, 0.92).mul(top).mul(0.7))
+    .add(vec3(0.75, 0.78, 0.84).mul(key).mul(0.55))
+    .mul(0.22);
+  const darkMapped = vec3(1, 1, 1).sub(exp(darkChrome.mul(-1.6)));
+  const lightMapped = mix(vec3(0.82, 0.84, 0.88), vec3(0.95, 0.96, 0.98), smoothstep(-0.3, 0.6, up))
+    .mul(float(1).sub(horizon.mul(0.14)))
+    .add(top.mul(0.05))
+    .clamp(0, 1);
+  return mix(lightMapped, darkMapped, dark);
+}).setLayout({
+  name: "kbPrismMatteChrome",
+  type: "vec3",
+  inputs: [
+    { name: "r", type: "vec3" },
+    { name: "dark", type: "float" },
+  ],
+});
+
 const gridLineWithFw = (g: F, fw: F, weight: F): F => {
   const f = fract(g);
   const d = min(f, float(1).sub(f));
@@ -310,29 +352,17 @@ const gridLineWithFw = (g: F, fw: F, weight: F): F => {
   return float(1).sub(smoothstep(float(0), w, d));
 };
 
-/** Blueprint grid lines, ruler micro-ticks and crosshair intersections along `(surf.x, surf.y)`. */
+/** Clean wireframe grid along `(surf.x, surf.y)` matching the original's lane density. */
 function blueprintWire(surf: V2, surfFw: V2): F {
-  const gridX = surf.x.mul(15.5);
-  const gridY = surf.y.mul(0.5).add(0.5).mul(8.5);
-  const fwGridX = surfFw.x.mul(15.5);
-  const fwGridY = surfFw.y.mul(4.25);
-  const lineX = gridLineWithFw(gridX, fwGridX, float(0.9));
-  const lineY = gridLineWithFw(gridY, fwGridY, float(0.9));
-  const wirePrimary = max(lineX, lineY);
-  const subTickX = gridLineWithFw(gridX.mul(4.0), fwGridX.mul(4.0), float(0.85)).mul(
-    step(min(fract(gridY), float(1).sub(fract(gridY))), float(0.1)),
+  const lineDensity = 18.16;
+  const lanes = 10.0;
+  const lineX = gridLineWithFw(surf.x.mul(lineDensity), surfFw.x.mul(lineDensity), float(0.9));
+  const lineY = gridLineWithFw(
+    surf.y.mul(0.5).add(0.5).mul(lanes),
+    surfFw.y.mul(lanes * 0.5),
+    float(0.9),
   );
-  const subTickY = gridLineWithFw(gridY.mul(4.0), fwGridY.mul(4.0), float(0.85)).mul(
-    step(min(fract(gridX), float(1).sub(fract(gridX))), float(0.08)),
-  );
-  const crosshair = step(min(fract(gridX), float(1).sub(fract(gridX))), float(0.14))
-    .mul(lineY)
-    .max(step(min(fract(gridY), float(1).sub(fract(gridY))), float(0.14)).mul(lineX));
-  return clamp(
-    wirePrimary.mul(0.72).add(max(subTickX, subTickY).mul(0.32)).add(crosshair.mul(0.42)),
-    float(0),
-    float(1),
-  );
+  return max(lineX, lineY);
 }
 
 interface CodeSampleAt {
@@ -353,30 +383,31 @@ function sampleProjectedCode(
   const codeTex = texture(fonts.code);
   const ink = float(0).toVar();
   If(mCode.greaterThan(0.005).and(u.codeGain.greaterThan(0.005)), () => {
-    const numLines = float(21.0);
+    const numLines = float(18.0);
     const vNorm = surf.y.mul(0.5).add(0.5);
     const lineWorldH = float(2.0 * RIBBON_BASE_WIDTH).div(numLines);
     const hwHere = ribbonHalfWidthFn(hp.x, u.flow);
     const vLine = surf.y.mul(hwHere).div(lineWorldH).add(numLines.mul(0.5));
     const lineIdx = floor(vLine);
     const lineFrac = fract(vLine);
-    const charAdv = lineWorldH.mul(0.56);
+    const charAdv = lineWorldH.mul(0.54);
     const colFloat = surf.x.add(lineIdx.mul(0.37)).div(charAdv);
     const colIdx = floor(colFloat);
     const colFrac = fract(colFloat);
     const sdfAa = clamp(
-      max(surfFw.x.div(charAdv), surfFw.y.mul(hwHere).div(lineWorldH)).mul(1.15),
-      float(0.02),
-      float(0.26),
+      max(surfFw.x.div(charAdv), surfFw.y.mul(hwHere).div(lineWorldH)).mul(0.85),
+      float(0.025),
+      float(0.16),
     );
 
     const span = max(u.codeLen, float(1));
     const rawIdx = colIdx.add(lineIdx.mul(19.0));
     const baseIdx = mod(mod(rawIdx, span).add(span), span).toVar();
-    const cellRand = hash2(vec2(colIdx, lineIdx).add(floor(u.time.mul(6.0)).mul(3.17)));
-    const revealEdge = float(1).sub(smoothstep(float(0), float(0.45), stage.sub(1.65)));
+    // Crisp digital decode ONLY on the narrow materialization edge (stage 2.0..2.34).
+    const cellRand = hash2(vec2(colIdx, lineIdx).add(floor(u.time.mul(8.0)).mul(3.17)));
+    const revealEdge = float(1).sub(smoothstep(float(0), float(0.34), stage.sub(2.0)));
     const idx = select(
-      cellRand.x.lessThan(revealEdge.mul(0.5)),
+      cellRand.x.lessThan(revealEdge.mul(0.55)),
       floor(cellRand.y.mul(span)),
       baseIdx,
     );
@@ -385,14 +416,14 @@ function sampleProjectedCode(
     const inBounds = ascii
       .greaterThan(32.5)
       .and(ascii.lessThan(126.5))
-      .and(vNorm.greaterThan(0.03))
-      .and(vNorm.lessThan(0.97));
+      .and(vNorm.greaterThan(0.02))
+      .and(vNorm.lessThan(0.98));
     If(inBounds, () => {
       const glyphIdx = ascii.sub(32.0);
       const atlasCol = mod(glyphIdx, float(ATLAS_COLS));
       const atlasRow = floor(glyphIdx.div(ATLAS_COLS));
-      const padU = clamp(colFrac.mul(0.88).add(0.06), float(0.02), float(0.98));
-      const padV = clamp(float(1).sub(lineFrac).mul(0.88).add(0.06), float(0.02), float(0.98));
+      const padU = clamp(colFrac, float(0.01), float(0.99));
+      const padV = clamp(float(1).sub(lineFrac), float(0.01), float(0.99));
       const atlasUv = vec2(atlasCol.add(padU).div(ATLAS_COLS), atlasRow.add(padV).div(ATLAS_ROWS));
       const sd = atlasTex.sample(atlasUv).level(float(0)).r;
       ink.assign(smoothstep(float(0.5).sub(sdfAa), float(0.5).add(sdfAa), sd));
@@ -401,23 +432,24 @@ function sampleProjectedCode(
   return ink;
 }
 
-/** Tight YZ-slab raymarch returning hit distance, coverage, min SDF distance and surface UVs. */
+/** Tight YZ-slab raymarch with exact post-loop Newton surface projection (zero text shimmer). */
 function traceRibbon(u: PrismRibbonUniforms, camP: V2, zoom: F, roObj: V3, rdObj: V3) {
-  const bound = float(0.74);
+  const bound = float(0.68);
   const rdYz = vec2(rdObj.y, rdObj.z).add(vec2(1e-6, 1e-6));
   const t0 = vec2(bound.negate(), bound.negate()).sub(vec2(roObj.y, roObj.z)).div(rdYz);
   const t1 = vec2(bound, bound).sub(vec2(roObj.y, roObj.z)).div(rdYz);
   const tLo = min(t0, t1);
   const tHi = max(t0, t1);
-  const tNear = max(max(tLo.x, tLo.y), float(2.1)).toVar();
-  const tFar = min(min(tHi.x, tHi.y), float(5.35)).toVar();
+  const tNear = max(max(tLo.x, tLo.y), float(2.2)).toVar();
+  const tFar = min(min(tHi.x, tHi.y), float(5.15)).toVar();
 
   const pixelAngle = float(1).div(screenSize.y.mul(zoom).mul(FOCAL));
-  const tr = max(tNear.sub(0.18), float(2.0)).add(ign(screenCoordinate.xy).mul(0.18)).toVar();
+  // Deterministic start (no per-pixel random jitter) keeps 2×2 quad `fwidth(surf)` razor-clean.
+  const tr = tNear.toVar();
   const minD = float(1000).toVar();
   const minT = tr.toVar();
   const hit = float(0).toVar();
-  const surf = vec2(0, 0).toVar();
+  const hitD = float(0).toVar();
 
   const marches = tFar.greaterThan(tNear).and(abs(camP.y).lessThan(0.52));
   Loop({ start: 0, end: select(marches, u.steps, int(0)), type: "int", condition: "<" }, () => {
@@ -429,17 +461,20 @@ function traceRibbon(u: PrismRibbonUniforms, camP: V2, zoom: F, roObj: V3, rdObj
     If(d.lessThan(minD), () => {
       minD.assign(d);
       minT.assign(tr);
-      surf.assign(vec2(res.y, res.z));
     });
     If(d.lessThan(HIT_EPS), () => {
       hit.assign(1);
-      surf.assign(vec2(res.y, res.z));
+      hitD.assign(d);
       Break();
     });
     tr.addAssign(max(d.mul(0.82), float(HIT_EPS)));
   });
 
-  const hitT = select(hit.greaterThan(0.5), tr, minT);
+  // One exact surface projection step eliminates per-pixel step-count depth jitter on `surf`.
+  const hitT = select(hit.greaterThan(0.5), tr.add(hitD), minT);
+  const hp = roObj.add(rdObj.mul(hitT)).toVar();
+  const finalMap = mapRibbonFn(hp, u.flow).toVar();
+  const surf = vec2(finalMap.y, finalMap.z).toVar();
   const px = max(float(HIT_EPS), minT.mul(pixelAngle));
   const exhausted = hit.lessThan(0.5).and(marches).and(tr.lessThanEqual(tFar));
   const covSmooth = float(1).sub(smoothstep(px.mul(0.25), px.mul(1.35), minD));
@@ -449,30 +484,42 @@ function traceRibbon(u: PrismRibbonUniforms, camP: V2, zoom: F, roObj: V3, rdObj
     float(1),
     select(exhausted, covExhaust, covSmooth),
   ).toVar();
-  return { hitT, minD, cov, surf };
+  return { hp, minD, cov, surf };
 }
 
-/** Prismatic dark & light surface shading + curvature-projected blueprint/code overlay. */
+interface ShadeInputs {
+  readonly n: V3;
+  readonly rd: V3;
+  readonly pulseBand: F;
+  readonly overlayMask: F;
+}
+
+/** Prismatic dark & light surface shading + traveling write-wave optical dispersion & typing calm. */
 function shadeRibbonSurface(
   u: PrismRibbonUniforms,
-  n: V3,
-  rd: V3,
-  mBorder: F,
-  overlayMask: F,
+  { n, rd, pulseBand, overlayMask }: ShadeInputs,
 ): { readonly dark: V3; readonly light: V3; readonly alpha: F; readonly hotCrest: F } {
   const ndv = max(dot(n, rd.negate()), float(0)).toVar();
   const fres = pow(float(1).sub(ndv), float(3.8)).toVar();
 
+  // Typing polarizes & calms glare into cool velvet indigo; write wave widens local prism dispersion.
+  const localPrism = u.prismGain
+    .mul(float(1).add(pulseBand.mul(0.85)))
+    .mul(float(1).sub(u.calm.mul(0.38)));
   const keyDir = normalize(
-    vec2(float(0.65).add(u.pointer.x.mul(1.6)), float(0.76).add(u.pointer.y.mul(1.5))),
+    vec2(
+      float(0.65).add(u.pointer.x.mul(1.6)).add(pulseBand.mul(0.26)),
+      float(0.76).add(u.pointer.y.mul(1.5)),
+    ),
   );
   const perpKey = vec2(keyDir.y.negate(), keyDir.x);
-  const across = dot(n.xy, perpKey).mul(0.38).mul(u.prismGain);
+  const across = dot(n.xy, perpKey).mul(0.38).mul(localPrism);
   const keyDot = dot(n.xy, keyDir);
 
   const facing = vec3(keyDot, keyDot, keyDot)
     .add(vec3(across, float(0), across.negate()))
     .add(ndv.mul(0.28))
+    .add(pulseBand.mul(ndv).mul(0.28))
     .toVar();
 
   const obsidian = vec3(0.02, 0.042, 0.092);
@@ -498,34 +545,184 @@ function shadeRibbonSurface(
   const rimCol = mix(vec3(0.24, 0.38, 0.68), vec3(0.96, 0.44, 0.48), upperCoralMask);
 
   const baseDark = mix(obsidian, cobaltMid, sMid).toVar();
-  baseDark.addAssign(vec3(0.68, 0.46, 0.24).mul(bronzeBand).mul(0.68).mul(u.prismGain));
-  baseDark.addAssign(vec3(0.98, 0.36, 0.46).mul(coralBand).mul(0.62).mul(u.prismGain));
+  baseDark.addAssign(vec3(0.68, 0.46, 0.24).mul(bronzeBand).mul(0.68).mul(localPrism));
+  baseDark.addAssign(vec3(0.98, 0.36, 0.46).mul(coralBand).mul(0.62).mul(localPrism));
   baseDark.assign(
-    mix(baseDark, crestCol, clamp(sHot.mul(0.86).add(crestSpec.mul(0.26)), float(0), float(1))),
+    mix(
+      baseDark,
+      crestCol,
+      clamp(sHot.mul(0.86).add(crestSpec.mul(0.26)), float(0), float(1)).mul(
+        float(1).sub(u.calm.mul(0.56)),
+      ),
+    ),
   );
-  baseDark.addAssign(rimCol.mul(fres.mul(0.3).add(upperCoralMask.mul(fres).mul(0.3))));
-  baseDark.addAssign(vec3(0.85, 0.72, 0.62).mul(mBorder).mul(u.impulse.mul(0.14)));
+  baseDark.addAssign(
+    rimCol
+      .mul(fres.mul(0.3).add(upperCoralMask.mul(fres).mul(0.3)))
+      .mul(float(1).sub(u.calm.mul(0.32))),
+  );
+  // Traveling chromatic caustic sheen riding the write wave along the curvature
+  const caustic = pow(ndv, float(1.8)).mul(pulseBand);
+  const causticCol = mix(vec3(0.56, 0.8, 1.0), vec3(1.0, 0.72, 0.6), smoothstep(-0.3, 0.5, n.y));
+  baseDark.addAssign(causticCol.mul(caustic).mul(0.36));
 
-  const codeTint = mix(vec3(0.9, 0.95, 1.0), vec3(1.0, 0.97, 0.88), crestSpec);
-  const dark = mix(baseDark, codeTint, overlayMask.mul(0.64));
+  const codeTint = mix(vec3(0.92, 0.96, 1.0), vec3(1.0, 0.98, 0.92), crestSpec);
+  const dark = mix(baseDark, codeTint, overlayMask.mul(0.84));
 
   const lightBase = mix(vec3(0.54, 0.62, 0.78), vec3(0.88, 0.91, 0.96), sMid).toVar();
-  lightBase.assign(mix(lightBase, vec3(1.0, 0.98, 0.93), sHot));
-  lightBase.assign(mix(lightBase, vec3(0.96, 0.74, 0.73), coralBand.mul(0.52).mul(u.prismGain)));
-  lightBase.assign(mix(lightBase, vec3(0.96, 0.88, 0.74), bronzeBand.mul(0.35).mul(u.prismGain)));
+  lightBase.assign(mix(lightBase, vec3(1.0, 0.98, 0.93), sHot.mul(float(1).sub(u.calm.mul(0.35)))));
+  lightBase.assign(mix(lightBase, vec3(0.96, 0.74, 0.73), coralBand.mul(0.52).mul(localPrism)));
+  lightBase.assign(mix(lightBase, vec3(0.96, 0.88, 0.74), bronzeBand.mul(0.35).mul(localPrism)));
   lightBase.assign(mix(lightBase, vec3(0.3, 0.4, 0.62), fres.mul(0.34)));
+  lightBase.assign(mix(lightBase, vec3(0.98, 0.82, 0.76), caustic.mul(0.42)));
   const light = mix(
     lightBase,
     vec3(0.14, 0.24, 0.45),
-    clamp(overlayMask.mul(0.68), float(0), float(0.84)),
+    clamp(overlayMask.mul(0.76), float(0), float(0.86)),
   );
 
   return {
     dark,
     light,
     alpha: smoothstep(float(0.04), float(0.42), ndv),
-    hotCrest: smoothstep(float(0.72), float(1.0), crestSpec),
+    hotCrest: smoothstep(float(0.72), float(1.0), crestSpec)
+      .add(caustic.mul(0.32))
+      .mul(float(1).sub(u.calm.mul(0.6))),
   };
+}
+
+function composeSceneColor(
+  u: PrismRibbonUniforms,
+  grounds: Grounds,
+  c: {
+    readonly p: V2;
+    readonly under: F;
+    readonly fieldSrgb: V3;
+    readonly shadowSoft: F;
+    readonly haloCol: V3;
+    readonly groundMask: F;
+    readonly ribbonBottomFade: F;
+    readonly cov: F;
+    readonly bodyDarkSrgb: V3;
+    readonly bodyLightSrgb: V3;
+    readonly bodyAlpha: F;
+    readonly hotCrest: F;
+  },
+): V3 {
+  const { ground, page, paint } = grounds;
+  const toCursor = c.p.sub(u.cursor);
+  const cursorGlow = exp(dot(toCursor, toCursor).mul(-10.0)).mul(0.2).mul(u.pointer.z);
+
+  // Dark composition (linear HDR + subtle crest boost for stage bloom).
+  const darkFieldLin = toLinear(
+    c.fieldSrgb.mul(float(1).sub(c.shadowSoft)).add(c.haloCol).mul(float(1.16).add(cursorGlow)),
+  );
+  const darkRibbonHdr = toLinear(c.bodyDarkSrgb).add(
+    vec3(0.42, 0.34, 0.16).mul(c.hotCrest.mul(c.hotCrest)).mul(c.bodyAlpha),
+  );
+  const ribbonCov = c.cov.mul(c.bodyAlpha).mul(c.ribbonBottomFade);
+  const darkBg = mix(ground, ground.add(darkFieldLin), c.groundMask);
+  const darkEdgeHalo = toLinear(c.haloCol.mul(1.15))
+    .mul(float(1).sub(c.cov))
+    .mul(0.45)
+    .mul(c.ribbonBottomFade);
+  const darkScene = mix(darkBg.add(darkEdgeHalo), darkRibbonHdr, ribbonCov);
+  const shownDark = mix(
+    ground,
+    u.turn.mul(darkScene).max(vec3(0, 0, 0)),
+    float(1).sub(c.under.mul(ribbonCov.oneMinus()).mul(0.24)),
+  );
+
+  // Light composition (ink/engraving watercolor wash on page paper).
+  const lightWashTint = mix(
+    vec3(0.92, 0.94, 0.99),
+    vec3(0.98, 0.92, 0.94),
+    smoothstep(float(0.1), float(0.3), c.fieldSrgb.r),
+  );
+  const lightWash = mix(vec3(1, 1, 1), lightWashTint, c.groundMask.mul(0.88)).mul(
+    float(1).sub(c.shadowSoft.mul(0.2).mul(c.ribbonBottomFade)),
+  );
+  const lightComposed = mix(lightWash, c.bodyLightSrgb, ribbonCov.mul(0.95));
+  const lightGraded = mix(
+    u.turn.mul(lightComposed).clamp(0, 1),
+    vec3(1, 1, 1),
+    c.under.mul(ribbonCov.oneMinus()).mul(0.22),
+  );
+  return mix(paint(page.mul(lightGraded)), shownDark, u.dark);
+}
+
+function evaluateRibbonBody(
+  u: PrismRibbonUniforms,
+  fonts: { readonly atlas: DataTexture; readonly code: DataTexture },
+  hit: {
+    readonly p: V2;
+    readonly rd: V3;
+    readonly hp: V3;
+    readonly cov: F;
+    readonly surf: V2;
+    readonly surfFw: V2;
+    readonly prismZone: F;
+  },
+) {
+  const bodyDarkSrgb = vec3(0, 0, 0).toVar();
+  const bodyLightSrgb = vec3(0.95, 0.96, 0.98).toVar();
+  const bodyAlpha = float(0).toVar();
+  const hotCrest = float(0).toVar();
+
+  If(hit.cov.greaterThan(0.001), () => {
+    const wire = blueprintWire(hit.surf, hit.surfFw);
+    // Traveling write pulse band along ribbon spine `surf.x`
+    const pulseDist = hit.surf.x.sub(u.writeWave.x).div(0.46);
+    const pulseBand = exp(pulseDist.mul(pulseDist).negate()).mul(u.writeWave.y).toVar();
+    const stage = maskStageFn(
+      hit.surf,
+      hit.p,
+      u.cursor,
+      u.pointer.z,
+      u.time,
+      pulseBand.mul(1.8),
+    ).toVar();
+    // High-frequency surface-space stipple dissolve (rides with ribbon, never swims or slices glyphs).
+    const dissolveNoise = select(
+      stage.greaterThan(0),
+      gnoise(vec2(hit.surf.x.mul(75.0), hit.surf.y.mul(22.0)))
+        .sub(0.5)
+        .mul(0.55),
+      float(0),
+    );
+    const mWire = smoothstep(float(-0.04), float(0.04), stage.sub(1.0).add(dissolveNoise));
+    const mCode = smoothstep(float(-0.04), float(0.04), stage.sub(2.0).add(dissolveNoise));
+    const ink = sampleProjectedCode(u, fonts, {
+      hp: hit.hp,
+      surf: hit.surf,
+      surfFw: hit.surfFw,
+      stage,
+      mCode,
+    });
+
+    // Exclusive 3-stage progression matching original: wireframe dissolves cleanly into crisp code.
+    const calmQuiet = float(1).sub(u.calm.mul(0.72));
+    const overlayRaw = wire
+      .mul(0.62)
+      .mul(mWire)
+      .mul(float(1).sub(mCode))
+      .add(ink.mul(mCode).mul(0.96));
+    const overlayMask = clamp(
+      overlayRaw.mul(u.codeGain).mul(calmQuiet).mul(hit.prismZone),
+      float(0),
+      float(0.95),
+    );
+    const n = normalize(u.modelRot.mul(ribbonNormalFn(hit.hp, u.flow))).toVar();
+    const shaded = shadeRibbonSurface(u, { n, rd: hit.rd, pulseBand, overlayMask });
+    const matteDark = matteChromeFn(reflect(hit.rd, n), float(1));
+    const matteLight = matteChromeFn(reflect(hit.rd, n), float(0));
+    bodyDarkSrgb.assign(mix(matteDark, shaded.dark, hit.prismZone));
+    bodyLightSrgb.assign(mix(matteLight, shaded.light, hit.prismZone));
+    bodyAlpha.assign(shaded.alpha);
+    hotCrest.assign(shaded.hotCrest.mul(hit.prismZone));
+  });
+
+  return { bodyDarkSrgb, bodyLightSrgb, bodyAlpha, hotCrest };
 }
 
 /** The complete single-pass scene node for `stage.scene.backgroundNode`. */
@@ -533,17 +730,18 @@ export function prismRibbonFrame(
   u: PrismRibbonUniforms,
   fonts: { readonly atlas: DataTexture; readonly code: DataTexture },
   scrim: ReturnType<typeof textScrim>,
-  { ground, page, paint }: Grounds,
+  grounds: Grounds,
 ): V3 {
   return Fn(() => {
     const aspect = screenSize.x.div(screenSize.y);
     const p = vec2(screenUV.x.sub(0.5).mul(aspect), float(0.5).sub(screenUV.y)).toVar();
     const under = scrim.under(vec2(screenUV.x, float(1).sub(screenUV.y)));
 
-    const zoom = float(1.62).mul(u.hero.z);
+    // Slightly lifted vertical framing & zoom=1.48 keeps the animated ribbon belly graceful.
+    const zoom = float(1.48).mul(u.hero.z);
     const camP = p
       .sub(u.hero.xy)
-      .sub(vec2(0.04, -0.02).mul(u.hero.z))
+      .sub(vec2(0.04, 0.025).mul(u.hero.z))
       .add(u.pointer.xy.mul(0.45))
       .div(zoom)
       .toVar();
@@ -553,7 +751,7 @@ export function prismRibbonFrame(
     const roObj = u.invModelRot.mul(ro).toVar();
     const rdObj = u.invModelRot.mul(rd).toVar();
 
-    const { hitT, minD, cov, surf } = traceRibbon(u, camP, zoom, roObj, rdObj);
+    const { hp, minD, cov, surf } = traceRibbon(u, camP, zoom, roObj, rdObj);
     // Derivatives MUST be evaluated outside non-uniform branches for WGSL uniformity.
     const surfFw = fwidth(surf).toVar();
     const dSurf = max(minD, float(0));
@@ -571,78 +769,36 @@ export function prismRibbonFrame(
     );
     const haloCol = vec3(0.45, 0.54, 0.78).mul(halo).mul(0.25);
 
-    // Layer 2 & 3: Prismatic 3D ribbon + curvature-projected grid & SDF code.
-    const bodyDarkSrgb = vec3(0, 0, 0).toVar();
-    const bodyLightSrgb = vec3(0.95, 0.96, 0.98).toVar();
-    const bodyAlpha = float(0).toVar();
-    const hotCrest = float(0).toVar();
+    // Ground-only dissolve reach + analytic organic lower-edge modulation (zero straight cuts).
+    const fieldLeft = dissolve(u.reach, p, u.time.mul(0.03)).toVar();
+    const edgeOrganic = sin(p.x.mul(3.1).add(u.time.mul(0.25)))
+      .mul(0.02)
+      .add(cos(p.x.mul(5.7).sub(u.time.mul(0.18))).mul(0.012));
+    const bottomField = smoothstep(float(-0.36), float(-0.02), p.y.add(edgeOrganic));
+    const groundMask = fieldLeft.mul(bottomField).toVar();
 
-    If(cov.greaterThan(0.001), () => {
-      const hp = roObj.add(rdObj.mul(hitT)).toVar();
-      const wire = blueprintWire(surf, surfFw);
-      const stage = maskStageFn(surf, p, u.cursor, u.pointer.z, u.time).toVar();
-      const dissolveNoise = gnoise(camP.mul(46.0)).sub(0.5).mul(0.28);
-      const mBorder = smoothstep(float(-0.04), float(0.04), stage);
-      const mWire = smoothstep(float(-0.05), float(0.05), stage.sub(0.85).add(dissolveNoise));
-      const mCode = smoothstep(float(-0.05), float(0.05), stage.sub(1.65).add(dissolveNoise));
-      const ink = sampleProjectedCode(u, fonts, { hp, surf, surfFw, stage, mCode });
+    // Outside-frame ribbon transition (inspired by original matte studio silhouette):
+    // where a deep belly dip reaches the bottom edge, shed prism+code -> dark matte -> page bg.
+    const prismZone = smoothstep(float(-0.4), float(-0.15), p.y.add(edgeOrganic)).toVar();
+    const ribbonBottomFade = smoothstep(
+      float(-0.48),
+      float(-0.25),
+      p.y.add(edgeOrganic.mul(1.2)),
+    ).toVar();
 
-      const gridAlpha = wire
-        .mul(0.48)
-        .mul(mWire)
-        .mul(float(1).sub(mCode.mul(0.18)));
-      const overlayMask = clamp(
-        max(gridAlpha, ink.mul(mCode).mul(0.76)).mul(u.codeGain),
-        float(0),
-        float(0.9),
-      );
-      const n = normalize(u.modelRot.mul(ribbonNormalFn(hp, u.flow))).toVar();
-      const shaded = shadeRibbonSurface(u, n, rd, mBorder, overlayMask);
-      bodyDarkSrgb.assign(shaded.dark);
-      bodyLightSrgb.assign(shaded.light);
-      bodyAlpha.assign(shaded.alpha);
-      hotCrest.assign(shaded.hotCrest);
+    // Layer 2 & 3: Prismatic 3D ribbon + progressive wireframe → code reveal.
+    const body = evaluateRibbonBody(u, fonts, { p, rd, hp, cov, surf, surfFw, prismZone });
+
+    return composeSceneColor(u, grounds, {
+      p,
+      under,
+      fieldSrgb,
+      shadowSoft,
+      haloCol,
+      groundMask,
+      ribbonBottomFade,
+      cov,
+      ...body,
     });
-
-    // Ground-only dissolve: never clips the 3D ribbon floating above it.
-    const groundMask = dissolve(u.reach, p, u.time.mul(0.03))
-      .mul(smoothstep(float(-0.48), float(-0.08), p.y))
-      .toVar();
-    const toCursor = p.sub(u.cursor);
-    const cursorGlow = exp(dot(toCursor, toCursor).mul(-10.0)).mul(0.18).mul(u.pointer.z);
-
-    // Dark composition (linear HDR + subtle crest boost for stage bloom).
-    const darkFieldLin = toLinear(
-      fieldSrgb.mul(float(1).sub(shadowSoft)).add(haloCol).mul(float(1.16).add(cursorGlow)),
-    );
-    const darkRibbonHdr = toLinear(bodyDarkSrgb).add(
-      vec3(0.42, 0.34, 0.16).mul(hotCrest.mul(hotCrest)).mul(bodyAlpha),
-    );
-    const ribbonCov = cov.mul(bodyAlpha);
-    const darkBg = mix(ground, ground.add(darkFieldLin), groundMask);
-    const darkEdgeHalo = toLinear(haloCol.mul(1.15)).mul(float(1).sub(cov)).mul(0.45);
-    const darkScene = mix(darkBg.add(darkEdgeHalo), darkRibbonHdr, ribbonCov);
-    const shownDark = mix(
-      ground,
-      u.turn.mul(darkScene).max(vec3(0, 0, 0)),
-      float(1).sub(under.mul(ribbonCov.oneMinus()).mul(0.24)),
-    );
-
-    // Light composition (ink/engraving watercolor wash on page paper).
-    const lightWashTint = mix(
-      vec3(0.92, 0.94, 0.99),
-      vec3(0.98, 0.92, 0.94),
-      smoothstep(float(0.1), float(0.3), fieldSrgb.r),
-    );
-    const lightWash = mix(vec3(1, 1, 1), lightWashTint, groundMask.mul(0.88)).mul(
-      float(1).sub(shadowSoft.mul(0.2)),
-    );
-    const lightComposed = mix(lightWash, bodyLightSrgb, ribbonCov.mul(0.95));
-    const lightGraded = mix(
-      u.turn.mul(lightComposed).clamp(0, 1),
-      vec3(1, 1, 1),
-      under.mul(ribbonCov.oneMinus()).mul(0.22),
-    );
-    return mix(paint(page.mul(lightGraded)), shownDark, u.dark);
   })();
 }

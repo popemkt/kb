@@ -313,9 +313,9 @@ const prismRibbon: Omit<Backdrop, "key"> = {
   presentation: { ...sceneFrame, span: { reach: "region" } },
   budget: BACKDROP_BUDGETS.gpu,
   interactions: [
-    { cue: "pointer", does: "the key light shifts and reveals nearby shader code on the ribbon" },
-    { cue: "editing", does: "the ribbon's drift calms" },
-    { cue: "writes", does: "a shimmer runs along the projected code boundary" },
+    { cue: "pointer", does: "the key light shifts and wakes nearby shader code on the ribbon" },
+    { cue: "editing", does: "the ribbon settles into a calmer dark sheen and quietens its code" },
+    { cue: "writes", does: "a wave of prismatic light and shader code sweeps along the ribbon" },
   ],
   Component: PrismRibbonBackdrop,
 };

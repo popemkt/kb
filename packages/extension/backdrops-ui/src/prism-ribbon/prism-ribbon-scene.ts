@@ -1,18 +1,20 @@
 /**
  * The Prism ribbon backdrop: a glossy, iridescent 3D twisted ribbon drifting
- * across a dissolving midnight-navy and warm-plum field, traced with glowing
- * blueprint grids and curvature-projected shader code.
+ * across a dissolving midnight-navy and warm-plum field, traced with
+ * progressive blueprint wireframes and curvature-projected shader code.
  *
  * - **Width-agnostic.** Composed from height and content anchor (`data-hero`):
  *   widening the window extends the ribbon and atmospheric field smoothly
  *   without shifting or rescaling the central crest.
- * - **Two layers.** Only the atmospheric field dissolves into the page via
- *   `gpu/dissolve.ts`; the 3D ribbon floats whole and unclipped above it with
- *   a contact shadow and luminous rim halo.
- * - **Motion & interaction.** Slow, multi-frequency undulation that pauses on
- *   the curated still pose under reduced motion; bounded, frame-rate
- *   independent fast-attack / slow-release pointer reaction steers the light
- *   and reveals nearby shader code.
+ * - **Two layers + graceful lower boundary.** The atmospheric field dissolves
+ *   via `gpu/dissolve.ts`, while the 3D ribbon floats above it and sheds its
+ *   prism & code into a sleek matte studio silhouette before blending cleanly
+ *   into the page background near the bottom edge (zero hard horizontal cuts).
+ * - **Motion & interaction.** Paced to match the original's unified flow/drift
+ *   ratio (`TIME_RATE = 0.57`, `FLOW_RATIO = 0.749`), pausing on the curated
+ *   still under reduced motion. Hovering smoothly tilts the key light and wakes
+ *   nearby shader code; typing calms glare and quiets the code; a write sends
+ *   an optical prism & code wave sweeping along the ribbon spine.
  */
 import type { Matrix3 } from "three/webgpu";
 import type { SceneStage } from "@kb/scene-gpu";
@@ -29,11 +31,15 @@ import {
 } from "../gpu/gpu-scene";
 import { textScrim } from "../gpu/text-scrim";
 import {
+  FLOW_RATIO,
+  TIME_RATE,
   prismRibbonTuning,
   prismRibbonVariation,
   ribbonFieldReach,
   stepPointerRig,
+  stepWriteWave,
   type PointerRig,
+  type WriteWave,
 } from "./prism-ribbon";
 import { prismRibbonFrame, prismRibbonUniforms } from "./prism-ribbon-shader";
 import { createSdfFontResources } from "./sdf-font";
@@ -41,8 +47,8 @@ import { createSdfFontResources } from "./sdf-font";
 /** Base 3D ribbon tilt matching the sweeping diagonal crest-to-belly angle. */
 const BASE_TILT_X = -0.0395;
 const BASE_TILT_Y = 0.0819;
-const MAX_STEPS = 28;
-const MIN_STEPS = 18;
+const MAX_STEPS = 20;
+const MIN_STEPS = 12;
 
 function setModelRotation(
   rotMat: Matrix3,
@@ -82,9 +88,12 @@ function prismRibbon(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
 
   let width = 1;
   let height = 1;
+  let isDark = true;
+  let lastBloom = -1;
   let flow = vary.flowStart;
   let maskTime = vary.maskStart;
-  let pointerRig: PointerRig = { x: 0, y: 0, near: 0 };
+  let pointerRig: PointerRig = { x: 0, y: 0, cursorX: 0, cursorY: 0, near: 0 };
+  let writeWave: WriteWave = { x: -1.95, energy: 0, armed: true };
 
   const applyTilt = (px: number, py: number) => {
     setModelRotation(
@@ -100,8 +109,8 @@ function prismRibbon(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   return {
     // Panel: slightly compact and gently lifted so the title reads clearly.
     // Wide: full edge-to-edge sweeping composition anchored to content centre.
-    panel: { x: 0.04, y: 0.46, scale: 0.72, presence: 0.94 },
-    wide: { x: 0, y: 0.5, scale: 1, presence: 1 },
+    panel: { x: 0.04, y: 0.44, scale: 0.72, presence: 0.94 },
+    wide: { x: 0, y: 0.49, scale: 1, presence: 1 },
     layout: (layout: BackdropLayout) => {
       width = layout.width;
       height = layout.height;
@@ -114,27 +123,46 @@ function prismRibbon(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
     },
     setLook: (look: GpuLook) => {
       const tuned = prismRibbonTuning(look.knobs);
+      isDark = look.dark;
       u.dark.value = look.dark ? 1 : 0;
       u.codeGain.value = tuned.code;
       u.prismGain.value = tuned.prism;
       u.turn.value.set(...hueTurn(vary.hue + tuned.hue));
-      stage.setBloom(look.dark ? 0.28 : 0);
+      lastBloom = look.dark ? 0.28 : 0;
+      stage.setBloom(lastBloom);
     },
     frame: (dt: number, reactions: Reactions) => {
-      const pace = 1 - reactions.calm * 0.55;
-      // Gentle, contemplative motion so the ribbon breathes without distracting from content.
-      flow += dt * 0.14 * pace;
-      maskTime += dt * 0.22 * pace;
+      const calm = reactions.calm;
+      const pace = 1 - calm * 0.72;
+      const dTime = dt * TIME_RATE * pace;
+      maskTime += dTime;
+      flow += dTime * FLOW_RATIO;
       u.flow.value = flow;
       u.time.value = maskTime;
-      u.impulse.value = reactions.impulse;
+      u.calm.value = calm;
+
+      // Typing keeps the ribbon serene: only non-typing writes launch a traveling prism wave.
+      const waveStir = calm > 0.08 ? 0 : reactions.stir * (1 - calm);
+      writeWave = stepWriteWave(writeWave, waveStir, dt);
+      u.writeWave.value.set(writeWave.x, writeWave.energy * (1 - calm));
+      if (isDark) {
+        const nextBloom = 0.28 * (1 - calm * 0.65) + writeWave.energy * (1 - calm) * 0.08;
+        if (Math.abs(nextBloom - lastBloom) > 0.004) {
+          lastBloom = nextBloom;
+          stage.setBloom(nextBloom);
+        }
+      }
 
       const ptr = reactions.pointer;
       const overX = (ptr.x - width / 2) / Math.max(1, height);
       const overY = (height / 2 - ptr.y) / Math.max(1, height);
-      pointerRig = stepPointerRig(pointerRig, { x: overX, y: overY, near: ptr.near }, dt);
+      pointerRig = stepPointerRig(
+        pointerRig,
+        { x: overX, y: overY, near: ptr.near * (1 - calm) },
+        dt,
+      );
       u.pointer.value.set(pointerRig.x, pointerRig.y, pointerRig.near);
-      u.cursor.value.set(overX, overY);
+      u.cursor.value.set(pointerRig.cursorX, pointerRig.cursorY);
       applyTilt(pointerRig.x, pointerRig.y);
     },
     dispose: () => {

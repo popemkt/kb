@@ -1,6 +1,7 @@
 /**
- * Pure parameters, variation, framing reach and pointer spring for the Prism
- * ribbon backdrop (`prism-ribbon-scene.ts`, `prism-ribbon-shader.ts`).
+ * Pure parameters, variation, framing reach, pointer spring and write-wave
+ * state for the Prism ribbon backdrop (`prism-ribbon-scene.ts`,
+ * `prism-ribbon-shader.ts`).
  *
  * Kept free of WebGPU/DOM imports so every geometric and motion guarantee can
  * be unit-tested directly at multiple frame rates and seeds.
@@ -25,8 +26,18 @@ export const PRISM_CODE_TEXT =
  * exits, swells into an upper-center crest, and sweeps into a deep lower belly.
  */
 export const STILL_FLOW = 4.65;
-/** Curated mask clock for the still frame so blueprint grid and code patches balance across the crest and belly. */
-const STILL_MASK_TIME = 0.55;
+/**
+ * Curated mask clock for the still frame so the progressive wireframe → code
+ * reveal sits gracefully across the central crest and belly.
+ */
+const STILL_MASK_TIME = 1.15;
+
+/**
+ * Real-time clock rates matching the original artwork's pacing ratio
+ * (`uTime` at `0.19 × 60 = 11.4/s` → `time = 0.57/s`, `flow = time × 0.749`).
+ */
+export const TIME_RATE = 0.57;
+export const FLOW_RATIO = 0.749;
 
 /** Live tuning decoded from the backdrop's knobs. */
 export interface PrismRibbonTuning {
@@ -48,7 +59,7 @@ export function prismRibbonTuning(knobs: KnobValues): PrismRibbonTuning {
 
 /** Seeded variation per page load (`variation(seed)`). */
 export interface PrismRibbonVariation {
-  /** Initial flow phase offset (radians); 0 under reduced motion for the curated still. */
+  /** Initial flow phase offset (radians); curated under reduced motion. */
   readonly flowStart: number;
   /** Initial mask drift offset; curated under reduced motion. */
   readonly maskStart: number;
@@ -78,14 +89,15 @@ export function prismRibbonVariation(seed: number, reducedMotion: boolean): Pris
     maskStart: STILL_MASK_TIME + vary.range("prism.mask", -1.4, 1.4),
     hue: vary.range("prism.hue", -0.09, 0.09),
     fieldPhase: vary.range("prism.field", -0.9, 0.9),
-    tiltX: vary.range("prism.tiltX", -0.025, 0.025),
-    tiltY: vary.range("prism.tiltY", -0.025, 0.025),
+    tiltX: vary.range("prism.tiltX", -0.022, 0.022),
+    tiltY: vary.range("prism.tiltY", -0.022, 0.022),
   };
 }
 
 /**
  * The atmospheric background field's dissolve reach around the ribbon's anchor.
- * Only the ground field uses this reach; the 3D ribbon floats whole above it.
+ * Only the ground field uses this reach; the 3D ribbon floats above it and
+ * transitions into a matte bg-tinted silhouette where it dips past the field.
  */
 export function ribbonFieldReach(aspect: number, anchor: Anchor): Reach {
   const rx = Math.max(aspect * 0.62, 1.85 * anchor.scale);
@@ -93,16 +105,19 @@ export function ribbonFieldReach(aspect: number, anchor: Anchor): Reach {
   return reachWithin(aspect, { x: anchor.x, y: anchor.y + 0.06 }, { x: rx, y: ry }, 0.62);
 }
 
-/** Eased pointer state: bounded lean in frame units + smooth proximity weight. */
+/** Eased pointer state: bounded lean in frame units, smooth cursor position, and proximity weight. */
 export interface PointerRig {
-  x: number;
-  y: number;
-  near: number;
+  readonly x: number;
+  readonly y: number;
+  readonly cursorX: number;
+  readonly cursorY: number;
+  readonly near: number;
 }
 
 /** Fast-attack, slow-release time constants (s): within 0.15–0.6 s per docs/backdrops.md. */
 const POINTER_ATTACK = 0.24;
 const POINTER_RELEASE = 0.52;
+const CURSOR_FOLLOW = 0.16;
 /** Bounded maximum pointer displacement (frame heights) so composition always holds. */
 export const MAX_POINTER_LEAN = 0.085;
 
@@ -122,11 +137,55 @@ export function stepPointerRig(
   const rateX = Math.abs(clampedX) > Math.abs(rig.x) ? 1 / POINTER_ATTACK : 1 / POINTER_RELEASE;
   const rateY = Math.abs(clampedY) > Math.abs(rig.y) ? 1 / POINTER_ATTACK : 1 / POINTER_RELEASE;
   const rateNear = target.near > rig.near ? 1 / POINTER_ATTACK : 1 / POINTER_RELEASE;
+  const cx = target.near > 0.01 ? damp(rig.cursorX, target.x, 1 / CURSOR_FOLLOW, dt) : rig.cursorX;
+  const cy = target.near > 0.01 ? damp(rig.cursorY, target.y, 1 / CURSOR_FOLLOW, dt) : rig.cursorY;
   return {
     x: damp(rig.x, clampedX, rateX, dt),
     y: damp(rig.y, clampedY, rateY, dt),
+    cursorX: cx,
+    cursorY: cy,
     near: damp(rig.near, target.near, rateNear, dt),
   };
+}
+
+/**
+ * A traveling optical prism + code wave along the ribbon spine (`surf.x`)
+ * driven by page writes (`reactions.stir`). Runs forward continuously so a new
+ * write energizes the wave without ever resetting or snapping.
+ */
+export interface WriteWave {
+  /** Spine x position of the wave crest in object space (`-2.4 .. +2.4`). */
+  readonly x: number;
+  /** Current optical energy (0..1), rising smoothly on a write and fading after crossing. */
+  readonly energy: number;
+  /** Whether the wave is currently armed to re-enter from the left on the next write. */
+  readonly armed: boolean;
+}
+
+const WAVE_START_X = -1.95;
+const WAVE_END_X = 2.2;
+const WAVE_SPEED = 2.8;
+
+export function stepWriteWave(wave: WriteWave, stir: number, dt: number): WriteWave {
+  if (dt <= 0) return wave;
+  let { x, energy, armed } = wave;
+  if (armed && stir > 0.22) {
+    // Launch smoothly from the left pinch when quiet; if already crossing, re-energize cleanly.
+    if (energy < 0.08 || x >= WAVE_END_X - 0.15) x = WAVE_START_X;
+    armed = false;
+  } else if (!armed && stir < 0.12) {
+    armed = true;
+  }
+  const sustain = energy * Math.exp(-dt * 0.45);
+  const targetEnergy = x < WAVE_END_X ? Math.max(Math.min(1, stir * 1.35), sustain) : 0;
+  energy = damp(energy, targetEnergy, targetEnergy > energy ? 18 : 2.0, dt);
+  if (energy > 0.004) {
+    x = Math.min(WAVE_END_X, x + dt * WAVE_SPEED);
+  }
+  if (x >= WAVE_END_X) {
+    energy = damp(energy, 0, 5.5, dt);
+  }
+  return { x, energy: energy < 0.002 ? 0 : energy, armed };
 }
 
 /** Maximum code buffer length encoded into the 1D GPU lookup texture. */

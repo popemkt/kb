@@ -14,9 +14,23 @@ import {
   prismRibbonVariation,
   ribbonFieldReach,
   stepPointerRig,
+  stepWriteWave,
   type PointerRig,
+  type WriteWave,
 } from "./prism-ribbon";
 import { computeSdfField } from "./sdf-font";
+
+const REST_POINTER: PointerRig = { x: 0, y: 0, cursorX: 0, cursorY: 0, near: 0 };
+
+function runPointerTrack(stepMs: number): PointerRig {
+  let rig: PointerRig = REST_POINTER;
+  const dt = stepMs / 1000;
+  const steps = Math.round(0.4 / dt);
+  for (let i = 0; i < steps; i++) {
+    rig = stepPointerRig(rig, { x: 0.9, y: -0.6, near: 1 }, dt);
+  }
+  return rig;
+}
 
 describe("prism ribbon tuning and variation", () => {
   it("maps default knobs to neutral tuning and scales custom values", () => {
@@ -55,16 +69,6 @@ describe("prism ribbon tuning and variation", () => {
   });
 });
 
-function runPointerTrack(stepMs: number): PointerRig {
-  let rig: PointerRig = { x: 0, y: 0, near: 0 };
-  const dt = stepMs / 1000;
-  const steps = Math.round(0.4 / dt);
-  for (let i = 0; i < steps; i++) {
-    rig = stepPointerRig(rig, { x: 0.9, y: -0.6, near: 1 }, dt);
-  }
-  return rig;
-}
-
 describe("prism ribbon pointer rig", () => {
   it("produces the same eased trajectory at 8 ms and 33 ms frame steps within 2%", () => {
     const fast = runPointerTrack(8);
@@ -74,10 +78,10 @@ describe("prism ribbon pointer rig", () => {
   });
 
   it("starts eased, stays bounded, and returns to rest within 3 s of pointer leave", () => {
-    const first = stepPointerRig({ x: 0, y: 0, near: 0 }, { x: 10, y: -10, near: 1 }, 1 / 60);
+    const first = stepPointerRig(REST_POINTER, { x: 10, y: -10, near: 1 }, 1 / 60);
     expect(Math.abs(first.x)).toBeLessThan(MAX_POINTER_LEAN * 0.2);
 
-    let rig: PointerRig = { x: 0, y: 0, near: 0 };
+    let rig: PointerRig = REST_POINTER;
     for (let i = 0; i < 180; i++) {
       rig = stepPointerRig(rig, { x: 5, y: 5, near: 1 }, 1 / 60);
     }
@@ -89,6 +93,24 @@ describe("prism ribbon pointer rig", () => {
     }
     expect(Math.abs(rig.x)).toBeLessThan(0.002);
     expect(Math.abs(rig.y)).toBeLessThan(0.002);
+  });
+});
+
+describe("prism ribbon write wave", () => {
+  it("sweeps forward across the spine on a write and settles cleanly to rest", () => {
+    let wave: WriteWave = { x: -2.2, energy: 0, armed: true };
+    wave = stepWriteWave(wave, 0.9, 1 / 60);
+    expect(wave.energy).toBeGreaterThan(0.05);
+    const startX = wave.x;
+    for (let i = 0; i < 60; i++) {
+      wave = stepWriteWave(wave, Math.max(0, 0.8 - i * 0.02), 1 / 60);
+    }
+    expect(wave.x).toBeGreaterThan(startX + 1.5);
+    for (let i = 0; i < 180; i++) {
+      wave = stepWriteWave(wave, 0, 1 / 60);
+    }
+    expect(wave.energy).toBe(0);
+    expect(wave.armed).toBe(true);
   });
 });
 
