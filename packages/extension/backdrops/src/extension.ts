@@ -47,6 +47,13 @@ export const SKY_BACKDROP: SeedBackdrop = {
   knobs: [...MOVING_KNOBS, ...SKY_KNOBS],
 };
 
+/** Two valves call the far bank; the watch lamp answers. */
+export const RAIN_RELAY_BACKDROP: SeedBackdrop = {
+  id: "backdrops.rain-relay",
+  label: "Rain Relay",
+  knobs: MOVING_KNOBS,
+};
+
 /** A house with bats hanging under its eaves: asleep by day, stirring and flying at night. */
 export const ROOST_BACKDROP: SeedBackdrop = {
   id: "backdrops.roost",
@@ -151,6 +158,7 @@ const BACKDROPS: readonly SeedBackdrop[] = [
   GRADIENT_BACKDROP,
   SKY_BACKDROP,
   ROOST_BACKDROP,
+  RAIN_RELAY_BACKDROP,
   LENS_BACKDROP,
   BLACK_HOLE_BACKDROP,
   TOON_SEA_BACKDROP,

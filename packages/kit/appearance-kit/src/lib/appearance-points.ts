@@ -31,6 +31,8 @@ type BackdropSpan =
  */
 export interface BackdropPresentation {
   readonly space: number;
+  /** Minimum room before the first content row on a narrow screen. */
+  readonly minSpace?: number;
   readonly height: number;
   readonly span: BackdropSpan;
   readonly offset: number;

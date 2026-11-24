@@ -3,3 +3,28 @@
   position: absolute;
   inset: 0;
 }
+
+/* Report the frame's own pending state. Quick loads finish during the delay. */
+.kb-header-backdrop:has([data-scene-state="loading"], [data-deferred-pending])::after {
+  content: "";
+  position: absolute;
+  top: 27%;
+  left: calc(50% - 12px);
+  width: 24px;
+  height: 5px;
+  pointer-events: none;
+  color: var(--muted-foreground);
+  background: radial-gradient(circle, currentColor 1.6px, transparent 2px) left center / 8px 5px
+    repeat-x;
+  opacity: 0;
+  animation: kb-backdrop-loading 1.6s ease-in-out 650ms infinite alternate forwards;
+}
+
+@keyframes kb-backdrop-loading {
+  from {
+    opacity: 0.22;
+  }
+  to {
+    opacity: 0.56;
+  }
+}

@@ -46,6 +46,7 @@ const init = (dark: boolean, reducedMotion: boolean): GpuBackdropInit => ({
 });
 
 const mounts: Record<string, () => Promise<GpuBackdropMount>> = {
+  "rain relay": () => import("../relay/relay-scene").then((m) => m.mountRelay),
   lens: () => import("../lens/lens-scene").then((m) => m.mountLens),
   "toon sea": () => import("../toon-sea/toon-sea-scene").then((m) => m.mountToonSea),
   silk: () => import("../silk/silk-scene").then((m) => m.mountSilk),

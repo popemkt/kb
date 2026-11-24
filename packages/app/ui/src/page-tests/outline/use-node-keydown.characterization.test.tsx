@@ -472,7 +472,71 @@ describe("outline editing keymap (characterization)", () => {
     });
 
     it("at end of the last visible row is left to the browser", async () => {
-      expect(await press(mount("n.root-c", endOf("n.root-c"), false), "Delete")).toBe(false);
+      expect(await press(mount("tag.todo", endOf("tag.todo"), false), "Delete")).toBe(false);
+    });
+  });
+
+  /**
+   * A tag or a field is a node others point at by type: a merge that took it
+   * away would leave them pointing at nothing, and one into it would rename
+   * it. Either merge key on either side of one is claimed and does nothing.
+   */
+  describe("a kind's definition is never merged into or out of", () => {
+    // Unranked roots sort by id, so this one is the row after tag.todo.
+    const AFTER = "z.after-tag";
+    beforeEach(() => {
+      // A plain row after the top-level tag, and a field definition under n.root-b.
+      const wires = structuredClone(fixtureGraph.nodes).map((w) =>
+        w.id === "n.root-b" ? { ...w, children: ["field.status"] } : w,
+      );
+      resetOutlineStore();
+      useGraphStore
+        .getState()
+        .hydrateFromWire(
+          [
+            ...wires,
+            { id: AFTER, text: "After", props: {}, children: [], createdAt: "", updatedAt: "" },
+          ],
+          fixtureGraph.rev,
+          "fixtures",
+        );
+    });
+
+    const unchanged = (ids: readonly string[], before: ReadonlyMap<string, string>) => {
+      for (const id of ids) expect(node(id)?.text).toBe(before.get(id));
+    };
+    const texts = (ids: readonly string[]) =>
+      new Map(ids.map((id) => [id, present(node(id), id).text]));
+
+    it("Delete at the end of the row above a tag does not take the tag", async () => {
+      const before = texts(["n.root-c", "tag.todo"]);
+      expect(await press(mount("n.root-c", endOf("n.root-c")), "Delete")).toBe(true);
+      unchanged(["n.root-c", "tag.todo"], before);
+    });
+
+    it("Delete at the end of a tag does not take the row below into it", async () => {
+      const before = texts(["tag.todo", AFTER]);
+      expect(await press(mount("tag.todo", endOf("tag.todo")), "Delete")).toBe(true);
+      unchanged(["tag.todo", AFTER], before);
+    });
+
+    it("Backspace at the start of a tag does not merge it into the row above", async () => {
+      const before = texts(["n.root-c", "tag.todo"]);
+      expect(await press(mount("tag.todo", 0), "Backspace")).toBe(true);
+      unchanged(["n.root-c", "tag.todo"], before);
+    });
+
+    it("Backspace at the start of the row below a tag does not merge into it", async () => {
+      const before = texts(["tag.todo", AFTER]);
+      expect(await press(mount(AFTER, 0), "Backspace")).toBe(true);
+      unchanged(["tag.todo", AFTER], before);
+    });
+
+    it("Delete at the end of the row above a field definition does not take the field", async () => {
+      act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-b")));
+      const before = texts(["n.root-b", "field.status"]);
+      expect(await press(mount("n.root-b", endOf("n.root-b")), "Delete")).toBe(true);
+      unchanged(["n.root-b", "field.status"], before);
     });
   });
 
@@ -619,7 +683,7 @@ describe("outline editing keymap (characterization)", () => {
     });
 
     it("bare ArrowDown at the document edge is left to the browser", async () => {
-      expect(await press(mount("n.root-c", 4, false), "ArrowDown")).toBe(false);
+      expect(await press(mount("tag.todo", 4, false), "ArrowDown")).toBe(false);
     });
   });
 

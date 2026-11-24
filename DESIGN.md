@@ -2854,8 +2854,9 @@ layer), so neither is computed by DataScript. Plan and prior art:
   (`within`) and the nodes it is anchored at (a trace's ends, a
   suggestion's subject) whatever they are, and its adjacency and every
   degree are of those nodes. Which nodes the graph shows is `visibleNodes`
-  (`isScaffolding` — `sys.*` nodes, commands, tag and field nodes — elided
-  unless `includeSystem`), the one function the renderers' node set reads
+  (`@kb/model`'s `isScaffolding` — `sys.*` nodes, commands and field
+  nodes — elided unless `includeSystem`; a tag is drawn as any node is, so
+  the `tag` edge reaches it), the one function the renderers' node set reads
   too. The page reads over the nodes it drew; `graph.trace` and
   `graph.suggest` over the visible nodes. Keeping the anchors is the read's
   own rule (`traceOf`, `suggestOf`), so a trace from a node the graph

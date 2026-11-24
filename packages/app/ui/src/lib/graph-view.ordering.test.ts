@@ -21,7 +21,14 @@ describe("stable outline ordering", () => {
 
   it("forest roots are sorted by id ascending", () => {
     const roots = forestRootIds(fixtureGraph.nodes);
-    expect(roots).toEqual(["lens.all-mentions", "n.root-a", "n.root-b", "n.root-c"]);
+    expect(roots).toEqual(["lens.all-mentions", "n.root-a", "n.root-b", "n.root-c", "tag.todo"]);
+  });
+
+  it("a top-level tag is a root like any node; a field and a system node are not", () => {
+    const roots = forestRootIds(fixtureGraph.nodes);
+    expect(roots).toContain("tag.todo");
+    expect(roots).not.toContain("field.status");
+    expect(roots.filter((id) => id.startsWith("sys."))).toEqual([]);
   });
 
   it("mergeTx preserves deterministic wire order (id ascending)", () => {

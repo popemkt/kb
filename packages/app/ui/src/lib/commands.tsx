@@ -507,9 +507,8 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     run: (ctx) =>
       nodeAction(ctx, async (nodeId, writes) => {
         if (!(await writes.makeSupertag(nodeId))) return;
-        // A supertag is schema, so it leaves the outline forest the moment it
-        // becomes one. Zoom to it rather than letting the row vanish — and
-        // its field template is the next thing anyone wants anyway.
+        // Its field template is the next thing anyone wants, and a tag's page
+        // is where it is edited. The row stays where it was, as any tag's does.
         ctx.outline.zoomTo(nodeId);
       }),
   },
