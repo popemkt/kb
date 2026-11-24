@@ -834,6 +834,34 @@ describe("day view", () => {
     expect($("[data-calendar-scroller]").scrollTop).toBe(7 * HOUR_PX - 10);
   });
 
+  test("stepping to another day resets scroll even when the opening hour is unchanged, while week keeps scroll", async () => {
+    const day1 = routine("day1", "Standup 1", {
+      [F.starts]: [str("2026-11-05")],
+      [F.at]: [str("09:00")],
+      [F.duration]: [num(30)],
+    });
+    const day2 = routine("day2", "Standup 2", {
+      [F.starts]: [str("2026-11-06")],
+      [F.at]: [str("09:00")],
+      [F.duration]: [num(30)],
+    });
+    open("/calendar/day/2026-11-05", [CALENDAR, day1, day2]);
+    const scroller = () => $("[data-calendar-scroller]");
+    expect(scroller().scrollTop).toBe(9 * HOUR_PX - 10);
+    scroller().scrollTop = 18 * HOUR_PX;
+    await click(button("Next (j)"));
+    expect(window.location.pathname).toBe("/calendar/day/2026-11-06");
+    expect(scroller().scrollTop).toBe(9 * HOUR_PX - 10);
+
+    // Week keeps where the person scrolled when stepping to a week with the same opening hour.
+    open("/calendar/week/2026-11-02", [CALENDAR, GYM]);
+    expect(scroller().scrollTop).toBe(7 * HOUR_PX - 10);
+    scroller().scrollTop = 18 * HOUR_PX;
+    await click(button("Next (j)"));
+    expect(window.location.pathname).toBe("/calendar/week/2026-11-09");
+    expect(scroller().scrollTop).toBe(18 * HOUR_PX);
+  });
+
   test("creates, moves, and edits events from day mode through the same write path", async () => {
     const dentist = routine("dentist", "Dentist", {
       [F.starts]: [str("2026-11-04")],

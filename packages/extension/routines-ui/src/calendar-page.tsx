@@ -120,7 +120,7 @@ export function CalendarPage({ params }: { readonly params: CalendarParams }) {
         modes={CALENDAR_MODES}
       />
       <IssuesNote issues={model.issues} onOpen={actions.edit} />
-      {mode === "week" || mode === "day" ? <TimeGrid key={mode} mode={mode} {...layout} /> : null}
+      {mode === "week" || mode === "day" ? <TimeGrid mode={mode} {...layout} /> : null}
       {mode === "month" ? (
         <MonthView
           layout={layout}

@@ -225,7 +225,7 @@ function AllDayRow({
  * row held at the top, then the hours inside one scroller so a scrollbar
  * narrows every row alike.
  */
-export function TimeGrid({ mode, ...layout }: LayoutProps & { readonly mode: TimeGridMode }) {
+function TimeGridBody({ mode, ...layout }: LayoutProps & { readonly mode: TimeGridMode }) {
   const scroller = useRef<HTMLDivElement>(null);
   const columns = GRID_COLUMNS[mode];
   // Stepping to another week keeps where the person scrolled; something earlier opens it there.
@@ -272,4 +272,14 @@ export function TimeGrid({ mode, ...layout }: LayoutProps & { readonly mode: Tim
       </div>
     </div>
   );
+}
+
+/**
+ * One or seven days as a 24-hour time grid: a header of days and an all-day
+ * row held at the top, then the hours inside one scroller so a scrollbar
+ * narrows every row alike. Stepping days resets the scroll to that day's
+ * opening hour; stepping weeks keeps where the person scrolled.
+ */
+export function TimeGrid(props: LayoutProps & { readonly mode: TimeGridMode }) {
+  return <TimeGridBody key={props.mode === "day" ? props.days[0] : props.mode} {...props} />;
 }
