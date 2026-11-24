@@ -256,6 +256,26 @@ describe("kb mcp --listen bounds each request", () => {
   }, 40_000);
 });
 
+describe("kb mcp --listen that cannot start", () => {
+  test("exits at once, saying why, when it cannot bind its socket", async () => {
+    const child = Bun.spawn(
+      [
+        KB_SOURCE_BIN,
+        "--root",
+        root,
+        "mcp",
+        "--listen",
+        `unix:${join(dir, "missing", "mcp.sock")}`,
+      ],
+      { stdin: "ignore", stdout: "ignore", stderr: "pipe", env: envWith() },
+    );
+    const exited = await Promise.race([child.exited, Bun.sleep(15_000).then(() => "running")]);
+    if (exited === "running") child.kill();
+    expect(exited).toBe(1);
+    expect(await new Response(child.stderr).text()).toContain("does not exist");
+  });
+});
+
 describe("kb mcp --listen on a TCP port", () => {
   test("serves on loopback and answers only to its own Host", async () => {
     const { said } = await listening("127.0.0.1:0");

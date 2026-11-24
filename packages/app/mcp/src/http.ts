@@ -176,11 +176,18 @@ const serveIn = Effect.fn("kb.mcp.serveIn")(function* (
 ) {
   const session = yield* openMcpSession(root, options);
   yield* Scope.addFinalizer(lifetime, session.ctx.store.closeEffect);
+  // The sampler starts with the requests' holder, so it stops with the
+  // lifetime even when the bind below fails; finalizers run last-first, so
+  // the server stops before the requests settle.
   const requests = requestHealth((line) => writeErr(`kb mcp: ${line}`));
+  yield* Scope.addFinalizer(
+    lifetime,
+    Effect.promise(() => requests.settle()),
+  );
   const served = yield* listen(at, lifetime, (where) => bunServe(where, session, at, requests));
   yield* Scope.addFinalizer(
     lifetime,
-    Effect.promise(() => served.stop(true).then(() => requests.settle())),
+    Effect.promise(() => served.stop(true)),
   );
   const bound: ServerListener = at.kind === "tcp" ? { ...at, port: served.port ?? at.port } : at;
   return { at: bound, stop: Scope.close(lifetime, Exit.void) };
