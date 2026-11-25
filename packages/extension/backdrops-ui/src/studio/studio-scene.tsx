@@ -179,6 +179,7 @@ export function StudioScene({
   const framing = useFraming(backdrop.presentation);
   const owner = useStudioActivity();
   const [interacting, setInteracting] = useState(false);
+  const [panelsOpen, setPanelsOpen] = useState(true);
   // The scene's pointer is one source for the scene's life; Interact opens and closes it.
   const [gate] = useState(() => gatedPointer(pointer));
   useEffect(() => gate.open(interacting), [gate, interacting]);
@@ -200,21 +201,29 @@ export function StudioScene({
       data-studio-backdrop={key.id}
     >
       <StudioHeader backdrop={backdrop} from={from} shown={shown} onShow={setShown} frame={frame} />
-      <FramingBar framing={framing} interacting={interacting} onInteract={setInteracting} />
+      <FramingBar
+        framing={framing}
+        interacting={interacting}
+        onInteract={setInteracting}
+        panelsOpen={panelsOpen}
+        onPanelsOpen={setPanelsOpen}
+      />
       <StudioStage
         framing={framing}
         interacting={interacting}
         overlay={
-          <div className="pointer-events-none absolute inset-y-4 right-4 z-10 flex w-80 max-w-[calc(100%-2rem)] flex-col overflow-y-auto">
-            <div className="mt-auto flex flex-col gap-3">
-              <InteractionsPanel
-                interactions={backdrop.interactions}
-                interacting={interacting}
-                owner={owner}
-              />
-              <KnobPanel groups={groupsOf(backdrop, shown.variant)} />
+          panelsOpen ? (
+            <div className="pointer-events-none absolute inset-y-4 right-4 z-10 flex w-80 max-w-[calc(100%-2rem)] flex-col overflow-y-auto">
+              <div className="mt-auto flex flex-col gap-3">
+                <InteractionsPanel
+                  interactions={backdrop.interactions}
+                  interacting={interacting}
+                  owner={owner}
+                />
+                <KnobPanel groups={groupsOf(backdrop, shown.variant)} />
+              </div>
             </div>
-          </div>
+          ) : null
         }
       >
         <BackdropFrame

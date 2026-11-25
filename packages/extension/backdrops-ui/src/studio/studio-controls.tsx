@@ -7,9 +7,12 @@
 import { useState } from "react";
 import {
   ArrowCounterClockwiseIcon,
+  CaretDownIcon,
+  CaretRightIcon,
   HandPointingIcon,
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
+  SidebarSimpleIcon,
 } from "@phosphor-icons/react";
 import {
   BACKDROP_CUE_LABELS,
@@ -31,10 +34,14 @@ export function FramingBar({
   framing,
   interacting,
   onInteract,
+  panelsOpen,
+  onPanelsOpen,
 }: {
   readonly framing: Framing;
   readonly interacting: boolean;
   readonly onInteract: (on: boolean) => void;
+  readonly panelsOpen: boolean;
+  readonly onPanelsOpen: (open: boolean) => void;
 }) {
   const { preview, zoom, scale, pannable } = framing;
   // The proportions an aspect preview last had, so switching back to it keeps them.
@@ -85,6 +92,14 @@ export function FramingBar({
       ) : null}
       <span className="flex-1" />
       <ToolButton
+        label={panelsOpen ? "Hide studio panels" : "Show studio panels"}
+        pressed={panelsOpen}
+        onClick={() => onPanelsOpen(!panelsOpen)}
+      >
+        <SidebarSimpleIcon size={13} aria-hidden="true" />
+        Panels
+      </ToolButton>
+      <ToolButton
         label={interacting ? "Stop interacting" : "Interact with the scene"}
         pressed={interacting}
         onClick={() => onInteract(!interacting)}
@@ -112,6 +127,7 @@ export function InteractionsPanel({
   /** The owner the studio acts out, whose cues the panel tries. */
   readonly owner: StudioActivity;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
   const listed = interactions.toSorted(byCue);
   return (
     <section
@@ -120,25 +136,47 @@ export function InteractionsPanel({
       data-studio-interactions=""
       data-studio-panel=""
     >
-      <h2 className="font-medium text-foreground/80">Interactions</h2>
-      {listed.length === 0 ? (
-        <p className="text-foreground/50">It answers nothing: it plays on its own.</p>
-      ) : (
-        <ul className="flex flex-col gap-1.5">
-          {listed.map(({ cue, does }) => (
-            <li key={`${cue}:${does}`} className="flex items-baseline gap-2" data-studio-cue={cue}>
-              <span className="w-28 shrink-0 text-label text-foreground/45">
-                {BACKDROP_CUE_LABELS[cue]}
-              </span>
-              <span className="min-w-0 flex-1 text-foreground/75">{does}</span>
-              {interacting ? <TryCue cue={cue} owner={owner} /> : null}
-            </li>
-          ))}
-        </ul>
+      <button
+        type="button"
+        className="flex items-center gap-1.5 rounded-sm text-left font-medium text-foreground/80 hover:text-foreground focus-visible:outline focus-visible:outline-primary"
+        aria-expanded={!collapsed}
+        onClick={() => setCollapsed((v) => !v)}
+      >
+        {collapsed ? (
+          <CaretRightIcon size={12} aria-hidden="true" />
+        ) : (
+          <CaretDownIcon size={12} aria-hidden="true" />
+        )}
+        <span>Interactions</span>
+      </button>
+      {collapsed ? null : (
+        <>
+          {listed.length === 0 ? (
+            <p className="text-foreground/50">It answers nothing: it plays on its own.</p>
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {listed.map(({ cue, does }) => (
+                <li
+                  key={`${cue}:${does}`}
+                  className="flex items-baseline gap-2"
+                  data-studio-cue={cue}
+                >
+                  <span className="w-28 shrink-0 text-label text-foreground/45">
+                    {BACKDROP_CUE_LABELS[cue]}
+                  </span>
+                  <span className="min-w-0 flex-1 text-foreground/75">{does}</span>
+                  {interacting ? <TryCue cue={cue} owner={owner} /> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+          {listed.length > 0 && !interacting ? (
+            <p className="text-label leading-snug text-foreground/40">
+              Turn on Interact to try them.
+            </p>
+          ) : null}
+        </>
       )}
-      {listed.length > 0 && !interacting ? (
-        <p className="text-label leading-snug text-foreground/40">Turn on Interact to try them.</p>
-      ) : null}
     </section>
   );
 }

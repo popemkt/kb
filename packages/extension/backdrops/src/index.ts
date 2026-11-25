@@ -81,5 +81,5 @@ export {
   ASTRAL_STARS_KNOB,
   ASTRAL_KNOBS,
 } from "./knobs/astral.ts";
-export { GLIDING_SUN_WARMTH_KNOB, GLIDING_FOAM_KNOB, GLIDING_KNOBS } from "./knobs/gliding.ts";
+export { GLIDING_KNOB_MAP, GLIDING_KNOBS } from "./knobs/gliding.ts";
 export { BackdropStudioParams, BackdropStudioView } from "./view.ts";

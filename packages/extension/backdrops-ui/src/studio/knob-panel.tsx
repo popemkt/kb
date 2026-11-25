@@ -4,7 +4,8 @@
  * study's, each with a reset to its default. The values are the nodes'
  * (`knobValues`): what the panel writes is what every page head shows.
  */
-import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
+import { useState } from "react";
+import { ArrowCounterClockwiseIcon, CaretDownIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { knobFieldId, knobValues } from "@kb/appearance";
 import type { KbNode, Knob, KnobValue, NodeId } from "@kb/model";
 import { KnobControl, useNode, useNodes } from "@kb/ui-sdk";
@@ -95,6 +96,7 @@ function useAnyHeld(groups: readonly KnobGroup[], drafts: Drafts["drafts"]): boo
 }
 
 export function KnobPanel({ groups }: { readonly groups: readonly KnobGroup[] }) {
+  const [collapsed, setCollapsed] = useState(false);
   const drafts = useKnobDrafts();
   const anyHeld = useAnyHeld(groups, drafts.drafts);
   const shown = groups.filter(({ knobs }) => knobs.length > 0);
@@ -104,28 +106,50 @@ export function KnobPanel({ groups }: { readonly groups: readonly KnobGroup[] })
       className="pointer-events-auto flex w-80 max-w-full flex-col gap-3 rounded-lg border border-foreground/10 bg-popover/85 p-3 text-meta shadow-floating backdrop-blur-md"
       data-studio-panel=""
     >
-      <header className="flex items-center gap-2">
-        <h2 className="flex-1 font-medium text-foreground/80">Knobs</h2>
+      <header className="flex items-center gap-1.5">
         <button
           type="button"
-          className="rounded-sm px-1.5 text-label text-foreground/50 hover:text-foreground/80 focus-visible:outline focus-visible:outline-primary disabled:opacity-40"
-          disabled={!anyHeld}
-          onClick={() => {
-            for (const { holder, knobs } of shown)
-              for (const knob of knobs) drafts.reset(holder, knob);
-          }}
+          className="flex flex-1 items-center gap-1.5 rounded-sm text-left font-medium text-foreground/80 hover:text-foreground focus-visible:outline focus-visible:outline-primary"
+          aria-expanded={!collapsed}
+          onClick={() => setCollapsed((v) => !v)}
         >
-          Reset all
+          {collapsed ? (
+            <CaretRightIcon size={12} aria-hidden="true" />
+          ) : (
+            <CaretDownIcon size={12} aria-hidden="true" />
+          )}
+          <span>Knobs</span>
         </button>
+        {!collapsed ? (
+          <button
+            type="button"
+            className="rounded-sm px-1.5 text-label text-foreground/50 hover:text-foreground/80 focus-visible:outline focus-visible:outline-primary disabled:opacity-40"
+            disabled={!anyHeld}
+            onClick={() => {
+              for (const { holder, knobs } of shown)
+                for (const knob of knobs) drafts.reset(holder, knob);
+            }}
+          >
+            Reset all
+          </button>
+        ) : null}
       </header>
-      {shown.length === 0 ? (
-        <p className="text-foreground/50">This backdrop has no knobs.</p>
-      ) : (
-        shown.map((group) => <GroupRows key={group.holder} group={group} drafts={drafts} />)
+      {collapsed ? null : (
+        <>
+          {shown.length === 0 ? (
+            <p className="text-foreground/50">This backdrop has no knobs.</p>
+          ) : (
+            <div className="flex max-h-[52vh] flex-col gap-3 overflow-y-auto pr-1">
+              {shown.map((group) => (
+                <GroupRows key={group.holder} group={group} drafts={drafts} />
+              ))}
+            </div>
+          )}
+          <p className="text-label leading-snug text-foreground/40">
+            Saved for every page that shows it. Agents set the same values with <code>kb set</code>.
+          </p>
+        </>
       )}
-      <p className="text-label leading-snug text-foreground/40">
-        Saved for every page that shows it. Agents set the same values with <code>kb set</code>.
-      </p>
     </section>
   );
 }

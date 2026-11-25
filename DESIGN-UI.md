@@ -6630,8 +6630,9 @@ A PR for a backdrop reports a score against each criterion.
     and rising embers, a faint circle of five glyphs turning behind it; its
     eyes flare when something happens on the page;
   - `backdrops.gliding` is a painterly gouache turquoise-to-marine ocean
-    gliding steadily beneath an aerial view, with diagonal sea-foam ribbons
-    and shallow caustic hatching.
+    beneath the WB-027 aircraft and a flock of gliding gulls. Short highlights
+    trace the wing and wave edges. The ocean breaks up their cast shadows
+    as it moves. Studio controls set shadow size, softness and altitude.
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.

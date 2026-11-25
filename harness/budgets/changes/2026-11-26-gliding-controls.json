@@ -1,0 +1,6 @@
+{
+  "reason": "The Gliding knob declarations are shared by the CLI and Studio. They describe the aircraft, flock, shadow, water and paper controls. The mesh and shaders stay in the lazy UI module.",
+  "raise": {
+    "cli-closure": { "bytes": 2448 }
+  }
+}

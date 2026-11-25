@@ -162,6 +162,11 @@ export interface StageOptions {
    * here the chain does not have.
    */
   readonly lens?: StageLens;
+  /**
+   * Optional screen-space finish pass over the toned `[0, 1]` scene before edge
+   * feathering and sRGB output (e.g. a unified painterly brush & paper medium).
+   */
+  readonly finish?: (sampleScene: (uv: TslNode<"vec2">) => TslNode<"vec3">) => TslNode<"vec3">;
   /** Read each frame's GPU time back where the backend can (`gpuMs`). */
   readonly gpuTiming?: boolean;
 }
@@ -283,6 +288,20 @@ function filmGrain(
     .mul(smoothstep(0.004, 0.04, art));
 }
 
+/** Optional screen-space finish pass over the `[0, 1]` toned scene. */
+function applyFinish(
+  options: StageOptions,
+  picture: (uv: TslNode<"vec2">) => TslNode<"vec4">,
+  shoulderOn: TslNode<"float">,
+  toned: TslNode<"vec3">,
+): TslNode<"vec3"> {
+  if (options.finish === undefined) return toned;
+  return options.finish((uv) => {
+    const c = picture(uv).rgb;
+    return mix(c, shoulder(c), shoulderOn);
+  });
+}
+
 /** The post chain, and the handles a view turns. */
 function postChain(
   renderer: WebGPURenderer,
@@ -373,7 +392,12 @@ function postChain(
   const ground = paint(colors.ground);
   // The shoulder comes before the fade: mixed after it, a sliver of veil over
   // the ground's pre-image (above 1 on a light page) would wash the frame grey.
-  const toned = mix(composed, shoulder(composed), knobs.shoulder);
+  const toned = applyFinish(
+    options,
+    picture,
+    knobs.shoulder,
+    mix(composed, shoulder(composed), knobs.shoulder),
+  );
   const display =
     options.fadeSpace === "display"
       ? vec4(
