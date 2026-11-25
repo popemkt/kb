@@ -9,6 +9,7 @@ import {
   GRADIENT_ORBS_BACKDROP,
   LIGHT_TRAILS_BACKDROP,
   LENS_BACKDROP,
+  PRISM_RIBBON_BACKDROP,
   ROOST_BACKDROP,
   RAIN_RELAY_BACKDROP,
   SILK_BACKDROP,
@@ -44,6 +45,7 @@ import {
   FloatingGeometryBackdrop,
   GradientOrbsBackdrop,
   LensBackdrop,
+  PrismRibbonBackdrop,
   RainRelayBackdrop,
   LightTrailsBackdrop,
   SilkBackdrop,
@@ -303,6 +305,22 @@ const discField: Omit<Backdrop, "key"> = {
 };
 
 /**
+ * A glossy twisted 3D prism ribbon with projected blueprint grids and shader
+ * code over a dissolving midnight-navy and warm-plum field: spans the scroll
+ * region, its hero crest anchored to the content column.
+ */
+const prismRibbon: Omit<Backdrop, "key"> = {
+  presentation: { ...sceneFrame, span: { reach: "region" } },
+  budget: BACKDROP_BUDGETS.gpu,
+  interactions: [
+    { cue: "pointer", does: "the key light shifts and wakes nearby shader code on the ribbon" },
+    { cue: "editing", does: "the ribbon settles into a calmer dark sheen and quietens its code" },
+    { cue: "writes", does: "a wave of prismatic light and shader code sweeps along the ribbon" },
+  ],
+  Component: PrismRibbonBackdrop,
+};
+
+/**
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
  * choice is made), Backdrop Studio's view and its route (`/backdrops`, the
@@ -355,6 +373,7 @@ export const backdropsUiPlugin = definePlugin({
         ctx.contribute(BackdropPoint, provideBackdrop(LIGHT_TRAILS_BACKDROP, lightTrails)),
         ctx.contribute(BackdropPoint, provideBackdrop(ASTRAL_BACKDROP, astral)),
         ctx.contribute(BackdropPoint, provideBackdrop(DISC_FIELD_BACKDROP, discField)),
+        ctx.contribute(BackdropPoint, provideBackdrop(PRISM_RIBBON_BACKDROP, prismRibbon)),
         ctx.contribute(
           ViewPoint,
           provideView(BackdropStudioView, {

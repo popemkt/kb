@@ -74,3 +74,8 @@ export function AstralBackdrop(props: BackdropProps) {
 export function RainRelayBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="rainRelay" backdrop={props} />;
 }
+
+/** A glossy iridescent 3D twisted ribbon with projected blueprint grids and shader code (`prism-ribbon/`). */
+export function PrismRibbonBackdrop(props: BackdropProps) {
+  return <GpuBackdropHost scene="prismRibbon" backdrop={props} />;
+}
