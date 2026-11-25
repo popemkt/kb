@@ -42,6 +42,7 @@ kb search "drift"
 kb query '[:find ?id ?text :where [?n :node/text ?text] [?n :node/id ?id]]'
 kb ui                            # the browser UI on 127.0.0.1:4321
 kb mcp                           # the MCP server, on stdio
+kb mcp --listen unix:/run/kb/mcp.sock  # the same, over Streamable HTTP at /mcp
 kb --help                        # everything else
 ```
 
@@ -49,7 +50,10 @@ kb --help                        # everything else
 directory names, as one tool per action. An alias is not listed beside its
 action, so `location_*`, `docs_check`, `docs_materialize` and
 `graph_{edges,trace,suggest,relation_type}` are listed only as their `ext_*`
-tools. Their old names still run. The skill that teaches an agent
+tools. Their old names still run. `kb mcp --listen` serves the same tools
+over Streamable HTTP, on a socket (mode 0600) or a loopback port only; it
+checks no credentials, so anything that exposes it further must
+authenticate in front of it (DESIGN.md → Surfaces → MCP). The skill that teaches an agent
 to work in kb, [`skills/kb`](skills/kb/SKILL.md), ships with every install at
 `<prefix>/share/kb/skills/kb` (`$out/share/kb/skills/kb` in Nix). Link your
 agents' skills directory to it.

@@ -87,8 +87,11 @@ function kept(ext: string, data: Uint8Array): Uint8Array {
  */
 export const ASSET_MAX_BYTES = 25 * 1024 * 1024;
 
-/** The longest `bytes` input that can hold that many: base64, and a data-URL prefix's slack. */
-const BYTES_INPUT_MAX = Math.ceil(ASSET_MAX_BYTES / 3) * 4 + 256;
+/**
+ * The longest `bytes` input that can hold that many: base64, and a data-URL
+ * prefix's slack. A transport that bounds a call's body leaves room for it.
+ */
+export const ASSET_BYTES_INPUT_MAX = Math.ceil(ASSET_MAX_BYTES / 3) * 4 + 256;
 
 export const assetUploadDef = {
   id: "asset.upload",
@@ -98,7 +101,7 @@ export const assetUploadDef = {
   mode: { kind: "write" } as const,
   inputSchema: z.object({
     /** File contents as base64 (default) or utf8. */
-    bytes: z.string().min(1).max(BYTES_INPUT_MAX),
+    bytes: z.string().min(1).max(ASSET_BYTES_INPUT_MAX),
     encoding: z.enum(["base64", "utf8"]).default("base64"),
     /** Original filename — used only for extension / suggested alt text. */
     filename: z.string().optional(),

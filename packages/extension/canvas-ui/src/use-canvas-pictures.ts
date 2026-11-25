@@ -1,7 +1,7 @@
 import type { RefObject } from "react";
 import { placeItems, presetItem, type CanvasDoc } from "@kb/canvas";
 import { ulid } from "ulid";
-import { logError } from "@kb/ui-sdk";
+import { isImageFile, logError } from "@kb/ui-sdk";
 import { screenToPlane, type CanvasPoint } from "./canvas-camera";
 import { imageFilesOf, placePictures, type PictureWrite } from "./canvas-media";
 import type { CanvasSelection } from "./canvas-selection";
@@ -28,7 +28,7 @@ const carriesFiles = (data: DataTransfer) => data.types.includes("Files");
 
 /** Whether a drag carries a picture: its items say their kind and type before the drop. */
 const carriesPicture = (data: DataTransfer) =>
-  [...data.items].some((item) => item.kind === "file" && item.type.startsWith("image/"));
+  [...data.items].some((item) => item.kind === "file" && isImageFile(item));
 
 /**
  * The canvas page's ways in for pictures (`canvas-media`), and for pasted

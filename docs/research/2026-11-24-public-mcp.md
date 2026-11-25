@@ -1,5 +1,12 @@
 # kb's MCP on the public internet, for its owner only, with Google sign-in
 
+> **Superseded as a design.** This is the research record; what was built
+> differs. It uses Keycloak instead of Dex, and an nginx front as the route
+> table. Its socket is `/run/kb-edge/mcp.sock`. The Funnel off-switch never
+> runs `tailscale funnel reset`. Sessions persist across restarts and are
+> revoked together by an explicit revoke-all. The canonical description is
+> `docs/mcp-edge.md` in popemkt/mac-backup.
+
 Research record and design proposal, 2026-11-24, based on kb at `6676cb47`
 and the dotfiles repository (popemkt/mac-backup) as checked out on
 shared-server. No product code. Sources were read on 2026-11-24. Anything

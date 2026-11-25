@@ -26,6 +26,8 @@ import {
   type SurfaceWire,
   sessionOfMeta,
   Screens,
+  WriteLockDeadline,
+  WriteLockTaken,
 } from "@kb/contracts";
 import { type DomainError, currentIso, domainError, ensureDomainError } from "@kb/model";
 import {
@@ -35,12 +37,12 @@ import {
   renderViewNodeEffect,
   type ViewRef,
 } from "@kb/operations";
+import { pendingRequests } from "@kb/listener";
 import { viewSnapshotApp } from "./view-app.ts";
 import {
   invokeReceiptEffect,
   kbRuntimeLayer,
   openKbEffect,
-  pendingRequests,
   processVia,
   sessionRegistry,
   resolveRootEffect,
@@ -251,25 +253,47 @@ export function runResourceHandler<A, E>(effect: Effect.Effect<A, E>): Promise<A
 }
 
 /**
- * Build an MCP server bound to a kb root. Does not connect a transport —
- * callers connect stdio (startMcp) or InMemoryTransport (tests).
+ * What a kb MCP server serves: a root opened once, the registry's tools by
+ * name, and how calls choose their session. One session answers every
+ * transport the same way: stdio binds it to one server, and HTTP to a fresh
+ * server per request, since a stateless request has no connection to keep.
  */
-export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
+export interface McpSession {
+  readonly ctx: KbContext;
+  readonly tools: McpToolContext;
+  readonly options: McpOptions;
+}
+
+/** Open `root` and read its tools; the caller owns closing `ctx.store`. */
+export const openMcpSession = Effect.fn("kb.openMcpSession")(function* (
   root: string,
   options: McpOptions = {},
-  // oxlint-disable-next-line typescript/no-deprecated -- registry-built tool list; McpServer cannot express it (SDK docs)
-): Effect.fn.Return<Server, DomainError, FileSystem> {
+): Effect.fn.Return<McpSession, DomainError, FileSystem> {
   return yield* Effect.acquireUseRelease(
     openKbEffect(root),
     (ctx) =>
       Effect.gen(function* () {
         const actions = (yield* sessionRegistry(ctx)).manifestEntries();
         const byToolName = new Map(actions.map((a) => [mcpToolName(a.id), a] as const));
-        return bindMcpHandlers(ctx, { byToolName }, options);
+        return { ctx, tools: { byToolName }, options };
       }),
     (ctx, exit) => (Exit.isFailure(exit) ? ctx.store.closeEffect : Effect.void),
   );
 }, Effect.provide(bunFileSystemLayer));
+
+/**
+ * Build an MCP server bound to a kb root, which it closes when the server
+ * closes. Does not connect a transport — callers connect stdio (startMcp)
+ * or InMemoryTransport (tests).
+ */
+export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
+  root: string,
+  options: McpOptions = {},
+  // oxlint-disable-next-line typescript/no-deprecated -- registry-built tool list; McpServer cannot express it (SDK docs)
+): Effect.fn.Return<Server, DomainError> {
+  const session = yield* openMcpSession(root, options);
+  return mcpServerOf(session, { release: session.ctx.store.closeEffect });
+});
 
 /**
  * One listed action as an MCP tool, its hints from the mode and `{id, mode}`
@@ -345,12 +369,32 @@ class SessionServer extends Server {
 }
 
 /**
- * The MCP SDK boundary. Every request handler must hand the SDK a promise, so
- * this is where kb's Effects are run — a plain function beside the builder,
- * not inside it.
+ * What a server answering for a session is held to: `release`, run once it
+ * closes and its requests settle, and `writesBy`, the Effect-clock time
+ * after which none of its calls takes a write lock (`WriteLockDeadline`,
+ * which caps the wait each write starts as it begins; none leaves that
+ * wait as it is). A transport that answers within a
+ * deadline sets it, so a write either takes the lock in time to commit and
+ * answer, or fails saying so and never commits afterwards.
+ * `committing` is told each time a call's write takes its lock
+ * (`WriteLockTaken`), so that transport knows a commit may have begun.
  */
-function bindMcpHandlers(ctx: KbContext, toolsCtx: McpToolContext, options: McpOptions) {
-  const server = new SessionServer(ctx.store.closeEffect);
+interface McpServerTerms {
+  readonly release: Effect.Effect<void>;
+  readonly writesBy?: number;
+  readonly committing?: () => void;
+}
+
+/**
+ * The MCP SDK boundary: a server answering for `session` on `terms`. Every request handler
+ * must hand the SDK a promise, so this is where kb's Effects are run — a
+ * plain function beside the builder, not inside it.
+ */
+export function mcpServerOf(
+  { ctx, tools: toolsCtx, options }: McpSession,
+  { release, writesBy, committing = () => undefined }: McpServerTerms,
+) {
+  const server = new SessionServer(release);
 
   server.setRequestHandler(ListToolsRequestSchema, () =>
     server.run(() =>
@@ -374,11 +418,18 @@ function bindMcpHandlers(ctx: KbContext, toolsCtx: McpToolContext, options: McpO
     ),
   );
 
-  server.setRequestHandler(CallToolRequestSchema, (request) => {
+  server.setRequestHandler(CallToolRequestSchema, (request, extra) => {
     const { name, arguments: args, _meta } = request.params;
     // callToolEffect provides kbRuntimeLayer and maps Fail/Die → isError.
     const made = { stated: sessionOfMeta(_meta), follow: options.session === "follow" };
-    return server.run(() => Effect.runPromise(callToolEffect(ctx, name, args, toolsCtx, made)));
+    // The request's own signal interrupts the call: a cancellation, or the
+    // server closing (an HTTP request past its deadline). A write interrupted
+    // before it commits does not commit; one past `writesBy` takes no lock.
+    const call = callToolEffect(ctx, name, args, toolsCtx, made).pipe(
+      Effect.provideService(WriteLockDeadline, writesBy),
+      Effect.provideService(WriteLockTaken, committing),
+    );
+    return server.run(() => Effect.runPromise(call, { signal: extra.signal }));
   });
 
   return server;

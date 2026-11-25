@@ -9,7 +9,6 @@ export { deployGovernance, governanceMode, type GovernanceMode } from "./deploym
 export { kbRuntimeLayer } from "./layers.ts";
 export { registerOpenedRoot } from "./locations.ts";
 export { openKbEffect, openKbScoped } from "./open.ts";
-export { pendingRequests } from "./pending-requests.ts";
 export { processVia } from "./process-via.ts";
 export { sessionOver } from "./own-write.ts";
 export { writeErr, writeOut } from "./output.ts";

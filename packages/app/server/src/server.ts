@@ -25,7 +25,6 @@ import {
   sessionRegistry,
   childProcessEnv,
   openKbScoped,
-  pendingRequests,
   registerOpenedRoot,
   writeErr,
 } from "@kb/runtime";
@@ -55,9 +54,8 @@ import { recordBuild } from "./build-archive.ts";
 import { UI_DIST, UI_ROOT } from "./paths.ts";
 import { identifyBy, serverOwner } from "./auth.ts";
 import { requestGuard, type RequestGuard } from "./guard.ts";
-import { listen, type BindOptions } from "./listener.ts";
+import { listen, pendingRequests, requestHealth, type BindOptions } from "@kb/listener";
 import { handleHttpRequest } from "./http.ts";
-import { HTTP_IDLE_TIMEOUT_SECONDS, requestHealth } from "./request-health.ts";
 import { channelsOf, loadServerPlugins, type HostedExtensions } from "./plugins.ts";
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
 import { serverRuntimeLayer } from "./screens.ts";
@@ -80,7 +78,7 @@ export interface UiServerOptions {
   hostname?: string;
   /**
    * Listen on a Unix socket at this path, created with mode 0600, instead
-   * of a TCP port (`listener.ts`). Its proxy is the way in, so it needs
+   * of a TCP port (`listen` in `@kb/listener`). Its proxy is the way in, so it needs
    * `publicOrigin`, and `port`, `hostname` and `uiPort` do not apply.
    */
   socket?: string;
@@ -315,14 +313,8 @@ function serveUi(deps: {
   };
   // Built on the first request, once the listener knows its port (0 binds an ephemeral one).
   let guard: RequestGuard | null = null;
-  // GAP [[01M7X56KZ3QCBQTZ4KMEE7PNGA]] Bun accepts the idle timeout on Unix
-  // listeners at runtime, but UnixServeOptions omits it (oven-sh/bun#43816).
-  const binding: BindOptions = Object.assign(
-    { idleTimeout: HTTP_IDLE_TIMEOUT_SECONDS },
-    deps.where,
-  );
   return Bun.serve<WsData>({
-    ...binding,
+    ...deps.where,
     fetch(req, srv) {
       const url = new URL(req.url);
       const at = bound(deps.at, srv);
@@ -353,7 +345,7 @@ function serveUi(deps: {
       }
 
       if (req.method === "GET" && url.pathname === "/api/health") return health.response();
-      return health.run(req, url.pathname, (signal) =>
+      return health.run(req, url.pathname, (held) =>
         handleHttpRequest(
           req,
           caller.wire,
@@ -367,7 +359,7 @@ function serveUi(deps: {
             embedding: deps.embedding,
             builds: deps.builds,
           },
-          signal,
+          held,
         ),
       );
     },
@@ -609,7 +601,7 @@ const startUiIn = Effect.fn("kb.startUiIn")(function* (
 
   // Bind before starting the background watchers.
   const sockets = pendingRequests();
-  const health = requestHealth();
+  const health = requestHealth((line) => writeErr(`kb ui: ${line}`));
   yield* Scope.addFinalizer(
     lifetime,
     Effect.promise(() => health.settle()),

@@ -1,4 +1,13 @@
 /**
+ * Where a kb server listens: a TCP port on a host, or a Unix socket only its
+ * owner can connect to (`listen` in `@kb/listener`). `kb ui` and
+ * `kb mcp --listen` both bind one.
+ */
+export type ServerListener =
+  | { readonly kind: "tcp"; readonly hostname: string; readonly port: number }
+  | { readonly kind: "socket"; readonly path: string };
+
+/**
  * Where a `kb ui` listens (DESIGN.md → Action registry → Hosted behind a
  * proxy): a TCP port on a host, or a Unix socket only its owner can connect
  * to, reached from outside through its proxy at a public origin. The server
@@ -6,13 +15,11 @@
  * machine reaches the server where it listens, whichever kind it is.
  */
 export type UiListener =
-  | { readonly kind: "tcp"; readonly hostname: string; readonly port: number }
-  | {
-      readonly kind: "socket";
-      readonly path: string;
+  | Extract<ServerListener, { kind: "tcp" }>
+  | (Extract<ServerListener, { kind: "socket" }> & {
       /** The proxy's public origin, the one way to the socket and where its page is. */
       readonly origin: string;
-    };
+    });
 
 /** Where it listens, as a message names it: the TCP listener's address, or the socket's path. */
 export function uiListenerName(at: UiListener): string {

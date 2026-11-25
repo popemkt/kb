@@ -1,0 +1,8 @@
+{
+  "reason": "The socket binder (@kb/listener, which kb ui and kb mcp load lazily) takes @kb/file-write's flock write lock around a socket's claim, bind and removal. @kb/file-write is already in the CLI's eager graph, so the splitting build now shares it with the lazy listener chunk and the eager closure gains the chunk's import lines (48 bytes measured, raised by 100).",
+  "raise": {
+    "cli-closure": {
+      "bytes": 100
+    }
+  }
+}

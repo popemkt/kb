@@ -9,3 +9,4 @@ export {
   startMcp,
 } from "./mcp.ts";
 export type { McpOptions, McpToolContext } from "./mcp.ts";
+export { MCP_PATH, listenMcp, mcpAddressOf } from "./http.ts";

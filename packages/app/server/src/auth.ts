@@ -59,7 +59,7 @@ export interface IdentityHeader {
  * on any other it passes. Every program that reaches the server can send
  * the header, so it is believed only where the proxy is the one way in:
  * `kb ui` loads it only on a socket its owner alone can connect to
- * (`--socket`, `listener.ts`; `DESIGN.md` → Action registry → Hosted behind a
+ * (`--socket`, `listen` in `@kb/listener`; `DESIGN.md` → Action registry → Hosted behind a
  * proxy).
  */
 export function identityHeaderIdentity({ header, people }: IdentityHeader): Plugin {

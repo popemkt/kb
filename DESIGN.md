@@ -2014,7 +2014,8 @@ reading up against that adapter's own internals when it gets there; keeping
 `decodeNodes` exported for a benchmark nobody runs yet would be a dead seam.
 
 **The session retries commit conflicts.** Across backends, a retryable write
-starts with one 15-second deadline for lock acquisition and any retries.
+starts with one 15-second deadline for lock acquisition and any retries,
+which a caller's `WriteLockDeadline` may bring forward but never extend.
 Conflicts retry with capped, jittered exponential backoff. A transaction
 authored independently of the graph is checked again against the refreshed
 graph. Writes derived from it run their planner again, including decisions
@@ -3551,12 +3552,26 @@ only where the proxy is the one way in, and `kb ui` takes it only with
 `--socket <path>` (`checkUiListen` in `app/cli/src/commands/ui-options.ts`): the
 server listens on a Unix socket instead of a TCP port, created with mode
 0600 under a matching umask, so only its owner and root can connect
-(`listen` in `app/server/src/listener.ts`). A socket is reached through its
+(`listen` in `@kb/listener`). A socket is reached through its
 proxy, so it needs `--public-origin`, which is where its page is, and takes
-no `--port` or `--dev`. A socket a stopped server left behind, which
-refuses a connection, is replaced; one anything accepts a connection on,
-or a path that is not a socket, is refused;
-the socket is removed when the server stops. The request guard admits
+no `--port` or `--dev`. The socket's path must be one no other account
+can change. Its directory must already be canonical, its own `realpath`;
+a path through a link is refused with the real path to use instead, since
+a link could later point elsewhere while the server reports the path it
+was given. Every directory from there up to `/`
+must be a real directory, not a link, that no group or other can write.
+The socket's own directory belongs to the server's user. A directory above
+it belongs to that user or to root, and may be root's and sticky, as `/tmp`
+is, since then no one else can rename what the user made in it. Then no
+other account can put a link or a socket of its own at the path while the
+server checks, binds or removes it. The socket is bound
+at a private name beside the path and renamed into place, under
+`<path>.lock` (flock(2)), so two starts never both win. A socket a stopped
+server left behind, which refuses a connection, is replaced by that
+rename. One anything accepts a connection on, a link, or a path that is not
+a socket is refused. When the server stops, the socket is removed under
+the lock, and only while the path still holds the socket this server made
+(the same device and inode), never one a later start put there. The request guard admits
 `Host: localhost`, as the proxy names a socket, and the public origin's
 host; `http://localhost` is no origin of a socket's, since no browser loads
 the page from it. A socket server is present as a TCP one is: `.kb/ui.json`
@@ -5843,6 +5858,70 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
 - **MCP** (`kb mcp`, `@modelcontextprotocol/sdk` stdio): `kb.manifest` as an
   agent, read at each `tools/list` → one tool per action it may call → Effect
   handler (`callToolEffect` / resource Effects via `reloadEffect` + `invokeReceiptEffect`); tool hints from the mode ([Action registry](#action-registry)). SDK request handlers remain Promise-returning; CallTool maps Fail/Die to `isError`, resource Fail/Die to JSON-RPC `-32603`.
+  - **Over Streamable HTTP** (`kb mcp --listen <address>`, `app/mcp/src/http.ts`).
+    It serves the same server over a second transport. One `McpSession`,
+    the root opened once with its tools, answers every transport. stdio
+    binds it to one SDK server; HTTP binds a fresh server and a stateless
+    transport to it for each POST at `/mcp`, answered as JSON. So the
+    tools, the resources, read and write, and every call's wire
+    (`MCP_WIRE`, with the `via` from `KB_VIA`, see [The caller's
+    via](#action-registry)) are stdio's, and the surface contract runs the
+    `mcp-http` row beside `mcp`.
+    - There is no session to resume and no stream from the server, so GET
+      and DELETE on `/mcp` answer 405. Every other path is 404.
+    - It checks no credentials and knows no caller, so it listens only
+      where this machine alone reaches it: `unix:<path>`, a socket made by
+      `listen` in `@kb/listener` with mode 0600 as `kb ui --socket` makes
+      one (see [Hosted behind a proxy](#hosted-behind-a-proxy)), or a TCP
+      port on a loopback address written as one (`127.0.0.1:<port>`,
+      `[::1]:<port>`). Any other address, a name such as `localhost`
+      included, is refused before anything opens (`onThisMachineOnly`).
+    - On a TCP port a request must name the listener in `Host` (its
+      address or `localhost`, with the port). Otherwise a page whose DNS
+      name was rebound to the loopback address could call it. A socket
+      takes any `Host`, since only its owner's processes (and the proxy
+      they run) connect.
+    - A request that carries an `Origin` comes from a browser, and kb mcp
+      serves no page. So the only `Origin` taken is the listener's own
+      (on a TCP port, its names over `http`; on a socket, none), and any
+      other is answered 403 before the body is read. A request without
+      one passes. That covers any program, including an edge that
+      forwards a vendor's server-to-server call.
+    - Each request is bounded before it reaches the store:
+      - it carries one JSON-RPC message; a batch is a JSON-RPC
+        `-32600` and a body that is not JSON a `-32700`, both with 400;
+      - its body fits an `asset.upload` of the largest asset
+        (`ASSET_BYTES_INPUT_MAX` and 64 KiB for the rest of the call),
+        and Bun answers a larger one 413;
+      - at most 8 run at once, and one more is answered 503 with a
+        JSON-RPC `-32000`;
+      - its work is held by kb ui's `requestHealth` (`@kb/listener`) to
+        a 35 s deadline and tracked until it settles. `listen` binds
+        every host with an idle timeout past that deadline, so a
+        connection is not dropped under a call still running;
+      - a caller told to retry knows nothing was written. A response
+        the call finished is always the answer, however late. Past the
+        deadline, a request none of whose writes took a write lock is
+        answered 503 with `Retry-After`. Once one has
+        (`WriteLockTaken`), a commit may have begun, and the answer is a
+        JSON-RPC `-32001` for the request's id, without `Retry-After`,
+        saying the outcome is unknown and to read `graph.changes`;
+      - a write takes the lock in time to commit, or not at all. A
+        request keeps the last 5 s of its deadline to commit and
+        answer, and its calls take no write lock after that
+        (`writesBy`, set as `WriteLockDeadline`). A write's own 15 s
+        wait starts when the write begins, after the body is read, and
+        `writesBy` only brings its end forward, so a slow upload does
+        not spend it. A write still waiting fails before the deadline,
+        saying it found the store busy, and the caller knows it did not
+        land. A call runs under its request's own signal, so a
+        cancellation, or the server closing at the deadline, interrupts
+        it, and a write interrupted before it commits does not commit.
+        This holds on stdio too, where a client cancels a call with
+        `notifications/cancelled`.
+    - Whatever puts it in front of anyone else, such as a proxy that
+      authenticates, belongs to the deployment and not to kb
+      (`docs/research/2026-11-24-public-mcp.md`).
   - **Breaking change (roadmap step 0), with no alias.** MCP no longer has
     hand-written tools; every tool is a registry action.
     - `render_view` is now `render.view`. Its argument is `name` (it was

@@ -6,9 +6,14 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
-import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
+import {
+  getCaretSerializedOffset,
+  outlineInstanceKey,
+  syncUiPlugins,
+  WORKSPACE_ROOT_ID,
+} from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
@@ -70,6 +75,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     act(() => root.unmount());
     container.remove();
     unmountTextHost();
@@ -78,6 +84,74 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
   function editorEl(instanceKey: string): HTMLElement | null {
     return container.querySelector(`[data-instance-key="${instanceKey}"] [contenteditable="true"]`);
   }
+
+  function paste(editor: HTMLElement, files: InstanceType<Window["File"]>[]): boolean {
+    const event = new dom.Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", {
+      value: { files, types: files.length === 0 ? [] : ["Files"], getData: () => "" },
+    });
+    editor.dispatchEvent(event as unknown as Event);
+    return event.defaultPrevented;
+  }
+
+  it("pastes a clipboard image into the active row", async () => {
+    const id = "n.root-c";
+    const instanceKey = outlineInstanceKey(id, outlineNodes());
+    const initialText = present(outlineNodes().get(id), "row").text;
+    const path = "assets/picture.png";
+    const upload = vi.spyOn(mutations, "uploadAsset").mockResolvedValue(path);
+
+    await act(async () => {
+      useOutlineStore.getState().activateNode(id, 4, instanceKey);
+      root.render(<NodeBlock nodeId={id} instanceKey={instanceKey} depth={0} />);
+    });
+    const editor = present(editorEl(instanceKey), "editor");
+    expect(upload).not.toHaveBeenCalled();
+
+    const image = new dom.File(["picture"], "picture.png", { type: "image/png" });
+    await act(async () => {
+      expect(paste(editor, [image])).toBe(true);
+    });
+
+    expect(upload).toHaveBeenCalledWith(image);
+    expect(outlineNodes().get(id)?.text).toBe(`${initialText}\n![picture](${path})`);
+    expect(editor.querySelector("img")?.getAttribute("src")).toBe(`/${path}`);
+    expect(document.activeElement).toBe(editor);
+    expect(getCaretSerializedOffset(editor)).toBe(4);
+
+    await act(async () => {
+      editor.prepend(document.createTextNode("Edited "));
+      editor.dispatchEvent(new dom.Event("input", { bubbles: true }) as unknown as Event);
+    });
+    expect(outlineNodes().get(id)?.text).toBe(`Edited ${initialText}\n![picture](${path})`);
+  });
+
+  it("keeps a blank row when an image upload is still pending as focus moves", async () => {
+    const upload = Promise.withResolvers<string>();
+    vi.spyOn(mutations, "uploadAsset").mockReturnValue(upload.promise);
+    let id = "";
+    await act(async () => {
+      id = present(await createTransientNode("n.root-c", null), "minted node");
+    });
+    const instanceKey = outlineInstanceKey(id, outlineNodes());
+    await act(async () => {
+      root.render(<NodeBlock nodeId={id} instanceKey={instanceKey} depth={0} />);
+    });
+    const editor = present(editorEl(instanceKey), "editor");
+    const image = new dom.File(["picture"], "picture.png", { type: "image/png" });
+
+    await act(async () => {
+      expect(paste(editor, [image])).toBe(true);
+      useOutlineStore.getState().activateNode("n.root-b", 0);
+    });
+    expect(outlineNodes().get(id)?.text).toBe("");
+
+    await act(async () => {
+      upload.resolve("assets/picture.png");
+      await upload.promise;
+    });
+    expect(outlineNodes().get(id)?.text).toBe("![picture](assets/picture.png)");
+  });
 
   it("D05: Tab into a collapsed sibling expands it and keeps focus", async () => {
     // n.root-a starts collapsed (default) and precedes n.root-b.
