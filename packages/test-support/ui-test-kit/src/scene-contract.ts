@@ -22,7 +22,8 @@
  * ```
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { Window } from "happy-dom";
+import type { Window } from "happy-dom";
+import { installDomGlobals } from "./dom-globals";
 import type { SceneHandle } from "@kb/scene";
 // Types only: the file that runs the suite mocks three/webgpu with this
 // package's stand-ins, so a value import here would load the module its own
@@ -64,13 +65,11 @@ function latest(): FakeRenderer {
 
 /** Install a window whose frames this suite drives; returns it and the undo. */
 function installWindow(): { dom: Window; restore: () => void } {
-  const dom = new Window();
+  const installed = installDomGlobals();
+  const dom = installed.window;
   const g = globalThis as Record<string, unknown>;
   const saved = new Map<string, unknown>();
   const globals: Record<string, unknown> = {
-    window: dom,
-    document: dom.document,
-    HTMLElement: dom.HTMLElement,
     getComputedStyle: dom.getComputedStyle.bind(dom),
     requestAnimationFrame: (run: (now: number) => void) => {
       frameQueue.push(run);
@@ -90,6 +89,7 @@ function installWindow(): { dom: Window; restore: () => void } {
       if (value === undefined) delete g[key];
       else g[key] = value;
     }
+    installed.restore();
   };
   return { dom, restore };
 }

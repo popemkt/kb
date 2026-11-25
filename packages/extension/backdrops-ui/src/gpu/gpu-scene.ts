@@ -147,7 +147,7 @@ export interface BackdropParts {
  */
 export type BackdropStageOptions = Pick<
   StageOptions,
-  "bloom" | "lens" | "fadeSpace" | "feather" | "focus"
+  "bloom" | "lens" | "fadeSpace" | "feather" | "focus" | "finish"
 > &
   Partial<Pick<StageOptions, "projection">>;
 

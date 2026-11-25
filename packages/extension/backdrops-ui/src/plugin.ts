@@ -5,6 +5,7 @@ import {
   BLACK_HOLE_BACKDROP,
   DISC_FIELD_BACKDROP,
   FLOATING_GEOMETRY_BACKDROP,
+  GLIDING_BACKDROP,
   GRADIENT_BACKDROP,
   GRADIENT_ORBS_BACKDROP,
   LIGHT_TRAILS_BACKDROP,
@@ -42,6 +43,7 @@ import {
   BlackHoleBackdrop,
   DiscFieldBackdrop,
   FloatingGeometryBackdrop,
+  GlidingBackdrop,
   GradientOrbsBackdrop,
   LensBackdrop,
   RainRelayBackdrop,
@@ -303,6 +305,21 @@ const discField: Omit<Backdrop, "key"> = {
 };
 
 /**
+ * A painterly gouache turquoise-to-marine ocean gliding steadily beneath an
+ * aerial view: spans the scroll region so widening the window reveals more
+ * open ocean seamlessly while dissolving organically into the page ground.
+ */
+const gliding: Omit<Backdrop, "key"> = {
+  presentation: { ...sceneFrame, span: { reach: "region" } },
+  budget: BACKDROP_BUDGETS.gpu,
+  interactions: [
+    { cue: "pointer", does: "the aerial view gently leans with the cursor" },
+    { cue: "editing", does: "the ocean glide calms and slows" },
+  ],
+  Component: GlidingBackdrop,
+};
+
+/**
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
  * choice is made), Backdrop Studio's view and its route (`/backdrops`, the
@@ -355,6 +372,7 @@ export const backdropsUiPlugin = definePlugin({
         ctx.contribute(BackdropPoint, provideBackdrop(LIGHT_TRAILS_BACKDROP, lightTrails)),
         ctx.contribute(BackdropPoint, provideBackdrop(ASTRAL_BACKDROP, astral)),
         ctx.contribute(BackdropPoint, provideBackdrop(DISC_FIELD_BACKDROP, discField)),
+        ctx.contribute(BackdropPoint, provideBackdrop(GLIDING_BACKDROP, gliding)),
         ctx.contribute(
           ViewPoint,
           provideView(BackdropStudioView, {

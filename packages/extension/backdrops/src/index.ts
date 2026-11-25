@@ -8,6 +8,7 @@ export {
   BLACK_HOLE_BACKDROP,
   DISC_FIELD_BACKDROP,
   FLOATING_GEOMETRY_BACKDROP,
+  GLIDING_BACKDROP,
   GRADIENT_BACKDROP,
   GRADIENT_ORBS_BACKDROP,
   LIGHT_TRAILS_BACKDROP,
@@ -80,4 +81,5 @@ export {
   ASTRAL_STARS_KNOB,
   ASTRAL_KNOBS,
 } from "./knobs/astral.ts";
+export { GLIDING_KNOB_MAP, GLIDING_KNOBS } from "./knobs/gliding.ts";
 export { BackdropStudioParams, BackdropStudioView } from "./view.ts";

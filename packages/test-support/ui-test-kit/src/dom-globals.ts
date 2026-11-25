@@ -13,6 +13,8 @@ import { Window } from "happy-dom";
 const KEYS = [
   "window",
   "document",
+  "self",
+  "createImageBitmap",
   "HTMLElement",
   "KeyboardEvent",
   "MouseEvent",
@@ -39,6 +41,9 @@ export function installDomGlobals(url = "http://localhost/"): InstalledDom {
   for (const key of KEYS) saved.set(key, { present: key in g, value: g[key] });
 
   const dom = new Window({ url });
+  // Three loads embedded GLB textures through self.URL and createImageBitmap.
+  g.self = globalThis;
+  g.createImageBitmap = () => Promise.resolve({ width: 1, height: 1, close() {} });
   g.window = dom;
   g.document = dom.document;
   g.HTMLElement = dom.HTMLElement;
