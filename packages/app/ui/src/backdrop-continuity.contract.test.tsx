@@ -225,9 +225,6 @@ describe("a keystroke or an edit never restarts a page-head backdrop", () => {
     installed = installDomGlobals();
     g.IS_REACT_ACT_ENVIRONMENT = true;
     const stand: Record<string, unknown> = {
-      // The GLB loader decodes an embedded texture before the fake renderer can advance.
-      self: globalThis,
-      createImageBitmap: async () => ({ width: 1, height: 1, close() {} }),
       IntersectionObserver: InView,
       ResizeObserver: NeverResized,
       getComputedStyle: installed.window.getComputedStyle.bind(installed.window),
